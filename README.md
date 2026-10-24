@@ -80,7 +80,7 @@ Bilen dukker opp i menyen med en gang.
 | `waterCol`, `waterOpacity` | Vannfarge og hvor gjennomsiktig vannet er (0–1, standard 0.7). |
 | `rain: true` | Regn. `clouds:false` fjerner skyer og sol. |
 | `snow: true`, `precip(x,z)` | Snøvær. `precip` (valgfritt) gir 0–1 for hvor mye det snør der bilen er, f.eks. bare rundt toppen. |
-| `wind: true` | Vindsus som øker med `zone` (brukes sammen med `ambience:'jungle'`). Se Øya. |
+| `wind: true` | Vindsus som øker med `zone` (brukes sammen med `ambience:'jungle'`). Se Sandglow-øya. |
 | `ash: true` | Glør og aske som svever i lufta (brukes i Vulkanen). |
 | `erupt:[min,maks]` | Vulkanen rumler med jevne mellomrom (sekunder mellom hver gang). Bare for show: ristende kamera og lavabomber, ingenting skader bilen. Krever `c.vent(...)`. |
 | `gateT(c)` | Valgfritt. Funksjon som gir portene nøyaktige plasser i stedet for jevn fordeling: `c=>[[x,z],[x,z],...].map(p=>c.tOf(p[0],p[1]))`. Da styrer antall punkter antall porter. |
@@ -135,10 +135,6 @@ c.lavaNear(x,z,m)            // sant hvis det er lava innenfor m. Bruk når du p
 Kjører bilen i lava, får spilleren 10 straffepoeng og settes tilbake ved forrige port. Broer er kjørbare flater med en lav kant, og er høye nok over lavaen til at bilen ikke regnes som «i lava».
 
 **Rekkefølge i `build(c)`:** først `c.bench`, så `c.lava`/`c.lavaPool`, så `c.bridge`, så steiner, så `c.tree` for trærne, deretter `c.finish()`, og til slutt `c.forest()` og pynt. Legg ikke steiner nær lava eller på snarveien (bruk `c.lavaNear`).
-
-### Øya: strand, jungel og snøfjell
-
-`data/levels/07-oya.js` har en spiralvei opp et fjell med `S.SNOW` og `S.ICE` på toppen, snøvær bare rundt toppen (`precip`), en bekk som er en trapp av små `c.pond`-kulper (motoren har bare ett flatt havnivå), et vadested der `c.bench` er slått av så bekken beholder dybden, og en snarvei over en hengebro mens hovedveien tar en sløyfe ut mot kysten. Snarveien må møte hovedveien i samme kjøreretning, og det må ikke ligge porter mellom portene den hopper fra og til.
 
 ### Vulkanen: snarveien
 
