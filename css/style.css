@@ -120,6 +120,7 @@ kbd{font-family:var(--f-body);font-weight:700;border:1px solid rgba(242,232,208,
 .spd .v{display:flex;flex-direction:column;min-width:58px;text-align:center}
 .slider{display:flex;align-items:center;gap:10px}
 .slider input{flex:1;min-width:0;accent-color:var(--sand);height:28px}
+.slider .lbl{min-width:6.2em;font-weight:600;color:var(--muted)}
 .slider output{min-width:3.4em;text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
 .incl{flex-direction:row;gap:6px;align-items:center}
 .incl svg{width:52px;height:52px}

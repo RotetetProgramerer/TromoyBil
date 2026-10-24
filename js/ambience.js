@@ -35,9 +35,9 @@ function ambChirp(){if(!AMB||!state.sound)return;const ac=AMB.ac,o=ac.createOsci
     g.gain.setValueAtTime(0,t0);g.gain.linearRampToValueAtTime(vol,t0+.015);g.gain.linearRampToValueAtTime(0,t0+.085)}o.start(t);o.stop(t+n*.17+.1)}
 // a short rumble (the boulder)
 function ambRumble(dur,vol){initAmbience();if(!AMB||!state.sound)return;try{const ac=AMB.ac,s=noiseSrc(ac,noiseBuf(ac,1)),f=ac.createBiquadFilter();f.type='lowpass';f.frequency.value=120;const g=ac.createGain(),t=ac.currentTime;
-  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+.3);g.gain.setValueAtTime(vol,t+dur-.6);g.gain.linearRampToValueAtTime(0,t+dur);s.connect(f);f.connect(g);g.connect(ac.destination);s.stop(t+dur+.1)}catch(e){}}
+  vol*=state.volAmb/70;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+.3);g.gain.setValueAtTime(vol,t+dur-.6);g.gain.linearRampToValueAtTime(0,t+dur);s.connect(f);f.connect(g);g.connect(ac.destination);s.stop(t+dur+.1)}catch(e){}}
 function updateAmbience(dt){if(!AC||!LV)return;initAmbience();if(!AMB)return;const def=LEVELS[state.levelIdx],ac=AMB.ac,t=ac.currentTime,S_=(g,v)=>g.gain.setTargetAtTime(v,t,.25);
-  const on=state.sound&&def.ambience==='jungle'&&(state.mode==='play'||state.mode==='menu'||state.mode==='pause'),vol=state.mode==='play'?1:.45;
+  const on=state.sound&&def.ambience==='jungle'&&(state.mode==='play'||state.mode==='menu'||state.mode==='pause'),vol=(state.mode==='play'?1:.45)*(state.volAmb/70);
   S_(AMB.master,on?vol:0);if(!on)return;
   const k=ZL.on?Math.max(0,ZL.k):0,jungle=1-k;                                        // 0 = jungle, 1 = volcano
   // cicadas: louder in the jungle, swelling and fading

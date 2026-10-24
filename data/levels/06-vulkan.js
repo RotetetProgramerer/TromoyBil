@@ -59,6 +59,7 @@ LEVELS.push(
   // … og i jungelen (kaldt, grønnhvitt, tett tåke). zone() sier hvor mye vulkan det er der bilen står.
   alt:{fog:0xb6c7b2, fogNear:9, fogFar:44, sun:0xe6efe0, sunI:.55, hemi:[0xd2e4d6,0x2d4a24,.78]},
   zone:(x,z)=>smt((21-rOf(x,z))/7),
+  dark:(x,z)=>smt((x+23.5)/1.5)*smt((-8.5-x)/1.5)*smt((z+10.9)/.8)*smt((-5.4-z)/.8),   // mørkt inne i tunnelen bak fossen
   water:.32, waterCol:'#2f7f86', waterBand:(x,z)=>seaD(x,z)<12||lineD(RIVER,x,z)<2.6, ash:true, erupt:[16,26], ambience:'jungle',
   path, shortcut, shortcutGates:[12,13],
   gateT:c=>[[-10,-30],[2,-29.5],[16,-24],[14,-16.5],[-4,-18],[-20.7,-21.4],[-25,-10],[-18,-7.9],[-11.5,-7.9],b1.pre,b1.post,b2.pre,A,B,pol(rS(555),555),b5.pre,b5.post,FIN].map(p=>c.tOf(p[0],p[1])),
@@ -121,9 +122,9 @@ LEVELS.push(
     c.forest();
     // --- fossen: overheng av stein over hyllen, planter som henger ned, vann som drypper ---
     const hL=H(-18,-7.9),topY=hL+2.45;
-    {const roof=[];for(let i=0;i<7;i++){const x=-21+i*1.0+(R()-.5)*.4,z=-10.7+R()*4.2;roof.push({x,y:hL+2.55+R()*.25,z,sx:1.0+R()*.5,sy:.55,sz:1.0+R()*.6,rx:R()*3,ry:R()*3,c:mix('#3b3733','#57504a',R())})}
-     instanced(DG.peb,DM.white,roof,c.decor);
-     const vines=[];for(let i=0;i<16;i++){const x=-21.5+R()*7,z=-10.5+R()*3.4,l=.8+R()*1.4;vines.push({x,y:hL+2.3-l/2,z,sx:.02,sy:l,sz:.02,c:['#2f6a2a','#3f8a34'][i%2]})}
+    // taket: en massiv steinhylle fra klippekanten (z≈-6) ut over stien til fossen (z≈-10.6). Mørkt under, med dryppstein.
+    c.fx.push({type:'roof',x0:-23.5,x1:-8.5,z0:-10.7,z1:-5.6,y:hL+2.3,th:1.1});
+    {const vines=[];for(let i=0;i<16;i++){const x=-22+R()*12,z=-10.6+R()*1.2,l=.6+R()*1.2;vines.push({x,y:hL+2.3-l/2,z,sx:.02,sy:l,sz:.02,c:['#2f6a2a','#3f8a34'][i%2]})}
      instanced(DG.trunk,DM.white,vines,c.decor,false)}
     c.fall(-18,-10.4,0,4.6,topY,pool.level);
     c.fx.push({type:'drip',x0:-22,x1:-10,z:-8.3,y:hL+2.3});

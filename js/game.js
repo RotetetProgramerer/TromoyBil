@@ -7,7 +7,7 @@ const FIXED=1/240;
 const store={get(k,d){try{const v=localStorage.getItem('sgc:'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('sgc:'+k,JSON.stringify(v))}catch(e){}}};
 
 const state={mode:'menu',carIdx:store.get('car',0),levelIdx:store.get('level',0),assist:store.get('assist',true),camMode:0,lights:false,sound:store.get('sound',true),
-  speed:store.get('speed',100),gfx:store.get('gfx','hi'),
+  speed:store.get('speed',100),gfx:store.get('gfx','hi'),volCar:store.get('volCar',70),volAmb:store.get('volAmb',70),
   time:0,started:false,penalty:0,next:0,flipT:0,checkpoint:null,missed:0,touched:0,winches:0,log:[],input:{gas:0,rev:0,left:0,right:0}};
 let best=store.get('best',{});
 // player profile: currency, parts, paint
@@ -277,9 +277,12 @@ function lavaTexture(){const s=128,c=document.createElement('canvas');c.width=c.
   x.putImageData(img,0,0);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.encoding=THREE.sRGBEncoding;return t}
 function fallTexture(){const w=64,h=256,c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d'),r=mulberry32(21);
   for(let i=0;i<70;i++){const px=r()*w,len=40+r()*160,py=r()*h,a=.25+r()*.6;x.fillStyle=`rgba(255,255,255,${a})`;x.fillRect(px,py,1+r()*2.5,len);if(py+len>h)x.fillRect(px,py-h,1.5,len)}
-  x.fillStyle='rgba(255,255,255,.18)';x.fillRect(0,0,w,h);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(1,2);return t}
+  x.fillStyle='rgba(255,255,255,.18)';x.fillRect(0,0,w,h);
+  // soft edges, so the sheet of water does not end in a straight line
+  const img=x.getImageData(0,0,w,h);for(let j=0;j<h;j++)for(let i=0;i<w;i++){const e=Math.min(i,w-1-i)/w*2,f=Math.min(1,e/.28);img.data[(j*w+i)*4+3]*=f*f}x.putImageData(img,0,0);
+  const t=new THREE.CanvasTexture(c);t.wrapS=THREE.ClampToEdgeWrapping;t.wrapT=THREE.RepeatWrapping;t.repeat.set(1,2);return t}
 const lavaTex=lavaTexture(),lavaMat=new THREE.MeshBasicMaterial({map:lavaTex,side:THREE.DoubleSide});
-const fallTex=fallTexture(),fallTex2=fallTexture(),fallTex3=fallTexture();fallTex2.repeat.set(1.4,1.5);fallTex3.repeat.set(2.2,1);
+const fallTex=fallTexture(),fallTex2=fallTexture(),fallTex3=fallTexture();fallTex2.repeat.set(1,1.5);fallTex3.repeat.set(1,1);
 const fallMat=new THREE.MeshBasicMaterial({map:fallTex,color:0xd8eef8,transparent:true,opacity:.6,depthWrite:false,side:THREE.DoubleSide});
 const fallMat2=new THREE.MeshBasicMaterial({map:fallTex2,color:0xffffff,transparent:true,opacity:.42,depthWrite:false,side:THREE.DoubleSide});
 const fallMat3=new THREE.MeshBasicMaterial({map:fallTex3,color:0xffffff,transparent:true,opacity:.75,depthWrite:false,side:THREE.DoubleSide});
@@ -330,6 +333,19 @@ function buildFall(f){const h=f.top-f.bot,ca=Math.cos(f.ang),sa=Math.sin(f.ang);
   // a cloud of mist at the foot
   for(let i=0;i<12;i++){const sp=new THREE.Sprite(mistMat.clone());sp.material.opacity=.22;const u=(i/12-.5)*f.w*1.1;sp.position.set(f.x+ca*u,f.bot+.3,f.z-sa*u);levelGroup.add(sp);fxAnim.fallMist.push({s:sp,t:Math.random(),x:f.x+ca*u,z:f.z-sa*u,y:f.bot})}
   fxAnim.falls.push({x:f.x,z:f.z,y:f.bot,w:f.w,ang:f.ang,top:f.top})}
+function buildRoof(f){const g=new THREE.Group(),rockM=amat('#3b3733',{roughness:.95}),dark=amat('#211d1b',{roughness:1});
+  // the slab: from the cliff (z1) out to the waterfall (z0). Top sits level with the cliff top so it reads as one piece of rock.
+  const w=f.x1-f.x0,dep=f.z1-f.z0,cx=(f.x0+f.x1)/2,cz=(f.z0+f.z1)/2;
+  const slab=new THREE.Mesh(boxGeo,rockM);slab.scale.set(w,f.th,dep);slab.position.set(cx,f.y+f.th/2,cz);slab.castShadow=true;slab.receiveShadow=true;g.add(slab);
+  const under=new THREE.Mesh(boxGeo,dark);under.scale.set(w-.2,.06,dep-.1);under.position.set(cx,f.y-.02,cz);under.receiveShadow=true;g.add(under);
+  // boulders on top and a rough front lip, so the edge is not a straight line
+  const r=mulberry32(f.x0*7+3),L=[];for(let i=0;i<Math.round(w*1.3);i++){const x=f.x0+r()*w,z=f.z0+r()*dep;L.push({x,y:f.y+f.th+r()*.2,z,sx:.9+r()*.9,sy:.5+r()*.4,sz:.8+r()*.9,rx:r()*3,ry:r()*3,c:mix('#3b3733','#57504a',r())})}
+  for(let i=0;i<Math.round(w*1.6);i++){const x=f.x0+r()*w;L.push({x,y:f.y+f.th*.5+(r()-.5)*.3,z:f.z0+(r()-.4)*.5,sx:.45+r()*.5,sy:.5+r()*.5,sz:.4+r()*.4,rx:r()*3,ry:r()*3,c:mix('#2e2a27','#4a443f',r())})}
+  instanced(DG.peb,DM.white,L,g);
+  // stalactites and dripping moss under the roof
+  const st=[];for(let i=0;i<Math.round(w*1.2);i++){const x=f.x0+.4+r()*(w-.8),z=f.z0+.3+r()*(dep-.6),l=.2+r()*.45;st.push({x,y:f.y-l/2,z,sx:.05+r()*.06,sy:l,sz:.05+r()*.06,rx:Math.PI,c:mix('#2a2624','#3e3833',r())})}
+  instanced(DG.fern,DM.white,st,g,false);
+  levelGroup.add(g)}
 function buildMist(f){const sp=new THREE.Sprite(mistMat.clone());sp.material.opacity=.12+Math.random()*.08;sp.position.set(f.x,f.y,f.z);sp.scale.set(f.s*1.6,f.s*.55,1);levelGroup.add(sp);fxAnim.mist.push({s:sp,x:f.x,z:f.z,ph:Math.random()*6.28})}
 function buildSmoke(f){const L=[],small=f.small||0,n=small?10:26;
   for(let i=0;i<n;i++){const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:dustTex,color:LIN(small?'#8d8880':'#4a4039'),transparent:true,depthWrite:false,opacity:0}));sp.position.set(f.x,f.y,f.z);levelGroup.add(sp);L.push({s:sp,t:i/n,x:f.x,y:f.y,z:f.z})}
@@ -345,7 +361,7 @@ function buildFx(lv){
   for(const f of lv.fx){
     if(f.type==='lava'){const m=new THREE.Mesh(lavaRibbon(f.s),lavaMat);m.renderOrder=1;levelGroup.add(m);fxAnim.lavaPts.push(...f.s)}
     else if(f.type==='lavadisc'){const m=new THREE.Mesh(new THREE.CircleGeometry(f.r+.3,40),lavaMat);m.rotation.x=-Math.PI/2;m.position.set(f.x,f.y+.02,f.z);m.renderOrder=1;levelGroup.add(m);fxAnim.lavaPts.push({x:f.x,z:f.z,y:f.y,hw:f.r})}
-    else if(f.type==='deck')buildBridge(f);else if(f.type==='fall')buildFall(f);else if(f.type==='smoke')buildSmoke(f);else if(f.type==='sign')buildSign(f);else if(f.type==='mist')buildMist(f);else if(f.type==='drip')fxAnim.drips.push(f)}
+    else if(f.type==='deck')buildBridge(f);else if(f.type==='fall')buildFall(f);else if(f.type==='smoke')buildSmoke(f);else if(f.type==='sign')buildSign(f);else if(f.type==='mist')buildMist(f);else if(f.type==='roof')buildRoof(f);else if(f.type==='drip')fxAnim.drips.push(f)}
   lavaLight.intensity=0}
 // volcano: now and then the ground rumbles and lava bombs shoot up from the vents. Only for show: nothing hurts the car.
 const ERU={phase:0,tp:0,next:1e9,amp:0,acc:0},bombs=[];
@@ -389,7 +405,7 @@ function initAudio(){if(AC)return;try{AC=new(window.AudioContext||window.webkitA
   osc.connect(filt);osc2.connect(g2);g2.connect(filt);filt.connect(gain);gain.connect(AC.destination);osc.start();osc2.start()}catch(e){AC=null}}
 function updateAudio(){if(!AC||!car)return;const on=state.sound&&state.mode==='play';let wv=0,n=0;for(const w of car.wheels){wv+=Math.abs(w.contact&&w.slip<.3?w.vl:car.throttle*(car.low?1.7:5.6));n++}wv/=n;
   wv/=(car.speedScale||1);const f=55+wv*(car.low?240:62);const t=AC.currentTime;osc.frequency.setTargetAtTime(f,t,.05);osc2.frequency.setTargetAtTime(f*.5,t,.05);
-  gain.gain.setTargetAtTime(on?.012+Math.abs(car.throttle)*.05+Math.min(wv,2)*.01:0,t,.06)}
+  gain.gain.setTargetAtTime(on?(.012+Math.abs(car.throttle)*.05+Math.min(wv,2)*.01)*(state.volCar/70):0,t,.06)}
 
 /* ---------- level & car management ---------- */
 let LV=null,car=null;
@@ -400,7 +416,7 @@ function setupZone(def){ZL.on=!!(def.zone&&def.alt);if(!ZL.on)return;const a=def
 function applyZone(x,z){if(!ZL.on)return;let k=ZL.d.zone(x,z);if(ZL.k<0)ZL.k=k;else ZL.k+=(k-ZL.k)*.05;k=ZL.k;const a=ZL.a,d=ZL.d;
   scene.fog.color.copy(ZL.fogA).lerp(ZL.fogB,k);scene.fog.near=a.fogNear+(d.fogNear-a.fogNear)*k;scene.fog.far=a.fogFar+(d.fogFar-a.fogFar)*k;
   sun.color.copy(ZL.sunA).lerp(ZL.sunB,k);sun.intensity=(a.sunI+(d.sunI-a.sunI)*k)*1.55;
-  hemi.color.copy(ZL.hA[0]).lerp(ZL.hB[0],k);hemi.groundColor.copy(ZL.hA[1]).lerp(ZL.hB[1],k);hemi.intensity=(a.hemi[2]+(d.hemi[2]-a.hemi[2])*k)*1.15;
+  hemi.color.copy(ZL.hA[0]).lerp(ZL.hB[0],k);hemi.groundColor.copy(ZL.hA[1]).lerp(ZL.hB[1],k);const dk=d.dark?d.dark(x,z):0;hemi.intensity=(a.hemi[2]+(d.hemi[2]-a.hemi[2])*k)*1.15*(1-.7*dk);sun.intensity*=(1-.5*dk);if(dk>0){scene.fog.color.multiplyScalar(1-.55*dk)}
   mistMat.color.copy(scene.fog.color);mistMat.color.r=Math.min(1,mistMat.color.r*1.25);mistMat.color.g=Math.min(1,mistMat.color.g*1.25);mistMat.color.b=Math.min(1,mistMat.color.b*1.25);for(const m of fxAnim.mist)m.s.material.color.copy(mistMat.color)}
 function loadLevel(i){
   state.levelIdx=i;store.set('level',i);const def=LEVELS[i];
@@ -543,6 +559,9 @@ function setLights(on){state.lights=on;$('bLights').setAttribute('aria-pressed',
 const CAMS=['Følgekamera','Bakkekamera','Førerkamera'];
 function cycleCam(){state.camMode=(state.camMode+1)%3;tripod=null;camSnap=true;fovZoom=1;toast(CAMS[state.camMode])}
 function setSound(on){state.sound=on;store.set('sound',on);$('pSound').textContent='Lyd: '+(on?'på':'av');$('pSound').setAttribute('aria-pressed',on)}
+function setVol(which,v){v=Math.max(0,Math.min(100,Math.round(v)));state[which]=v;store.set(which,v);const ids=which==='volCar'?['volCar','pVolCar']:['volAmb','pVolAmb'];
+  for(const id of ids){const el=$(id);if(el&&el.value!==undefined)el.value=v;const o=$(id+'Out');if(o)o.textContent=v+' %'}}
+for(const[id,w]of[['volCar','volCar'],['pVolCar','volCar'],['volAmb','volAmb'],['pVolAmb','volAmb']]){const el=$(id);if(el)el.addEventListener('input',e=>setVol(w,+e.target.value))}
 $('bGear').onclick=()=>{if(state.mode==='play')toggleGear()};$('bLights').onclick=()=>setLights(!state.lights);
 $('bSlow').onclick=()=>setSpeed(state.speed-10);$('bFast').onclick=()=>setSpeed(state.speed+10);
 $('bZoomIn').onclick=()=>zoom(-1);$('bZoomOut').onclick=()=>zoom(1);
@@ -711,7 +730,7 @@ $('modeReal').onclick=()=>{state.assist=false;store.set('assist',false);if(car)c
 function boot(){
   decalMat=new THREE.MeshStandardMaterial({map:decalTexture(),transparent:true,roughness:.5});
   if(state.carIdx>=CARS.length)state.carIdx=0;if(state.levelIdx>=LEVELS.length)state.levelIdx=0;
-  loadLevel(state.levelIdx);setCar(state.carIdx);setSound(state.sound);setSpeed(state.speed,true);setGfx(state.gfx);renderMenu();
+  loadLevel(state.levelIdx);setCar(state.carIdx);setSound(state.sound);setVol('volCar',state.volCar);setVol('volAmb',state.volAmb);setSpeed(state.speed,true);setGfx(state.gfx);renderMenu();
   for(let i=0;i<240;i++)stepCar(car,FIXED);
   requestAnimationFrame(frame);
 }

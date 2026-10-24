@@ -82,6 +82,7 @@ Bilen dukker opp i menyen med en gang.
 | `gateT(c)` | Valgfritt. Funksjon som gir portene nøyaktige plasser i stedet for jevn fordeling: `c=>[[x,z],[x,z],...].map(p=>c.tOf(p[0],p[1]))`. Da styrer antall punkter antall porter. |
 | `shortcut:[[x,z],...]`, `shortcutGates:[a,b]` | Bare for testen: punkter en snarvei følger, og hvilke porter (0-indeksert) den hopper over. Se Vulkanen. |
 | `alt:{fog,fogNear,fogFar,sun,sunI,hemi}`, `zone(x,z)` | To lyssett i samme bane. `zone` gir 0–1 for hvor bilen er: 0 bruker `alt` (f.eks. jungel), 1 bruker banens vanlige lys (f.eks. vulkanen). Blandes mykt mens du kjører. |
+| `dark(x,z)` | Valgfritt. 0–1 for hvor mørkt det er (tunnel, grotte). Demper himmellyset og tåken der bilen står. |
 | `ambience:'jungle'` | Insekter, fugler, foss (etter avstand) og vulkanrumling (etter `zone`). Se `js/ambience.js`. |
 | `animals:{parrots,circling,monkeys,butterflies,crabs,liana:[x,z],bridgeMonkeys:{A}}` | Dyr. Papegøyer og apekatter trenger trær (`c.tree`), sommerfugler trenger blomster (`c.flowers`), krabber trenger sand ved start. Se `js/animals.js`. |
 | `boulder:{trigger:[x,z],from:[x,z],to:[x,z],speed,r}` | Rullende stein: når bilen passerer `trigger`, ruller en stein fra `from` til `to` (legg linja over veien). Én gang per runde. Dytter bilen litt, ingen straff. |
@@ -120,6 +121,7 @@ c.vent(x,z)                  // et sted utbruddet skyter lava (kreves for `erupt
 c.crate(x,z)                 // ekstra kasse på et bestemt sted (f.eks. midt på en smal bro)
 c.bonus(x,z,r,muttere,tekst) // belønning (muttere) første gang bilen kommer innenfor r. Brukes til snarveien.
 c.steam(x,z)                 // liten dampsøyle (sprekk i vulkanen)
+c.fx.push({type:'roof',x0,x1,z0,z1,y,th})  // massivt steintak (tunnel) med steiner oppå og dryppstein under
 c.tree(x,z,{h,r})            // regnskogstre med røtter, grener, krone, mose og lianer. Grener blir sitteplasser for dyr.
 c.forest()                   // bygger alle trærne. Kall etter c.finish().
 c.ruts(t0,t1,dybde)          // hjulspor i stien mellom t0 og t1
