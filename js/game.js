@@ -462,10 +462,11 @@ function resetToStart(){const s=LV.start;placeCar(car,s.p.x,s.p.z,Math.atan2(s.t
 
 /* ---------- game flow ---------- */
 function resetRunState(){Object.assign(state,{time:0,started:false,penalty:0,next:0,flipT:0,missed:0,touched:0,winches:0,winchPen:0,rescues:0,log:[],crates:0,jumps:0,longJumps:0,bestAir:0,air:0,flood:0,drowned:0,deepWarn:false,lavaFalls:0,bonusNuts:0,bonusDone:{}})}
-function showHud(){$('menu').hidden=true;$('result').hidden=true;$('pause').hidden=true;$('hud').hidden=false;$('hint').hidden=true;$('ask').hidden=true;$('hud').classList.toggle('free',!!state.free)}
+function showHud(){$('menu').hidden=true;$('garage').hidden=true;$('result').hidden=true;$('pause').hidden=true;$('hud').hidden=false;$('hint').hidden=true;$('ask').hidden=true;$('hud').classList.toggle('free',!!state.free)}
 function startRun(){
   initAudio();if(AC&&AC.state==='suspended')AC.resume();
   if(state.world){if(state.course){const k=state.course;endCourse(true);placeCar(car,k.start.p.x,k.start.p.z,Math.atan2(k.start.tan.x,k.start.tan.z));camSnap=true;startCourse(k);return}return startFree()}
+  $('garage').hidden=true;
   state.mode='play';state.free=false;resetRunState();
   gateVis.forEach((g,i)=>{g.touched=false;setGateState(i,i===0?'next':'pending')});
   resetCrates();resetToStart();car.low=true;clearTracks();resetBoulder();
@@ -805,17 +806,15 @@ function startCourse(k){state.course=k;state.free=false;resetRunState();LV.gates
   gateVis.forEach((g,i)=>{g.touched=false;setGateState(i,'pending')});gateWake={i:0,t:0};buildCourseArrows(k);
   if(k.def.night)setNight(true);
   state.checkpoint={x:k.start.p.x,z:k.start.p.z,h:Math.atan2(k.start.tan.x,k.start.tan.z)};
-  $('hud').classList.remove('free');$('hLevel').textContent=k.name;$('hGate').textContent='0/'+k.gates.length;$('hTime').textContent='0:00.0';$('hPen').textContent='0';$('hCrate').textContent='0/'+k.crates.length;toastT=0;$('toast').classList.remove('on');state.mode='count';countT=3.6;car.throttle=0;car.vel.set(0,0,0)}
+  $('hud').classList.remove('free');$('hLevel').textContent=k.name;$('hGate').textContent='0/'+k.gates.length;$('hTime').textContent='0:00.0';$('hPen').textContent='0';$('hCrate').textContent='0/'+k.crates.length;toastT=0;$('toast').classList.remove('on');state.mode='count';countT=1.4;car.throttle=0;car.vel.set(0,0,0)}
 function endCourse(silent){const k=state.course;state.course=null;state.free=true;LV.gates=[];LV.crates=[];buildGates(LV);buildCrates(LV);
   if(courseArrows){levelGroup.remove(courseArrows);courseArrows.geometry.dispose();courseArrows=null}gateWake=null;setNight(false);
   $('hud').classList.add('free');$('hLevel').textContent=LEVELS[state.levelIdx].name;$('count').hidden=true;if(k)state.askCool=k.id;resetRunState();
   state.checkpoint={x:car.pos.x,z:car.pos.z,h:Math.atan2(car.fw.x,car.fw.z)}}
 // the gates light up one after another, then the countdown runs
-function updateCountdown(dt){countT-=dt;const n=Math.ceil(countT-.6);const el=$('count');
-  if(gateWake){gateWake.t-=dt;if(gateWake.t<=0&&gateWake.i<gateVis.length){const i=gateWake.i++;gateVis[i].mats.forEach(m=>m.color.set(FLAG.next).convertSRGBToLinear());setTimeout(()=>{if(gateVis[i]&&gateVis[i].state==='pending')gateVis[i].mats.forEach(m=>m.color.set(FLAG.pending).convertSRGBToLinear())},260);gateWake.t=Math.min(.16,2.4/gateVis.length)}}
-  if(countT>.6){el.hidden=false;el.textContent=n>0?String(n):'';el.classList.toggle('go',false)}
-  else if(countT>0){el.hidden=false;el.textContent='KJØR!';el.classList.add('go')}
-  else{el.hidden=true;el.classList.remove('go');state.mode='play';gateWake=null;setGateState(0,'next');toast('Kjør til port 1')}}
+function updateCountdown(dt){countT-=dt;const el=$('count');
+  if(gateWake){gateWake.t-=dt;if(gateWake.t<=0&&gateWake.i<gateVis.length){const i=gateWake.i++;gateVis[i].mats.forEach(m=>m.color.set(FLAG.next).convertSRGBToLinear());setTimeout(()=>{if(gateVis[i]&&gateVis[i].state==='pending')gateVis[i].mats.forEach(m=>m.color.set(FLAG.pending).convertSRGBToLinear())},260);gateWake.t=Math.min(.16,1.2/gateVis.length)}}
+  if(countT<=0){state.mode='play';gateWake=null;setGateState(0,'next');el.hidden=false;el.textContent='Kjør!';clearTimeout(el._t);el._t=setTimeout(()=>{el.hidden=true},1100)}}
 // chevrons on the ground along the course
 function buildCourseArrows(k){const L=[];for(let d=1.2;d<k.curve.getLength();d+=1.6){const t=d/k.curve.getLength(),p=k.P(t),tn=k.T(t);if(k.nearGate(p.x,p.z,1.0))continue;L.push({x:p.x,y:H(p.x,p.z)+.05,z:p.z,ry:Math.atan2(tn.x,tn.z)})}
   const geo=new THREE.ConeGeometry(.16,.4,3);geo.rotateX(Math.PI/2);const im=new THREE.InstancedMesh(geo,new THREE.MeshBasicMaterial({color:LIN('#ff6a2a'),transparent:true,opacity:.75,depthWrite:false}),L.length),m4=new THREE.Matrix4(),q=new Q4(),p=new V3(),sc=new V3(1,.25,1);
@@ -831,7 +830,17 @@ function updateWorld(dt){
     for(const p of portals){const d=Math.hypot(p.x-car.pos.x,p.z-car.pos.z);if(d<2.2&&state.askCool!==p.k.id){openAsk(p.k);return}if(d>4&&state.askCool===p.k.id)state.askCool=null}
     const ga=LEVELS[state.levelIdx].garageAt;if(ga){const d=Math.hypot(ga[0]-car.pos.x,ga[1]-car.pos.z);if(d<2.4&&state.askCool!=='garage'){openAsk('garage');return}if(d>4.5&&state.askCool==='garage')state.askCool=null}}
   else{const ng=LV.gates[state.next];if(ng&&Math.hypot(ng.c.x-car.pos.x,ng.c.z-car.pos.z)>30){endCourse();toast('For langt fra løypa: løpet er avbrutt',true)}}
-  const tm=performance.now()*.001;for(const p of portals){if(Math.abs(p.x-car.pos.x)+Math.abs(p.z-car.pos.z)>40)continue;p.lights.forEach((l,i)=>l.material.opacity=.6+.4*Math.sin(tm*5+i*1.3))}}
+  const tm=performance.now()*.001;for(const p of portals){if(Math.abs(p.x-car.pos.x)+Math.abs(p.z-car.pos.z)>40)continue;p.lights.forEach((l,i)=>l.material.opacity=.6+.4*Math.sin(tm*5+i*1.3))}
+  updateBreakables(dt)}
+// cacti and the like: hit one and it tips over away from the car, then you drive on
+const falling=[],_bm=new THREE.Matrix4(),_bq=new Q4(),_bp=new V3(),_bs=new V3(),_bt=new THREE.Matrix4();
+function updateBreakables(dt){if(!LV.breakables||!LV.propCyls)return;
+  for(const b of LV.breakables){if(b.broken)continue;const dx=car.pos.x-b.x,dz=car.pos.z-b.z,d=Math.hypot(dx,dz);if(d>b.r+.7||car.vel.lengthSq()<.2)continue;
+    b.broken=true;const i=G.colliders.indexOf(b.col);if(i>=0)G.colliders.splice(i,1);const vx=car.vel.x,vz=car.vel.z,vl=Math.hypot(vx,vz)||1;falling.push({b,t:0,ax:vz/vl,az:-vx/vl,y0:H(b.x,b.z)});toast('Knekk!');for(let k=0;k<8;k++)spawnDust(_bp.set(b.x,b.y0,b.z),3,true)}
+  for(let i=falling.length-1;i>=0;i--){const f=falling[i];f.t+=dt;const a=Math.min(1.5,f.t*f.t*5);
+    for(const id of f.b.ids){const o=LV.cylList[id];_bp.set(o.x,o.y,o.z);_bq.setFromEuler(new THREE.Euler(o.rx||0,o.ry||0,o.rz||0));_bs.set(o.sx,o.sy??o.sx,o.sz??o.sx);_bm.compose(_bp,_bq,_bs);
+      _bq.setFromAxisAngle(_bs.set(f.ax,0,f.az).normalize(),a);_bt.makeRotationFromQuaternion(_bq);_bt.setPosition(f.b.x,f.y0,f.b.z);_bt.multiply(new THREE.Matrix4().makeTranslation(-f.b.x,-f.y0,-f.b.z));_bm.premultiply(_bt);LV.propCyls.setMatrixAt(id,_bm)}
+    LV.propCyls.instanceMatrix.needsUpdate=true;if(a>=1.5)falling.splice(i,1)}}
 
 /* ---------- boot ---------- */
 function boot(){

@@ -174,8 +174,9 @@ LEVELS.push(
     // --- kaktus i ørkenen ---
     const cacti=[];
     for(let i=0;i<2500&&cacti.length<60;i++){const x=14+R()*44,z=-30+R()*52;if(!inDesert(x,z)||near(x,z,2.2)||c.nearGate(x,z,2.2)||!c.free(x,z,.8)||lineD(STREAM,x,z)<3.5||slope(x,z)>.35||Math.hypot(x,z)>isl(x,z)-7)continue;
-      if(cacti.some(q=>Math.hypot(q.x-x,q.z-z)<2.2))continue;const h=.6+R()*.9,y=H(x,z);cacti.push({x,z});c.colliders.push({x,z,r:.14});
-      c.cyl(x,y,z,.11,h,'#3f7a3a');for(const sd of[-1,1])if(R()<.7){c.cyl(x+sd*.22,y+h*.45,z,.07,h*.4,'#3f7a3a');c.cyl(x+sd*.14,y+h*.45,z,.07,.16,'#3f7a3a',{rz:1.57})}}
+      if(cacti.some(q=>Math.hypot(q.x-x,q.z-z)<2.2))continue;const h=.6+R()*.9,y=H(x,z);cacti.push({x,z});
+      const ids=[c.cyl(x,y,z,.11,h,'#3f7a3a')];for(const sd of[-1,1])if(R()<.7){ids.push(c.cyl(x+sd*.22,y+h*.45,z,.07,h*.4,'#3f7a3a'),c.cyl(x+sd*.14,y+h*.45,z,.07,.16,'#3f7a3a',{rz:1.57}))}
+      c.breakable(x,z,.16,ids)}   // kaktusene knekker når bilen treffer dem
     // --- bregner, blomster og underskog i jungelen; siv i sumpen ---
     const ferns=[],flowers=[],leaves=[],reeds=[];c.flowers=[];
     for(let i=0;i<5000&&ferns.length<480;i++){const x=-52+R()*46,z=-46+R()*64;if(!inJungle(x,z)||near(x,z,1.6)||lineD(STREAM,x,z)<2.6||c.pools.some(p=>Math.hypot(p.x-x,p.z-z)<p.r))continue;const s=.3+R()*.5;

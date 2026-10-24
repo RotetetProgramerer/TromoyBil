@@ -186,8 +186,10 @@ function genLevel(def){
     flat(x,z,r,h,blend=3){cellsIn(x-r-blend,z-r-blend,x+r+blend,z+r+blend,(k,px,pz)=>{const d=Math.hypot(px-x,pz-z);if(d>r+blend)return;const f=d<=r?1:1-(d-r)/blend,w=f*f*(3-2*f);TH[k]+=(h-TH[k])*w})},
     // props: boxes and cylinders drawn as instances at c.props() (buildings, barriers, posts). y is the bottom.
     box(x,y,z,w,h,d,col,ry=0){c.boxes.push({x,y:y+h/2,z,sx:w,sy:h,sz:d,ry,c:col})},
-    cyl(x,y,z,r,h,col,o={}){c.cyls.push({x,y:y+h/2,z,sx:r,sy:h,sz:r,rx:o.rx||0,rz:o.rz||0,c:col})},
-    props(){instanced(DG.root,DM.white,c.boxes,c.decor);instanced(DG.trunk,DM.white,c.cyls,c.decor);c.boxes=[];c.cyls=[]},
+    cyl(x,y,z,r,h,col,o={}){c.cyls.push({x,y:y+h/2,z,sx:r,sy:h,sz:r,rx:o.rx||0,rz:o.rz||0,c:col});return c.cyls.length-1},
+    props(){c.propBoxes=instanced(DG.root,DM.white,c.boxes,c.decor);c.propCyls=instanced(DG.trunk,DM.white,c.cyls,c.decor);c.cylList=c.cyls;c.boxes=[];c.cyls=[]},
+    // something the car can knock over (a cactus): a collider that disappears on impact, and the cylinder instances that tip over
+    breakables:[],breakable(x,z,r,ids){const col={x,z,r};c.colliders.push(col);c.breakables.push({x,z,r,ids,col,broken:false})},
     nearStart:(x,z,m)=>Math.hypot(pts[0].x-x,pts[0].z-z)<m,
     block:(x,z,r)=>blocks.push({x,z,r}), free:(x,z,r)=>!blocks.some(b=>Math.hypot(b.x-x,b.z-z)<b.r+r),
     pools:[],fx:[],vents:[],extra:[],bonuses:[],

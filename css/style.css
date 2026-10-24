@@ -169,15 +169,14 @@ html{box-sizing:border-box}*,*::before,*::after{box-sizing:inherit}body{margin:0
 
 /* ---------- open world ---------- */
 #hud.free .rc{display:none}#hud:not(.free) .fr{display:none}
-.count{position:fixed;z-index:13;inset:0;display:grid;place-items:center;pointer-events:none;font-family:var(--f-display);font-size:clamp(5rem,22vw,11rem);color:var(--sand);text-shadow:0 4px 0 var(--ink),0 0 40px rgba(0,0,0,.6);animation:pop .9s infinite}
-.count.go{color:var(--go)}
-@keyframes pop{0%{transform:scale(.7);opacity:0}25%{transform:scale(1.08);opacity:1}100%{transform:scale(1);opacity:1}}
+.count{position:fixed;z-index:13;left:50%;top:38%;transform:translate(-50%,-50%);pointer-events:none;font-family:var(--f-display);font-size:clamp(2.6rem,9vw,5rem);color:var(--go);text-shadow:0 3px 0 var(--ink),0 0 18px rgba(0,0,0,.5);animation:pop .5s 1}
+@keyframes pop{0%{transform:translate(-50%,-50%) scale(.6);opacity:0}100%{transform:translate(-50%,-50%) scale(1);opacity:1}}
 .sheet.ask{border-color:var(--sand)}
 .level-list .sect{margin:6px 0 0;font-size:.8rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
 .lvl.world{border-color:rgba(229,169,43,.5)}.lvl.world .no{font-size:1.3rem}
 
 /* ---------- maps ---------- */
-#minimap{position:fixed;z-index:10;left:max(16px,env(safe-area-inset-left,0px));top:calc(130px + env(safe-area-inset-top,0px));width:150px;height:150px;border-radius:50%;box-shadow:0 0 0 3px var(--ink),0 6px 18px rgba(0,0,0,.5);background:var(--ink-2)}
+#minimap{position:fixed;z-index:10;cursor:pointer;left:max(16px,env(safe-area-inset-left,0px));top:calc(130px + env(safe-area-inset-top,0px));width:150px;height:150px;border-radius:50%;box-shadow:0 0 0 3px var(--ink),0 6px 18px rgba(0,0,0,.5);background:var(--ink-2)}
 .is-touch #minimap{width:110px;height:110px}
 .mapframe{width:min(92vw,620px);max-height:calc(100vh - 32px);overflow:auto;background:#e9dcb9;color:#2a241c;border:6px double #8a6a3a;padding:14px 16px 16px;display:flex;flex-direction:column;gap:10px;box-shadow:0 14px 40px rgba(0,0,0,.6);
   background-image:radial-gradient(ellipse at 20% 10%,rgba(255,255,255,.35),transparent 50%),radial-gradient(ellipse at 90% 90%,rgba(120,80,30,.18),transparent 60%)}

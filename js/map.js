@@ -66,7 +66,7 @@ function drawCourseIcon(x,u,v,k,done,s,hot){x.save();x.translate(u,v);x.fillStyl
   else{x.font='700 '+Math.round(s*1.6)+'px "Barlow Condensed",sans-serif';x.fillText('!',0,s*.08)}x.restore()}
 
 /* ---------- minimap ---------- */
-function initMaps(){MAP.mini=$('minimap');MAP.miniCtx=MAP.mini.getContext('2d');MAP.big=$('mapCv');MAP.bigCtx=MAP.big.getContext('2d');
+function initMaps(){MAP.mini=$('minimap');MAP.miniCtx=MAP.mini.getContext('2d');MAP.mini.addEventListener('pointerdown',e=>{e.stopPropagation();if(state.mode==='play')openMap(true)});MAP.big=$('mapCv');MAP.bigCtx=MAP.big.getContext('2d');
   MAP.big.addEventListener('pointermove',e=>mapHover(e));MAP.big.addEventListener('pointerdown',e=>{mapHover(e);if(MAP.hover)$('mapInfo').textContent=mapInfoText(MAP.hover)})}
 function updateMinimap(){const cv=MAP.mini;if(!MAP.base||!car||$('hud').hidden||!state.world){cv.hidden=true;return}cv.hidden=false;
   const S=cv.width,x=MAP.miniCtx,R=S/2,range=15,px=S/(range*2)/(MAP.W/WORLD);   // px: base-pixels → minimap pixels so that `range` world units fit in the radius
