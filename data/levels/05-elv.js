@@ -14,7 +14,7 @@ LEVELS.push(
     for(let i=0;i<c.pts.length;i+=2){const p=c.pts[i];if(Math.abs(p.z-def.stream(p.x))>3.4)paint(p.x,p.z,1.3,S.DIRT)}
     for(const t of[.35,.68]){const p=c.P(t);c.pond(p.x,p.z,2.3,.18,{fill:.55,bog:true})}
     c.ramp(.62,.6,3.4,2.6);
-    for(let i=0;i<150;i++){const x=(R()-.5)*66,z=(R()-.5)*66,r=.6+R()*1.9,h=.4+R()*1.3;if(Math.abs(z-def.stream(x))<r+3||c.dist(x,z)<r+1.3||c.nearGate(x,z,r+1.5)||c.nearStart(x,z,r+3)||!c.free(x,z,r))continue;rock(x,z,r,h,{ang:R()*6.3,ax:1+R()*.7})}
+    for(let i=0;i<150;i++){const x=(R()-.5)*66,z=(R()-.5)*66,r=.6+R()*1.9,h=.4+R()*1.3;if(Math.abs(z-def.stream(x))<r+3||c.dist(x,z)<r+1.3||c.nearGate(x,z,r+1.5)||c.nearStart(x,z,r+3)||!c.free(x,z,r))continue;rock(x,z,r,h,{ang:R()*6.3,ax:1+R()*.7});if(r>1.0)c.anchor(x,z)}
     for(let i=0;i<24;i++){const t=.04+R()*.92,p=c.P(t),s=c.side(t),b=(R()-.5)*2.2;if(c.nearGate(p.x,p.z,1.2)||Math.abs(p.z-def.stream(p.x))<3.5)continue;rock(p.x+s.x*b,p.z+s.z*b,.35+R()*.4,.18+R()*.2,{ang:R()*6.3})}
     // river stones poking out of the fords
     for(const fd of def.fords)for(let i=0;i<7;i++){const a=R()*6.28,d=1.2+R()*2.2;rock(fd[0]+Math.cos(a)*d,fd[1]+Math.sin(a)*d,.3+R()*.3,.35+R()*.3,{sharp:.5,nz:.2})}

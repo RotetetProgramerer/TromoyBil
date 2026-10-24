@@ -84,3 +84,10 @@ function ambPing(x,z,k){initAmbience();if(!AMB||!state.sound)return;const ac=AMB
   g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+.35);o.start(t);o.stop(t+.4)}
 function ambChime(x,z){initAmbience();if(!AMB||!state.sound)return;const ac=AMB.ac,t=ac.currentTime,vol=.09*(state.volAmb/70);
   [[880,0],[1108,.09],[1318,.18],[1760,.3]].forEach(([f,d])=>{const o=ac.createOscillator(),g=ac.createGain();o.type='triangle';o.frequency.value=f;o.connect(g);g.connect(ac.destination);g.gain.setValueAtTime(0,t+d);g.gain.linearRampToValueAtTime(vol,t+d+.02);g.gain.exponentialRampToValueAtTime(.0001,t+d+.8);o.start(t+d);o.stop(t+d+.85)})}
+
+// the winch motor: a low electric whine under load while the rope pulls
+let winchSnd=null;
+function ambWinch(on){initAmbience();if(!AMB)return;const ac=AMB.ac;
+  if(on&&!winchSnd){const o=ac.createOscillator(),o2=ac.createOscillator(),g=ac.createGain(),f=ac.createBiquadFilter();o.type='sawtooth';o2.type='square';o.frequency.value=95;o2.frequency.value=190;f.type='lowpass';f.frequency.value=700;g.gain.value=0;o.connect(f);o2.connect(f);f.connect(g);g.connect(ac.destination);o.start();o2.start();
+    g.gain.setTargetAtTime(state.sound?.05*(state.volCar/70):0,ac.currentTime,.08);winchSnd={o,o2,g}}
+  else if(!on&&winchSnd){const w=winchSnd;winchSnd=null;w.g.gain.setTargetAtTime(0,ac.currentTime,.1);setTimeout(()=>{try{w.o.stop();w.o2.stop()}catch(e){}},400)}}

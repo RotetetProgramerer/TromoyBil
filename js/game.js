@@ -222,7 +222,7 @@ function buildBody(cfg){
   bx(.2,.1,.008,M.plate,0,y0+.08,rz-.098,g);
   for(const sx of[1,-1])for(const wz of[cfg.wb/2,-cfg.wb/2])bx(.05,.05,.56,M.blkC,sx*(W/2+.02),y0+.08,wz,g);
   if(cfg.snorkel||(cfg.tune&&cfg.tune.snorkel)){cyl(.025,gh+.2,M.blkC,-(W/2+.03),yT+gh/2+.03,gz1+.03,g);bx(.06,.05,.08,M.blkC,-(W/2+.03),yT+gh+.13,gz1+.04,g)}
-  if(cfg.tune&&cfg.tune.lv.gear>=2){bx(.22,.09,.1,M.steel,0,y0+.12,fz+.12,g);cyl(.02,.2,M.blkC,0,y0+.12,fz+.12,g,'x',8)}
+  if(cfg.winch||(cfg.tune&&cfg.tune.lv.gear>=2)){bx(.22,.09,.1,M.steel,0,y0+.12,fz+.12,g);cyl(.02,.2,M.blkC,0,y0+.12,fz+.12,g,'x',8);if(cfg.winch||cfg.tune.lv.gear>=3){cyl(.045,.16,M.blkC,0,y0+.13,fz+.12,g,'x',10);bx(.04,.04,.06,M.steel,0,y0+.13,fz+.2,g)}}
   // roof rack
   const ry=roofY+.07,rl=rackZ1-rackZ0,rc=(rackZ0+rackZ1)/2,rw=W-.08;
   for(const sx of[1,-1]){bx(.025,.025,rl,M.blkC,sx*rw/2,ry,rc,g);bx(.025,.08,.025,M.blkC,sx*rw/2,ry-.04,rackZ0+.03,g);bx(.025,.08,.025,M.blkC,sx*rw/2,ry-.04,rackZ1-.03,g)}
@@ -480,7 +480,7 @@ function loadLevel(i){
   if(car)resetToStart();
   $('hLevel').textContent=def.name;
 }
-function setCar(i){state.carIdx=i;store.set('car',CARS[i].id);const old=car,tune=tuneFrom(prof.parts);car=makeCar(CARS[i],tune);car.assist=state.assist;car.speedScale=state.speed/100;if(old){car.low=old.low}
+function setCar(i){state.carIdx=i;store.set('car',CARS[i].id);const old=car,tune=tuneFrom(prof.parts);car=makeCar(CARS[i],tune);car.rope=null;car.assist=state.assist;car.speedScale=state.speed/100;if(old){car.low=old.low}
   applyPaint();buildCarVis(Object.assign({},CARS[i],{tune}));if(LV)resetToStart()}
 function applyPaint(){const p=PAINTS[prof.paint]||PAINTS[0];M.yel.color.set(p.c).convertSRGBToLinear();M.rim.color.set(prof.parts.weight>=2?'#b08a3a':'#e3a62a').convertSRGBToLinear();M.rim.metalness=prof.parts.weight>=2?.6:.2}
 function resetToStart(){const s=LV.start;placeCar(car,s.p.x,s.p.z,Math.atan2(s.tan.x,s.tan.z));state.checkpoint={x:s.p.x,z:s.p.z,h:Math.atan2(s.tan.x,s.tan.z)};camSnap=true}
@@ -594,7 +594,7 @@ addEventListener('keydown',e=>{
   if(state.mode==='ask'&&(k==='enter'||k==='j'))answerAsk(true);
   if(state.mode!=='play')return;
   if(k==='k')openMap();
-  if(k==='g'||k===' ')toggleGear();if(k==='l')setLights(!state.lights);if(k==='c')cycleCam();if(k==='r')winch();if(k==='m')setSound(!state.sound);
+  if(k==='g'||k===' ')toggleGear();if(k==='l')setLights(!state.lights);if(k==='c')cycleCam();if(k==='r'){if(hasWinch())winchKey(true);else winch()}if(k==='m')setSound(!state.sound);
   if(k==='+'||k==='=')setSpeed(state.speed+10);if(k==='-'||k==='_')setSpeed(state.speed-10);
   if(k==='z'||k==='pageup')zoom(-1);if(k==='x'||k==='pagedown')zoom(1);
 });
@@ -610,7 +610,7 @@ function setGfx(q){state.gfx=q;store.set('gfx',q);const hi=q==='hi';
   renderer.setPixelRatio(hi?Math.min(window.devicePixelRatio||1,1.75):1);
   const sz=hi?2048:1024;if(sun.shadow.mapSize.x!==sz){sun.shadow.mapSize.set(sz,sz);if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null}}
   tracks.visible=hi;if(LV)lavaLight.visible=LV.hasLava&&hi;$('gfxHi').setAttribute('aria-pressed',hi);$('gfxLo').setAttribute('aria-pressed',!hi);resize()}
-addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));
+addEventListener('keyup',e=>{keys.delete(e.key.toLowerCase());if(e.key.toLowerCase()==='r'&&hasWinch())winchKey(false)});
 addEventListener('blur',()=>{keys.clear();for(const k in state.input)state.input[k]=0});
 function toggleGear(){car.low=!car.low;updateGearUI();toast(car.low?'Lavt gir: krabbing':'Høyt gir: fart')}
 function updateGearUI(){$('hGearTxt').textContent=car.low?'LAV':'HØY';$('hGearSub').textContent=car.low?'krabb':'fart';$('bGear').classList.toggle('hi',!car.low)}
@@ -625,7 +625,7 @@ $('bGear').onclick=()=>{if(state.mode==='play')toggleGear()};$('bLights').onclic
 $('bSlow').onclick=()=>setSpeed(state.speed-10);$('bFast').onclick=()=>setSpeed(state.speed+10);
 $('bZoomIn').onclick=()=>zoom(-1);$('bZoomOut').onclick=()=>zoom(1);
 $('spdRange').addEventListener('input',e=>setSpeed(+e.target.value,true));
-$('gfxHi').onclick=()=>setGfx('hi');$('gfxLo').onclick=()=>setGfx('lo');$('bCam').onclick=cycleCam;$('bWinch').onclick=()=>winch();$('bPause').onclick=()=>pause(true);
+$('gfxHi').onclick=()=>setGfx('hi');$('gfxLo').onclick=()=>setGfx('lo');$('bCam').onclick=cycleCam;$('bWinch').addEventListener('pointerdown',e=>{if(hasWinch()){e.preventDefault();winchKey(true)}});$('bWinch').addEventListener('pointerup',()=>{if(hasWinch())winchKey(false)});$('bWinch').onclick=()=>{if(!hasWinch())winch()};$('pFetch').onclick=()=>{pause(false);winch()};$('bPause').onclick=()=>pause(true);
 $('pResume').onclick=()=>pause(false);$('pRestart').onclick=()=>{if(state.world&&!state.course){pause(false);resetToStart();return}startRun()};$('pMenu').onclick=toMenu;$('pSound').onclick=()=>setSound(!state.sound);
 $('rRetry').onclick=startRun;$('rMenu').onclick=toMenu;$('rNext').onclick=()=>{if(state.world){endCourse();showHud();state.mode='play';return}loadLevel((state.levelIdx+1)%LEVELS.length);startRun()};
 $('bMap').onclick=()=>openMap();$('mTabIsland').onclick=()=>setMapTab('island');$('mTabArch').onclick=()=>setMapTab('arch');$('mClose').onclick=()=>openMap(false);$('pMap').onclick=()=>{$('pause').hidden=true;openMap(true)};
@@ -658,7 +658,7 @@ function readInput(dt){
   if(gp){const ax=gp.axes[0]||0;if(Math.abs(ax)>.12)steer-=ax;const rt=gp.buttons[7]?gp.buttons[7].value:0,lt=gp.buttons[6]?gp.buttons[6].value:0;gas=Math.max(gas,rt);rev=Math.max(rev,lt);
     const ly=gp.axes[1]||0;if(ly<-.2)gas=Math.max(gas,-ly);if(ly>.2)rev=Math.max(rev,ly);
     const pr=i=>gp.buttons[i]&&gp.buttons[i].pressed&&!padPrev[i];
-    if(state.mode==='play'){if(pr(0))toggleGear();if(pr(1))winch();if(pr(3))cycleCam();if(pr(2))setLights(!state.lights)}
+    if(state.mode==='play'){if(pr(0))toggleGear();if(pr(1)){if(hasWinch())winchKey(true);else winch()}if(hasWinch()&&padPrev[1]&&!(gp.buttons[1]&&gp.buttons[1].pressed))winchKey(false);if(pr(3))cycleCam();if(pr(2))setLights(!state.lights)}
     if(pr(9)){if(state.mode==='play')pause(true);else if(state.mode==='pause')pause(false);else if(state.mode==='menu')startRun()}
     padPrev={};gp.buttons.forEach((b,i)=>padPrev[i]=b.pressed)}
   steer=Math.max(-1,Math.min(1,steer));
@@ -711,7 +711,7 @@ function syncVisuals(dt){
   if(ng&&state.mode==='play'){beacon.visible=true;beacon.position.set(ng.c.x,H(ng.c.x,ng.c.z),ng.c.z);beacon.userData.ring.scale.setScalar(1+.08*Math.sin(performance.now()*.005));
     arrow.visible=car.assist;if(arrow.visible){arrow.position.copy(car.pos).add(_c2.set(0,1.25,0));_c1.set(ng.c.x-car.pos.x,0,ng.c.z-car.pos.z).normalize();arrow.quaternion.setFromUnitVectors(YAX,_c1)}}
   else{beacon.visible=false;arrow.visible=false}
-  updateDust(dt);updateRain(dt);updateFx(dt);applyZone(car.pos.x,car.pos.z);nightTint();updateCoat(dt);updateAnimals(dt);updateBoulder(dt);
+  updateDust(dt);updateRain(dt);updateFx(dt);applyZone(car.pos.x,car.pos.z);nightTint();updateCoat(dt);updateWinch(dt);updateAnimals(dt);updateBoulder(dt);
   waterMat.normalMap.offset.x+=dt*.025;waterMat.normalMap.offset.y+=dt*.018;
   const tm=performance.now()*.001;for(const c of crateVis){if(c.taken)continue;c.g.rotation.y=tm*1.2;c.g.position.y=c.cr.y+Math.sin(tm*2.2+c.cr.x)*.03}
 }
@@ -744,7 +744,7 @@ function frame(now){
     if(state.started)state.time+=dt;
     checkGates();
     if(car.up.y<.3&&car.vel.length()<1.5)state.flipT+=dt;else state.flipT=Math.max(0,state.flipT-dt*2);
-    if(state.flipT>1.3&&$('hint').hidden){$('hint').hidden=false;$('hint').innerHTML=car.assist?'Bilen har veltet. Veltehjelpen henter den straks, uten straff.':'Bilen har veltet. Trykk <b>R</b> eller <button id="hWinch">Vinsj</button> for å komme videre.';const hb=$('hWinch');if(hb)hb.onclick=()=>winch()}
+    if(state.flipT>1.3&&$('hint').hidden){$('hint').hidden=false;$('hint').innerHTML=car.assist?'Bilen har veltet. Veltehjelpen henter den straks, uten straff.':hasWinch()?'Bilen har veltet. Hold <b>R</b> for å feste vinsjen i noe foran bilen og dra den opp, eller <button id="hWinch">hent bilen</button> (straff).':'Bilen har veltet. Trykk <b>R</b> eller <button id="hWinch">Vinsj</button> for å komme videre.';const hb=$('hWinch');if(hb)hb.onclick=()=>winch()}
     if(state.flipT<.5&&!$('hint').hidden)$('hint').hidden=true;
     if(car.assist&&state.flipT>2.6)winch(true);
     // water: warn, then the engine floods
@@ -960,7 +960,32 @@ function updateSecrets(dt){if(!secretVis.length||!car)return;const tm=performanc
   // a faint chime when one is near: faster and louder the closer you are
   if(nearest<12&&state.mode==='play'){secretPingT-=dt;if(secretPingT<=0){secretPingT=.5+nearest*.12;ambPing(car.pos.x,car.pos.z,1-nearest/12)}}}
 
-/* ---------- boot ---------- */
+/* ---------- the real winch ---------- */
+// Hold R: a line is shown from the front hook to the best anchor (tree, big rock, house, lamp, bridge post) within reach and roughly ahead.
+// Release R: the rope tightens and pulls with a steady force until the car is next to the anchor, or you press R again.
+const WINCH_REACH=7,WINCH_F=.55;   // reach in units, pull as a fraction of the car's weight
+let WN={aim:false,target:null,active:false,line:null,hookRing:null,t:0,snd:null},winchBtnDown=false;
+const hasWinch=()=>!!(car&&(car.cfg.winch||car.tune.realWinch));
+function winchAnchors(){const L=[];for(const c of G.colliders)if(c.anchor)L.push(c);for(const a of(G.anchors||[]))L.push(a);for(const d of G.decks){if(d.ferry)continue;const y=Math.max(d.y0,d.y1)+.6;L.push({x:d.ax,z:d.az,y},{x:d.bx,z:d.bz,y})}return L}
+function winchHook(out){return out.set(0,.1,car.cfg.L/2).applyQuaternion(car.q).add(car.pos)}
+function bestAnchor(){const hk=winchHook(_c1),fw=_c2.set(car.fw.x,0,car.fw.z).normalize();let best=null,bs=-1;
+  for(const a of winchAnchors()){const dx=a.x-hk.x,dz=a.z-hk.z,d=Math.hypot(dx,dz);if(d<1.0||d>WINCH_REACH)continue;const cs=(dx*fw.x+dz*fw.z)/d;if(cs<.34)continue;   // within ~70° of straight ahead
+    const sc=cs*2-d/WINCH_REACH;if(sc>bs){bs=sc;best=a}}return best}
+function winchKey(down){if(state.mode!=='play'||!hasWinch())return;
+  if(down){if(WN.active){stopWinch('Tauet er løsnet');return}WN.aim=true;winchBtnDown=true;return}
+  if(!WN.aim)return;WN.aim=false;winchBtnDown=false;const a=WN.target;if(!a){toast('Ingen festepunkt innen rekkevidde',true);return}startWinch(a)}
+function startWinch(a){WN.active=true;WN.target=a;WN.t=0;car.rope={x:a.x,y:a.y??H(a.x,a.z)+.4,z:a.z,F:WINCH_F*car.m*9.8};car.low=true;updateGearUI();toast('Vinsjen drar');ambWinch(true)}
+function stopWinch(msg){WN.active=false;WN.target=null;car.rope=null;if(WN.line)WN.line.visible=false;if(WN.hookRing)WN.hookRing.visible=false;ambWinch(false);if(msg)toast(msg)}
+function updateWinch(dt){if(!WN.line){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(6),3));WN.line=new THREE.Line(g,new THREE.LineBasicMaterial({color:0xd8c597,linewidth:2}));WN.line.frustumCulled=false;WN.line.visible=false;scene.add(WN.line);
+    WN.hookRing=new THREE.Mesh(new THREE.RingGeometry(.22,.3,24),new THREE.MeshBasicMaterial({color:LIN('#ff6a2a'),transparent:true,opacity:.8,side:THREE.DoubleSide,depthWrite:false}));WN.hookRing.rotation.x=-Math.PI/2;WN.hookRing.visible=false;scene.add(WN.hookRing)}
+  if(!hasWinch()||state.mode!=='play'){if(WN.active)stopWinch();WN.aim=false;WN.line.visible=false;WN.hookRing.visible=false;return}
+  if(WN.aim){WN.target=bestAnchor();const a=WN.target;WN.line.visible=!!a;WN.hookRing.visible=!!a;if(a){const hk=winchHook(_c1),ay=a.y??H(a.x,a.z)+.4;setLine(hk,_c2.set(a.x,ay,a.z));WN.line.material.color.set(0xffd36a);WN.hookRing.position.set(a.x,H(a.x,a.z)+.04,a.z);WN.hookRing.scale.setScalar(1+.1*Math.sin(performance.now()*.008))}return}
+  if(WN.active){const a=WN.target,hk=winchHook(_c1),ay=car.rope.y;const d=Math.hypot(a.x-hk.x,a.z-hk.z);WN.t+=dt;
+    setLine(hk,_c2.set(a.x,ay,a.z));WN.line.visible=true;WN.line.material.color.set(0xd8c597);WN.hookRing.visible=true;WN.hookRing.position.set(a.x,H(a.x,a.z)+.04,a.z);
+    if(Math.random()<dt*10)spawnDust(hk,10,false);
+    if(d<1.8||WN.t>25){stopWinch(d<1.8?'Framme ved festet':'Tauet slapp')}}}
+function setLine(a,b){const p=WN.line.geometry.attributes.position;p.setXYZ(0,a.x,a.y,a.z);p.setXYZ(1,b.x,b.y,b.z);p.needsUpdate=true}
+
 function boot(){
   state.roam=false;initMaps();decalMat=new THREE.MeshStandardMaterial({map:decalTexture(),transparent:true,roughness:.5});
   if(state.carIdx>=CARS.length||!ownsCar(CARS[state.carIdx]))state.carIdx=0;if(state.levelIdx>=LEVELS.length)state.levelIdx=0;

@@ -136,13 +136,13 @@ LEVELS.push(
     for(const t of[.25,.5,.75]){const p=strand.P(t),an=strand.ang(t);c.block(p.x,p.z,3);shape(p.x,p.z,an,3.2,2.6,(a,b)=>{const u=(a+1.6)/3.2;if(u<.08)return u/.08*.02;if(u<.88)return .02+(u-.08)/.8*.42;return null},S.DIRT,(a,b)=>mix('#6d4b2d','#8d6a44',G.noise(a*3,b*3)*.7+(Math.abs(b)>1.1?.5:0)))}
     // --- canyonen: mesaer av rød stein, kaktus, steiner på løypa ---
     const MESAS=[[28,-24,4,3.2],[36,-18,5,4.0],[44,-8,4.5,3.6],[42,4,5,4.4],[32,-6,3.2,2.6],[26,2,3.6,3.0],[20,-4,2.8,2.4],[48,-18,3.5,3.0],[36,12,3.4,2.8],[46,14,4,3.4]];
-    for(const[x,z,r,h]of MESAS){const ax=1+R()*.5;if(c.dist(x,z)<r*ax+1.8)continue;rock(x,z,r,h,{sharp:.18,nz:.25,ax,ang:R()*6.3,surf:S.REDROCK});rock(x+(R()-.5)*r,z+(R()-.5)*r,r*.55,h*.3,{sharp:.3,nz:.3,surf:S.REDROCK});c.block(x,z,r*1.5)}
+    for(const[x,z,r,h]of MESAS){const ax=1+R()*.5;if(c.dist(x,z)<r*ax+1.8)continue;rock(x,z,r,h,{sharp:.18,nz:.25,ax,ang:R()*6.3,surf:S.REDROCK});for(let k=0;k<4;k++){const a2=k*1.57+.4;c.anchor(x+Math.cos(a2)*r*ax*.9,z+Math.sin(a2)*r*.9)}rock(x+(R()-.5)*r,z+(R()-.5)*r,r*.55,h*.3,{sharp:.3,nz:.3,surf:S.REDROCK});c.block(x,z,r*1.5)}
     for(let i=0;i<26;i++){const t=.05+R()*.9,p=canyon.P(t),s=canyon.side(t),b=(R()-.5)*2.2;if(canyon.nearGate(p.x,p.z,1.4))continue;rock(p.x+s.x*b,p.z+s.z*b,.3+R()*.35,.16+R()*.2,{ang:R()*6.3,surf:S.REDROCK})}
     // --- store steiner over hele øya ---
     const near=(x,z,m)=>c.dist(x,z)<m;
     for(let i=0;i<360;i++){const x=(R()-.5)*104,z=(R()-.5)*104,r=.5+R()*1.6,h=.4+R()*1.2,rr=rM(x,z),ax=1+R()*.6,Rx=r*ax;
       if(rr<2.6||Math.hypot(x,z)>isl(x,z)-6||near(x,z,Rx+1.6)||c.nearGate(x,z,Rx+1.6)||!c.free(x,z,Rx+.8)||Math.hypot(x-BASE[0],z-BASE[1])<BASE_R+Rx+2||c.pools.some(p=>Math.hypot(p.x-x,p.z-z)<p.r+Rx+.6)||lineD(STREAM,x,z)<Rx+2.6)continue;
-      const red=inDesert(x,z);rock(x,z,r,h*(rr<16?1.1:red?.9:.6),{ang:R()*6.3,ax,surf:rr<11?S.SNOW:red?S.REDROCK:S.ROCK})}
+      const red=inDesert(x,z);rock(x,z,r,h*(rr<16?1.1:red?.9:.6),{ang:R()*6.3,ax,surf:rr<11?S.SNOW:red?S.REDROCK:S.ROCK});if(r>1.0)c.anchor(x,z)}
     for(let i=0;i<30;i++){const t=.3+R()*.68,p=topp.P(t),s=topp.side(t),b=(R()-.5)*2.2;if(topp.nearGate(p.x,p.z,1.4)||lineD(STREAM,p.x,p.z)<4)continue;rock(p.x+s.x*b,p.z+s.z*b,.3+R()*.3,.14+R()*.18,{ang:R()*6.3})}
     for(let i=0;i<10;i++){const t=.8+R()*.17,p=topp.P(t),tn=topp.T(t);if(topp.nearGate(p.x,p.z,1.4))continue;rock(p.x+tn.x*(R()-.5),p.z+tn.z*(R()-.5),.9+R()*.6,.06+R()*.05,{ang:topp.ang(t)+1.57,ax:2.2,sharp:1.2,nz:.15,surf:S.SNOW})}
     // --- trær: regnskog i vest, før finish ---

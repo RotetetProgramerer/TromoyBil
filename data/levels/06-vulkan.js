@@ -111,7 +111,7 @@ LEVELS.push(
     const onLedge=(x,z)=>Math.abs(z+7.9)<2.4&&x>-24&&x<-9;
     for(let i=0;i<150;i++){const x=(R()-.5)*62,z=(R()-.5)*62,r=.5+R()*1.5,h=.4+R()*1.2,rr=rOf(x,z);
       if(rr<5.2||c.dist(x,z)<r+1.5||dShort(x,z)<r+1.8||c.nearGate(x,z,r+1.6)||c.nearStart(x,z,r+3)||c.lavaNear(x,z,r+1.3)||!c.free(x,z,r+.8)||c.pools.some(p=>Math.hypot(p.x-x,p.z-z)<p.r+r+.6)||lineD(RIVER,x,z)<r+2.8||seaD(x,z)<13)continue;
-      if(onLedge(x,z))continue;rock(x,z,r,h*(rr<17?1:.6),{ang:R()*6.3,ax:1+R()*.6})}
+      if(onLedge(x,z))continue;rock(x,z,r,h*(rr<17?1:.6),{ang:R()*6.3,ax:1+R()*.6});if(r>1.0)c.anchor(x,z)}
     for(let i=0;i<28;i++){const t=.45+R()*.53,p=c.P(t),s=c.side(t),b=(R()-.5)*2.2;if(c.nearGate(p.x,p.z,1.4)||c.lavaNear(p.x,p.z,3.5))continue;rock(p.x+s.x*b,p.z+s.z*b,.3+R()*.3,.16+R()*.18,{ang:R()*6.3})}
     for(const x of[-21.5,-20.2,-15.8,-14.5])rock(x,-9.6+R()*.4,.4+R()*.3,.3+R()*.2,{sharp:.5,nz:.2});   // steiner ved bassenget
     for(let x=-23;x<-9;x+=.5+R()*.5)if(R()<.7)rock(x,-9.35+R()*.3,.12+R()*.16,.08+R()*.1,{ang:R()*6.3});   // småstein langs ytterkanten av hyllen

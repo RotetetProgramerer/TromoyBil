@@ -17,7 +17,7 @@ LEVELS.push(
     for(const t of[.46,.67]){const p=c.P(t);c.pond(p.x,p.z,2.1,.16,{fill:.55,bog:true})}
     for(let i=0;i<46;i++){const t=.02+R()*.95,p=c.P(t);if(c.nearGate(p.x,p.z,1.6))continue;const a=R()*6.28,len=.8+R()*1.6,x0=p.x+(R()-.5)*2.6,z0=p.z+(R()-.5)*2.6;
       log(x0,z0,x0+Math.sin(a)*len,z0+Math.cos(a)*len,.05+R()*.04,S.BARK,()=>'#4e3a28')}
-    for(let i=0;i<70;i++){const x=(R()-.5)*66,z=(R()-.5)*66,r=.6+R()*1.8,h=.4+R()*1.2;if(c.dist(x,z)<r+1.2||c.nearGate(x,z,r+1.5)||c.nearStart(x,z,r+3))continue;rock(x,z,r,h,{ang:R()*6.3,ax:1+R()*.6})}
+    for(let i=0;i<70;i++){const x=(R()-.5)*66,z=(R()-.5)*66,r=.6+R()*1.8,h=.4+R()*1.2;if(c.dist(x,z)<r+1.2||c.nearGate(x,z,r+1.5)||c.nearStart(x,z,r+3))continue;rock(x,z,r,h,{ang:R()*6.3,ax:1+R()*.6});if(r>1.0)c.anchor(x,z)}
     for(let i=0;i<16;i++){const t=.04+R()*.92,p=c.P(t),s=c.side(t),b=(R()-.5)*2;if(c.nearGate(p.x,p.z,1.2))continue;rock(p.x+s.x*b,p.z+s.z*b,.35+R()*.35,.18+R()*.18,{ang:R()*6.3})}
     const trunks=[];
     for(let i=0;i<600&&trunks.length<80;i++){const x=(R()-.5)*66,z=(R()-.5)*66,r=.5+R()*.75;if(Math.abs(z-def.stream(x))<r+2.6||!c.onLand(x,z))continue;

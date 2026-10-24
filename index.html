@@ -36,7 +36,7 @@
     <button class="ib" id="bMap" aria-label="Kart (K)" title="Kart (K)" hidden><svg viewBox="0 0 24 24"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/></svg></button>
     <button class="ib" id="bCam" aria-label="Bytt kamera (C)" title="Bytt kamera (C)"><svg viewBox="0 0 24 24"><path d="M3 8h4l2-3h6l2 3h4v11H3z"/><circle cx="12" cy="13" r="3.5"/></svg></button>
     <button class="ib" id="bLights" aria-pressed="false" aria-label="Lys av og på (L)" title="Lys (L)"><svg viewBox="0 0 24 24"><path d="M10 6c-4 0-6 3-6 6s2 6 6 6c2 0 3-2 3-6s-1-6-3-6z"/><path d="M15 8l6-1M15 12h6M15 16l6 1"/></svg></button>
-    <button class="ib" id="bWinch" aria-label="Vinsj tilbake (R), 5 straffepoeng" title="Vinsj (R)">Vinsj</button>
+    <button class="ib" id="bWinch" aria-label="Vinsj (R)" title="Vinsj (R): hold for å sikte, slipp for å dra">Vinsj</button>
     <button class="ib" id="bPause" aria-label="Pause (Esc)" title="Pause (Esc)"><svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></svg></button>
   </div>
   <div class="gauges">
@@ -154,7 +154,7 @@
       <button class="ghost" id="pRestart">Start på nytt</button>
       <button class="ghost" id="pMenu">Til menyen</button>
     </div>
-    <div class="row"><button class="ghost" id="pMap" hidden>Øykartet</button><button class="ghost" id="pAbort" hidden>Avbryt løpet</button></div>
+    <div class="row"><button class="ghost" id="pMap" hidden>Øykartet</button><button class="ghost" id="pFetch">Hent bilen (straff)</button><button class="ghost" id="pAbort" hidden>Avbryt løpet</button></div>
     <div class="row"><button class="ghost" id="pSound" aria-pressed="true">Lyd: på</button></div>
     <div class="slider"><span class="lbl">Bil</span><input type="range" id="pVolCar" min="0" max="100" step="5" value="70" aria-label="Lydstyrke bil"><output id="pVolCarOut">70 %</output></div>
     <div class="slider"><span class="lbl">Omgivelser</span><input type="range" id="pVolAmb" min="0" max="100" step="5" value="70" aria-label="Lydstyrke omgivelser"><output id="pVolAmbOut">70 %</output></div>

@@ -7,7 +7,7 @@ LEVELS.push(
   base:(x,z,n)=>2+.9*Math.sin(x*.13+1.3)*Math.cos(z*.11)+.7*Math.sin((x+z)*.07)+fbm(n,x*.05,z*.05,4)*2.4+.03*Math.sin(x*2.2+z*.9),
   surf:()=>S.SAND,
   build(c){const R=c.rng;
-    for(let i=0;i<90;i++){const x=(R()-.5)*64,z=(R()-.5)*64,r=1.1+R()*2.3,h=.7+R()*1.9;if(c.dist(x,z)<r+1.5||c.nearGate(x,z,r+2)||c.nearStart(x,z,r+4))continue;rock(x,z,r,h,{ang:R()*6.3,ax:1+R()*.7,sharp:.45+R()*.3})}
+    for(let i=0;i<90;i++){const x=(R()-.5)*64,z=(R()-.5)*64,r=1.1+R()*2.3,h=.7+R()*1.9;if(c.dist(x,z)<r+1.5||c.nearGate(x,z,r+2)||c.nearStart(x,z,r+4))continue;rock(x,z,r,h,{ang:R()*6.3,ax:1+R()*.7,sharp:.45+R()*.3});if(r>1.0)c.anchor(x,z)}
     for(let i=0;i<120;i++){const x=(R()-.5)*64,z=(R()-.5)*64;let r=.35+R()*.7,h=.18+R()*.5;if(c.dist(x,z)<1.8){h=Math.min(h,.36);r=Math.min(r,.8)}if(c.nearGate(x,z,r+.8)||c.nearStart(x,z,3.5))continue;rock(x,z,r,h,{ang:R()*6.3,ax:1+R()*.5})}
     for(const t of[.17,.36,.65,.83]){const p=c.P(t),tn=c.T(t),s=c.side(t);for(let i=0;i<9;i++){const a=(R()-.5)*4.4,b=(R()-.5)*3;rock(p.x+tn.x*a+s.x*b,p.z+tn.z*a+s.z*b,.4+R()*.5,.2+R()*.3,{ang:R()*6.3,ax:1+R()*.6})}}
     {const t=.553,p=c.P(t),s=c.side(t);for(let b=-3.2;b<=3.21;b+=.8)rock(p.x+s.x*b,p.z+s.z*b,.95,.5,{sharp:.5,nz:.2})}

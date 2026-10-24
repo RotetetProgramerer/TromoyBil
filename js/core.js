@@ -196,6 +196,7 @@ function genLevel(def){
     cyl(x,y,z,r,h,col,o={}){c.cyls.push({x,y:y+h/2,z,sx:r,sy:h,sz:r,rx:o.rx||0,rz:o.rz||0,c:col});return c.cyls.length-1},
     props(){c.propBoxes=instanced(DG.root,DM.white,c.boxes,c.decor);c.propCyls=instanced(DG.trunk,DM.white,c.cyls,c.decor);c.cylList=c.cyls;c.boxes=[];c.cyls=[]},
     // something the car can knock over (a cactus): a collider that disappears on impact, and the cylinder instances that tip over
+    anchors:[],anchor:(x,z,y)=>c.anchors.push({x,z,y:y??H(x,z)+.4}),
     breakables:[],breakable(x,z,r,ids){const col={x,z,r};c.colliders.push(col);c.breakables.push({x,z,r,ids,col,broken:false})},
     nearStart:(x,z,m)=>Math.hypot(pts[0].x-x,pts[0].z-z)<m,
     block:(x,z,r)=>blocks.push({x,z,r}), free:(x,z,r)=>!blocks.some(b=>Math.hypot(b.x-x,b.z-z)<b.r+r),
@@ -223,7 +224,7 @@ function genLevel(def){
     trees:[],perches:[],
     tree(x,z,o={}){const t={x,z,h:o.h??(5+rng()*4),r:o.r??(.18+rng()*.16),lean:o.lean??(rng()-.5)*.14,ry:rng()*6.28,moss:o.moss??rng()<.75,kind:o.kind||'jungle',branches:[]};
       const nb=o.branches??(2+Math.floor(rng()*3));for(let i=0;i<nb;i++){const hy=t.h*(.45+.4*i/nb+rng()*.1),ang=t.ry+i*2.1+rng()*.8,len=1.2+rng()*1.4,tilt=.55+rng()*.5;t.branches.push({hy,ang,len,tilt})}
-      c.trees.push(t);c.colliders.push({x,z,r:t.r*1.3});return t},
+      c.trees.push(t);c.colliders.push({x,z,r:t.r*1.3,anchor:true,y:H(x,z)+.7});return t},
     // build meshes for all trees added with c.tree (call after c.finish so H() is final)
     forest(){const R=rng,trunks=[],roots=[],branches=[],canopies=[],moss=[],lianas=[];
       for(const t of c.trees){const y=H(t.x,t.z),th=t.h,top={x:t.x-Math.sin(t.lean)*th,y:y+Math.cos(t.lean)*th,z:t.z};const bark=mix('#4a3826','#6b5137',R());
@@ -272,13 +273,13 @@ function genLevel(def){
         c.box(hx,padH,hz,W,Hh,D,col,ry);c.box(hx,padH,hz,W+.1,.08,D+.1,'#3a3a3a',ry);
         for(const sd of[-1,1]){const o2=sd*W*.25;c.box(hx+Math.cos(ry)*o2,padH+Hh+.2,hz-Math.sin(ry)*o2,W*.64,.07,D+.3,rc,ry,{rz:-sd*.62})}
         c.box(hx+Math.cos(ry)*W*.3,padH+Hh+.2,hz-Math.sin(ry)*W*.3,.22,.55,.22,'#6b5a52',ry);c.box(hx+Math.sin(ry)*D/2,padH,hz+Math.cos(ry)*D/2,.42,.72,.04,'#3a2a22',ry);
-        for(const sx2 of[-.45,.45])c.box(hx+Math.sin(ry)*D/2+Math.cos(ry)*sx2*W,padH+.45,hz+Math.cos(ry)*D/2-Math.sin(ry)*sx2*W,.32,.3,.03,'#1a262d',ry);c.colliders.push({x:hx,z:hz,r:Math.max(W,D)*.62})};
+        for(const sx2 of[-.45,.45])c.box(hx+Math.sin(ry)*D/2+Math.cos(ry)*sx2*W,padH+.45,hz+Math.cos(ry)*D/2-Math.sin(ry)*sx2*W,.32,.3,.03,'#1a262d',ry);c.colliders.push({x:hx,z:hz,r:Math.max(W,D)*.62,anchor:true,y:padH+.4})};
       // the four small houses flank the street out of the village (o.out), the big ferry office stands by the pier
       const oa=(o.out??(a/Math.PI*180+180))*Math.PI/180,ox=Math.cos(oa),oz=Math.sin(oa),qx=-oz,qz=ox,yawO=Math.atan2(-ox,-oz);
       const houseO=(f,s,ry,i)=>house2(vx+ox*f+qx*s,vz+oz*f+qz*s,ry,i);
       houseO(2.6,-4.9,yawO+.35,0);houseO(3.4,-2.8,yawO,1);houseO(3.4,2.8,yawO,2);houseO(2.6,4.9,yawO-.35,3);house(1.3,4.2,yaw-1.5,4,true);
       // lamps, barrels, nets and a sign
-      for(const[f,s]of[[1,-3.4],[4.6,2.6],[-.6,-2.3]]){const[lx,lz]=at(f,s);c.cyl(lx,padH,lz,.05,1.5,'#3a3a3a');c.box(lx,padH+1.45,lz,.22,.16,.22,'#fff0c0');c.colliders.push({x:lx,z:lz,r:.1})}
+      for(const[f,s]of[[1,-3.4],[4.6,2.6],[-.6,-2.3]]){const[lx,lz]=at(f,s);c.cyl(lx,padH,lz,.05,1.5,'#3a3a3a');c.box(lx,padH+1.45,lz,.22,.16,.22,'#fff0c0');c.colliders.push({x:lx,z:lz,r:.1,anchor:true,y:padH+.6})}
       for(const[f,s,col]of[[.6,-4.6,'#5a7a8a'],[.9,-4.3,'#c8463a'],[-4.8,-3.6,'#8a6a3a']]){const[bx2,bz2]=at(f,s);c.cyl(bx2,padH,bz2,.17,.42,col);c.colliders.push({x:bx2,z:bz2,r:.2})}
       {const[sx,sz]=at(3.6,2.3);c.fx.push({type:'sign',x:sx,z:sz,ang:Math.atan2(-dx,-dz),text:'FERGE',sub:'kjør om bord'})}
       // the way out of the village: a gravel road from the square inland, levelled so the car never gets boxed in
@@ -312,7 +313,7 @@ function genLevel(def){
   c.crates=def.world?[]:placeCrates(c,c,rng);
   for(const e of c.extra)c.crates.push({x:e.x,z:e.z,y:H(e.x,e.z)+.16,t:c.tOf(e.x,e.z)});
   for(const k of c.courses){k.crates=placeCrates(k,c,rng);for(const e of k.extra)k.crates.push({x:e.x,z:e.z,y:H(e.x,e.z)+.16,t:k.tOf(e.x,e.z)})}
-  G.colliders=c.colliders;
+  G.colliders=c.colliders;G.anchors=c.anchors;
   return c;
 }
 
@@ -323,7 +324,7 @@ const SAMPLES=[[-.8,0],[-.5,0],[-.2,0],[0,0],[.2,0],[.5,0],[.8,0],[0,.07],[0,-.0
 // PARTS og PAINTS ligger i data/parts.js
 function tuneFrom(parts){const g=k=>parts[k]||0,t=g('tyres'),s=g('susp'),mo=g('motor'),w=g('weight'),ge=g('gear');
   return{grip:[1,1.1,1.2,1.3][t],vlow:[1,1.05,1.1,1.15][mo],vhigh:[1,.96,.92,.88][t]*[1,1.12,1.25,1.4][mo]*[1,.97,.94,.9][w],fmot:[1,1.2,1.4,1.65][mo],
-    travel:[.22,.26,.3,.34][s],lift:[0,0,.008,.015][s],right:[0,.35,.7,1][w],wade:ge>=1?.22:.06,winch:ge>=2?2:5,led:ge>=3,snorkel:ge>=1,lv:{tyres:t,susp:s,motor:mo,weight:w,gear:ge}}}
+    travel:[.22,.26,.3,.34][s],lift:[0,0,.008,.015][s],right:[0,.35,.7,1][w],wade:ge>=1?.22:.06,winch:ge>=2?2:5,led:ge>=3,snorkel:ge>=1,realWinch:ge>=3,lv:{tyres:t,susp:s,motor:mo,weight:w,gear:ge}}}
 const TUNE0=tuneFrom({});
 
 function makeCar(cfg,tune){
@@ -396,6 +397,8 @@ function stepCar(car,dt){
     _t.multiplyScalar(tl>1e-6?-ft/tl:0).addScaledVector(_ng,Nf);
     _f.add(_t);_rc.crossVectors(_r,_t);_tq.add(_rc);
   }
+  // the winch rope: a steady pull on the front hook towards the anchor (set by the game while winching)
+  if(car.rope){_P.set(0,.1,car.cfg.L/2).applyQuaternion(q).add(car.pos);_t.set(car.rope.x-_P.x,car.rope.y-_P.y,car.rope.z-_P.z);const L=_t.length();if(L>.05){_t.multiplyScalar(car.rope.F/L);if(_t.y>car.rope.F*.3)_t.y=car.rope.F*.3;_f.add(_t);_r.copy(_P).sub(car.pos);_rc.crossVectors(_r,_t);_tq.add(_rc)}}
   // body in water: buoyancy and drag
   const wl=WL(car.pos.x,car.pos.z);car.depth=wl-car.pos.y;
   const sub=Math.max(0,Math.min(1,(wl-(car.pos.y-.16))/.5));
@@ -404,8 +407,9 @@ function stepCar(car,dt){
   _iq.copy(q).invert();_t.copy(_tq).applyQuaternion(_iq);_t.set(_t.x/car.I.x,_t.y/car.I.y,_t.z/car.I.z).applyQuaternion(q);
   car.w.addScaledVector(_t,dt);
   if(car.assist&&up.y<.8&&up.y>-.2){_t.crossVectors(up,YAX);car.w.addScaledVector(_t,dt*7*(.8-up.y))}
+  if(car.rope&&up.y<.9){_t.crossVectors(up,YAX);if(_t.lengthSq()<1e-4)_t.set(1,0,0);car.w.addScaledVector(_t,dt*12*(1-up.y));car.vel.y+=dt*11*(1-up.y)}   // the winch rolls a tipped car back onto its wheels: a lift and a roll until it is upright
   if(TU.right>0&&up.y<.985&&up.y>-.2){_t.crossVectors(up,YAX);car.w.addScaledVector(_t,dt*9*TU.right*(.985-up.y))}
-  car.w.multiplyScalar(1-(.6+.5*TU.right)*dt);car.vel.multiplyScalar(1-.04*dt);
+  car.w.multiplyScalar(1-(.6+.5*TU.right+(car.rope?2.5:0))*dt);car.vel.multiplyScalar(1-(.04+(car.rope?1.5:0))*dt);
   car.pos.addScaledVector(car.vel,dt);
   _wq.set(car.w.x,car.w.y,car.w.z,0).multiply(q);q.x+=.5*dt*_wq.x;q.y+=.5*dt*_wq.y;q.z+=.5*dt*_wq.z;q.w+=.5*dt*_wq.w;q.normalize();
   for(const c of G.colliders){const dx=car.pos.x-c.x,dz=car.pos.z-c.z,d=Math.hypot(dx,dz),R=c.r+.62;
