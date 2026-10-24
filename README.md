@@ -56,16 +56,17 @@ Bilen dukker opp i menyen med en gang.
 
 ## Legge til en ny bane
 
-1. Kopier `data/levels/01-sand.js` til `data/levels/06-minbane.js` (tallet styrer rekkefølgen i menyen).
-2. Legg til én linje i `index.html` under de andre banene:
+1. Kopier `data/levels/01-sand.js` til `data/levels/06-minbane.js`.
+2. Legg til én linje i `index.html` under de andre banene. Rekkefølgen på disse linjene er rekkefølgen i menyen:
    ```html
    <script src="data/levels/06-minbane.js"></script>
    ```
+   Legg også til `"./data/levels/06-minbane.js"` i `FILES` i `sw.js`, så banen virker uten nett.
 3. Endre feltene. De viktigste:
 
 | Felt | Betydning |
 |---|---|
-| `id` | Unik nøkkel. Brukes for rekorder og «første gang i mål». |
+| `id` | Unik nøkkel. Brukes i lagring (valgt bane, rekorder og banebonus), så ikke endre den etterpå. |
 | `name`, `desc`, `diff` | Navn, beskrivelse og vanskelighet 1–3 i menyen. |
 | `seed` | Et heltall. Bytt tall, og steinene legger seg annerledes. |
 | `gates` | Antall porter (10 er standard). |
@@ -74,6 +75,7 @@ Bilen dukker opp i menyen med en gang.
 | `surf(x,z)` | Underlag per punkt: `S.SAND`, `S.GRAVEL`, `S.GRASS`, `S.DIRT`, `S.MUD`, `S.BOG`, `S.ROCK`, `S.WOOD`. Styrer grep og farge. |
 | `sky`, `fog`, `sun`, `hemi`, `sunDir` | Lys og himmel. |
 | `water` | Globalt vannivå (valgfritt). Alt terreng under dette blir vann. |
+| `waterCol`, `waterOpacity` | Vannfarge og hvor gjennomsiktig vannet er (0–1, standard 0.7). |
 | `rain: true` | Regn. `clouds:false` fjerner skyer og sol. |
 | `build(c)` | Her plasserer du hindringer. |
 
@@ -99,7 +101,7 @@ c.finish()                   // kall denne når terrenget er ferdig, før pynt
 node tools/test-levels.js minbane
 ```
 
-Autopiloten kjører banen i begge gir. Du vil se `prog 0.99` (kom i mål), `drown 0` (ingen druknet motor på selve løypa) og helst under 5 velt. Står den fast («fast» høyt) eller drukner, er noe i veien plassert feil.
+Testen kjører banene som står i `index.html`, i samme rekkefølge, og varsler om banefiler som mangler der. Autopiloten kjører banen i begge gir. Du vil se `prog 0.99` (kom i mål), `drown 0` (ingen druknet motor på selve løypa) og helst under 5 velt. Står den fast («fast» høyt) eller drukner, er noe i veien plassert feil.
 
 ## Justere garasjen
 

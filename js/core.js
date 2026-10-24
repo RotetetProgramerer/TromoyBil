@@ -124,7 +124,7 @@ function genLevel(def){
     block:(x,z,r)=>blocks.push({x,z,r}), free:(x,z,r)=>!blocks.some(b=>Math.hypot(b.x-x,b.z-z)<b.r+r),
     pools:[],
     // dig a pond into the base terrain and fill it; mud rim around it
-    pond(x,z,r,dep,o={}){const i=Math.round((x+HALF)/CELL),j=Math.round((z+HALF)/CELL);let hc=TB[j*N+i];
+    pond(x,z,r,dep,o={}){const i=Math.max(0,Math.min(N-1,Math.round((x+HALF)/CELL))),j=Math.max(0,Math.min(N-1,Math.round((z+HALF)/CELL)));let hc=TB[j*N+i];
       const R=r*1.25;cellsIn(x-R,z-R,x+R,z+R,(k,px,pz)=>{const d=Math.hypot(px-x,pz-z);if(d>R)return;const f=1-(d/R)**2,nh=hc-dep*f*(1-.15*G.noise(px*2,pz*2))+(TB[k]-hc)*(1-f);
         if(nh<TH[k]){TH[k]=nh;TCF[k]=0;TS[k]=d<r*1.18?(o.bed??S.MUD):S.MUD}});
       c.pools.push({x,z,r:r*1.06,level:hc-dep*(o.fill??.32)});if(o.bog)paint(x,z,r*.9,S.BOG)},
@@ -146,6 +146,8 @@ function genLevel(def){
   // supply crates: beside the line, never in water
   c.crates=[];for(let k=0;k<6;k++){const t=.09+.8*k/5+(rng()-.5)*.04,p=c.P(t),s=c.side(t);let placed=false;
     for(const sg of(k%2?[1,-1]:[-1,1])){const off=sg*(1.3+rng()*.7),x=p.x+s.x*off,z=p.z+s.z*off,y=H(x,z);if(WL(x,z)>y-.05||c.nearGate(x,z,1.1)||Math.abs(y-H(p.x,p.z))>.9)continue;c.crates.push({x,z,y:y+.16,t});placed=true;break}
+    // fallback: on the line, a little before or after, still dry
+    for(const o of[0,.012,-.012,.024,-.024,.036,-.036]){if(placed)break;const q=c.P(Math.min(1,Math.max(0,t+o))),y=H(q.x,q.z);if(WL(q.x,q.z)>y-.05||c.nearGate(q.x,q.z,1.1))continue;c.crates.push({x:q.x,z:q.z,y:y+.16,t:t+o});placed=true}
     if(!placed)c.crates.push({x:p.x,z:p.z,y:H(p.x,p.z)+.16,t})}
   G.colliders=c.colliders;
   return c;

@@ -1,4 +1,4 @@
-// Bane: se README for hva feltene betyr. Rekkefølgen i menyen følger filnavnet.
+// Bane: se README for hva feltene betyr. Rekkefølgen i menyen følger rekkefølgen i index.html.
 LEVELS.push(
 { id:'stein', name:'Steinhagen', diff:3, seed:27, gates:10,
   desc:'Tett med stein, en steintrapp og en trang passasje. Her trengs presisjon.',

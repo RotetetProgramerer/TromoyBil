@@ -1,8 +1,8 @@
-// Bane: se README for hva feltene betyr. Rekkefølgen i menyen følger filnavnet.
+// Bane: se README for hva feltene betyr. Rekkefølgen i menyen følger rekkefølgen i index.html.
 LEVELS.push(
 { id:'desk', name:'Skrivebordet', diff:2, seed:71, gates:10, outside:-8,
   desc:'Bøker, blyanter, kaffesøl og et tastatur. Kjør forsiktig, for det er langt ned til gulvet.',
-  sky:['#1d1814','#4d3c2e'], fog:0x2b221b, fogNear:24, fogFar:78, sun:0xffe2b8, sunI:1.0, hemi:[0xfff0dc,0x3a2a1e,.58], sunDir:[-14,26,18], clouds:false, ground:'#120e0b', waterCol:'#2a160c',
+  sky:['#1d1814','#4d3c2e'], fog:0x2b221b, fogNear:24, fogFar:78, sun:0xffe2b8, sunI:1.0, hemi:[0xfff0dc,0x3a2a1e,.58], sunDir:[-14,26,18], clouds:false, ground:'#120e0b', waterCol:'#2a160c', waterOpacity:.86,
   path:[[-26,-26],[-13,-24],[-4,-16],[-12,-8],[-24,-2],[-21,10],[-8,13],[2,6],[12,-2],[22,-10],[26,1],[20,12],[8,20],[-6,23],[-20,25]],
   base:(x,z)=>(Math.abs(x)>30||Math.abs(z)>30)?-8:0,
   surf:(x,z)=>(Math.abs(x)>30||Math.abs(z)>30)?S.FLOOR:S.WOOD,
