@@ -1,4 +1,4 @@
-// Bane: se README for hva feltene betyr. Rekkefølgen i menyen følger filnavnet.
+// Bane: se README for hva feltene betyr. Rekkefølgen i menyen følger rekkefølgen i index.html.
 LEVELS.push(
 { id:'skog', name:'Skogsstien', diff:2, seed:53, gates:10,
   desc:'Regn, stokker, to gjørmehull og en bekk du må vade over. Trestammene er enorme i denne skalaen.',

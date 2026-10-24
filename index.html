@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=Saira+Stencil+One&display=swap">
+<link rel="stylesheet" crossorigin="anonymous" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=Saira+Stencil+One&display=swap">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -149,11 +149,13 @@
     <div class="slider"><span class="lbl">Omgivelser</span><input type="range" id="pVolAmb" min="0" max="100" step="5" value="70" aria-label="Lydstyrke omgivelser"><output id="pVolAmbOut">70 %</output></div>
     <ul class="log">
       <li><b>Bom på en port:</b> 10 straffepoeng</li>
-      <li><b>Vinsj tilbake:</b> 5 straffepoeng</li>
+      <li><b>Vinsj tilbake:</b> 5 straffepoeng (2 med vinsj fra garasjen)</li>
+      <li><b>Veltehjelp i Lett-modus:</b> ingen straff</li>
       <li><b>Berører en portstang:</b> 2 straffepoeng</li>
       <li><b>Druknet motor:</b> 5 straffepoeng</li>
       <li><b>Forsyningskasse:</b> 2 sekunder trukket fra tiden og 15 ⚙</li>
-      <li><b>Muttere:</b> 10 per port, 100 for feilfri runde, 20 for store hopp</li>
+      <li><b>Muttere:</b> 10 per port, 100 for feilfri runde, 20 for store hopp, opptil 200 i banebonus (full bonus krever alle portene)</li>
+      <li><b>Dagens dobbel:</b> første tur hver dag der du tar alle portene</li>
     </ul>
   </div>
 </section>
@@ -181,7 +183,7 @@
 </section>
 
 <!-- Motor -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous"></script>
 <script src="js/core.js"></script>
 <script src="js/animals.js"></script>
 <script src="js/ambience.js"></script>

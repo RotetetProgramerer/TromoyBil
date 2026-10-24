@@ -6,12 +6,15 @@ const $=id=>document.getElementById(id);
 const FIXED=1/240;
 const store={get(k,d){try{const v=localStorage.getItem('sgc:'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('sgc:'+k,JSON.stringify(v))}catch(e){}}};
 
-const state={mode:'menu',carIdx:store.get('car',0),levelIdx:store.get('level',0),assist:store.get('assist',true),camMode:0,lights:false,sound:store.get('sound',true),
+// car and level are saved by id; older saves used the list index
+const idxOf=(list,v)=>{const i=typeof v==='number'?v:list.findIndex(x=>x.id===v);return i>=0&&i<list.length?i:0};
+const state={mode:'menu',carIdx:idxOf(CARS,store.get('car',0)),levelIdx:idxOf(LEVELS,store.get('level',0)),assist:store.get('assist',true),camMode:0,lights:false,sound:store.get('sound',true),
   speed:store.get('speed',100),gfx:store.get('gfx','hi'),volCar:store.get('volCar',70),volAmb:store.get('volAmb',70),
   time:0,started:false,penalty:0,next:0,flipT:0,checkpoint:null,missed:0,touched:0,winches:0,log:[],input:{gas:0,rev:0,left:0,right:0}};
 let best=store.get('best',{});
 // player profile: currency, parts, paint
 const prof=Object.assign({nuts:0,parts:{},paint:0,paints:[0],first:{},runs:0,lastDay:''},store.get('prof',{}));
+if(!PAINTS[prof.paint])prof.paint=0;
 const saveProf=()=>store.set('prof',prof);
 const fmtN=n=>String(n).replace(/\B(?=(\d{3})+(?!\d))/g,' ');
 const totalStars=()=>LEVELS.reduce((s,l)=>s+((best[l.id]&&best[l.id].s)||0),0);
@@ -189,7 +192,6 @@ function buildBody(cfg){
   bx(.2,.1,.008,M.plate,0,y0+.08,rz-.098,g);
   for(const sx of[1,-1])for(const wz of[cfg.wb/2,-cfg.wb/2])bx(.05,.05,.56,M.blk,sx*(W/2+.02),y0+.08,wz,g);
   if(cfg.snorkel||(cfg.tune&&cfg.tune.snorkel)){cyl(.025,gh+.2,M.blk,-(W/2+.03),yT+gh/2+.03,gz1+.03,g);bx(.06,.05,.08,M.blk,-(W/2+.03),yT+gh+.13,gz1+.04,g)}
-  if(cfg.tune&&cfg.tune.lv.weight>=2){/* brass rims */}
   if(cfg.tune&&cfg.tune.lv.gear>=2){bx(.22,.09,.1,M.steel,0,y0+.12,fz+.12,g);cyl(.02,.2,M.blk,0,y0+.12,fz+.12,g,'x',8)}
   // roof rack
   const ry=roofY+.07,rl=rackZ1-rackZ0,rc=(rackZ0+rackZ1)/2,rw=W-.08;
@@ -422,15 +424,18 @@ function applyZone(x,z){if(!ZL.on)return;let k=ZL.d.zone(x,z);if(ZL.k<0)ZL.k=k;e
   hemi.color.copy(ZL.hA[0]).lerp(ZL.hB[0],k);hemi.groundColor.copy(ZL.hA[1]).lerp(ZL.hB[1],k);const dk=d.dark?d.dark(x,z):0;hemi.intensity=(a.hemi[2]+(d.hemi[2]-a.hemi[2])*k)*1.15*(1-.7*dk);sun.intensity*=(1-.5*dk);if(dk>0){scene.fog.color.multiplyScalar(1-.55*dk)}
   mistMat.color.copy(scene.fog.color);mistMat.color.r=Math.min(1,mistMat.color.r*1.25);mistMat.color.g=Math.min(1,mistMat.color.g*1.25);mistMat.color.b=Math.min(1,mistMat.color.b*1.25);for(const m of fxAnim.mist)m.s.material.color.copy(mistMat.color)}
 function loadLevel(i){
-  state.levelIdx=i;store.set('level',i);const def=LEVELS[i];
-  levelGroup.traverse(o=>{if(o.isInstancedMesh||o.isMesh){if(o.geometry&&!Object.values(DG).includes(o.geometry)&&o.geometry!==flagGeo&&!SHARED_GEO.has(o.geometry))o.geometry.dispose()}});
+  state.levelIdx=i;const def=LEVELS[i];store.set('level',def.id);
+  // free what the old level created; shared geometry and materials stay
+  const keepGeo=new Set([...Object.values(DG),...SHARED_GEO,flagGeo,crateGeo,crateBand]),keepMat=new Set([...Object.values(M),...Object.values(DM),gateMat.pole,gateMat.cap,waterMat]);
+  levelGroup.traverse(o=>{if((o.isInstancedMesh||o.isMesh)&&o.geometry&&!keepGeo.has(o.geometry))o.geometry.dispose();
+    if(o.material&&!keepMat.has(o.material)){if(o.material.map)o.material.map.dispose();o.material.dispose()}});
   scene.remove(levelGroup);levelGroup=new THREE.Group();scene.add(levelGroup);gateVis=[];
   LV=genLevel(def);
   for(let k=0;k<N*N;k++){const i2=k%N,j=(k/N)|0;tPos[k*3]=-HALF+i2*CELL;tPos[k*3+1]=TH[k];tPos[k*3+2]=-HALF+j*CELL;tCol[k*3]=TC[k*3];tCol[k*3+1]=TC[k*3+1];tCol[k*3+2]=TC[k*3+2]}
   shadeTerrain();
   tGeo.attributes.position.needsUpdate=true;tGeo.attributes.color.needsUpdate=true;tGeo.computeVertexNormals();tGeo.computeBoundingSphere();tGeo.computeBoundingBox();
   levelGroup.add(LV.decor);
-  water.visible=def.water!=null;if(water.visible)water.position.y=def.water;waterMat.color.set(def.waterCol||'#3f5c4d').convertSRGBToLinear();waterMat.opacity=def.id==='desk'?.86:.7;
+  water.visible=def.water!=null;if(water.visible)water.position.y=def.water;waterMat.color.set(def.waterCol||'#3f5c4d').convertSRGBToLinear();waterMat.opacity=def.waterOpacity??.7;
   buildPools(LV);buildCrates(LV);rain.visible=!!(def.rain||def.ash);ashMode=!!def.ash;rain.material.color.set(ashMode?'#ffb070':'#dfe8ee');rain.material.size=ashMode?.06:.045;
   if(skyDome.material.map)skyDome.material.map.dispose();if(scene.environment)scene.environment.dispose();
   const sky=skyTex(def);skyDome.material.map=sky;skyDome.material.needsUpdate=true;
@@ -443,7 +448,7 @@ function loadLevel(i){
   if(car)resetToStart();
   $('hLevel').textContent=def.name;
 }
-function setCar(i){state.carIdx=i;store.set('car',i);const old=car,tune=tuneFrom(prof.parts);car=makeCar(CARS[i],tune);car.assist=state.assist;car.speedScale=state.speed/100;if(old){car.low=old.low}
+function setCar(i){state.carIdx=i;store.set('car',CARS[i].id);const old=car,tune=tuneFrom(prof.parts);car=makeCar(CARS[i],tune);car.assist=state.assist;car.speedScale=state.speed/100;if(old){car.low=old.low}
   applyPaint();buildCarVis(Object.assign({},CARS[i],{tune}));if(LV)resetToStart()}
 function applyPaint(){const p=PAINTS[prof.paint]||PAINTS[0];M.yel.color.set(p.c).convertSRGBToLinear();M.rim.color.set(prof.parts.weight>=2?'#b08a3a':'#e3a62a').convertSRGBToLinear();M.rim.metalness=prof.parts.weight>=2?.6:.2}
 function resetToStart(){const s=LV.start;placeCar(car,s.p.x,s.p.z,Math.atan2(s.tan.x,s.tan.z));state.checkpoint={x:s.p.x,z:s.p.z,h:Math.atan2(s.tan.x,s.tan.z)};camSnap=true}
@@ -451,7 +456,7 @@ function resetToStart(){const s=LV.start;placeCar(car,s.p.x,s.p.z,Math.atan2(s.t
 /* ---------- game flow ---------- */
 function startRun(){
   initAudio();if(AC&&AC.state==='suspended')AC.resume();
-  Object.assign(state,{mode:'play',time:0,started:false,penalty:0,next:0,flipT:0,missed:0,touched:0,winches:0,winchPen:0,log:[],crates:0,jumps:0,longJumps:0,bestAir:0,air:0,flood:0,drowned:0,deepWarn:false,lavaFalls:0,bonusNuts:0,bonusDone:{}});
+  Object.assign(state,{mode:'play',time:0,started:false,penalty:0,next:0,flipT:0,missed:0,touched:0,winches:0,winchPen:0,rescues:0,log:[],crates:0,jumps:0,longJumps:0,bestAir:0,air:0,flood:0,drowned:0,deepWarn:false,lavaFalls:0,bonusNuts:0,bonusDone:{}});
   gateVis.forEach((g,i)=>{g.touched=false;setGateState(i,i===0?'next':'pending')});
   resetCrates();resetToStart();car.low=true;clearTracks();resetBoulder();
   $('menu').hidden=true;$('result').hidden=true;$('pause').hidden=true;$('hud').hidden=false;$('hint').hidden=true;
@@ -465,7 +470,7 @@ function renderGarage(){
     return`<div class="part"><span class="nm">${p.name} ${pips(lv,3)}</span><span class="lvn">${p.lv[lv]}</span><p class="ds">${p.desc}</p>
       <button class="buy ${can?'can':''} ${max?'max':''}" data-buy="${p.id}" ${can?'':'disabled'}>${max?'Fullt oppgradert':`Neste: ${p.lv[lv+1]}<b>⚙ ${price}</b>${can?'':'<span>mangler '+(price-prof.nuts)+'</span>'}`}</button></div>`}).join('');
   $('paintList').innerHTML=PAINTS.map((p,i)=>{const own=prof.paints.includes(i);return`<button class="sw" data-paint="${i}" style="background:${p.c}" aria-pressed="${i===prof.paint}" aria-label="${p.n}${own?'':', koster '+p.p}">${own?'':'⚙'+p.p}</button>`}).join('');
-  const cp=PAINTS[prof.paint];$('paintName').textContent=cp.n;
+  const cp=PAINTS[prof.paint]||PAINTS[0];$('paintName').textContent=cp.n;
 }
 function buyPart(id){const p=PARTS.find(x=>x.id===id),lv=prof.parts[id]||0;if(lv>=3)return;const price=p.price[lv+1];if(prof.nuts<price)return;
   prof.nuts-=price;prof.parts[id]=lv+1;saveProf();setCar(state.carIdx);renderGarage();const b=document.querySelector(`[data-buy="${id}"]`);if(b)b.classList.add('flash')}
@@ -475,8 +480,12 @@ $('paintList').addEventListener('click',e=>{const b=e.target.closest('[data-pain
 $('mGarage').onclick=toGarage;$('rGarage').onclick=toGarage;$('gBack').onclick=toMenu;$('gDrive').onclick=startRun;
 function pause(on){if(state.mode!=='play'&&state.mode!=='pause')return;state.mode=on?'pause':'play';$('pause').hidden=!on;if(on)$('pResume').focus()}
 function addPenalty(n,why){state.penalty+=n;state.log.push(why);toast('+'+n+' '+why.split(':')[0],true)}
+// auto: the flip assist in easy mode puts the car back for free; everything else costs a winch penalty
 function winch(auto){
-  if(state.mode!=='play')return;const cp=state.checkpoint,cost=car.tune.winch;placeCar(car,cp.x,cp.z,cp.h);addPenalty(cost,'Vinsj');state.winches++;state.winchPen+=cost;state.flipT=0;$('hint').hidden=true;camSnap=true;
+  if(state.mode!=='play')return;const cp=state.checkpoint;placeCar(car,cp.x,cp.z,cp.h);
+  if(auto&&car.assist){state.rescues++;toast('Veltehjelp: bilen er tilbake på hjulene')}
+  else{const cost=car.tune.winch;addPenalty(cost,'Vinsj');state.winches++;state.winchPen+=cost}
+  state.flipT=0;state.flood=0;state.deepWarn=false;state.air=0;$('hint').hidden=true;camSnap=true;
 }
 function finishRun(){
   state.mode='done';const def=LEVELS[state.levelIdx],t=Math.max(0,state.time-state.crates*2),p=state.penalty;const stars=p===0?3:p<=6?2:1;
@@ -490,6 +499,7 @@ function finishRun(){
   if(state.touched)items.push(`<li><b>${state.touched} portstang${state.touched>1?'er':''} berørt:</b> ${state.touched*2} poeng</li>`);
   if(state.lavaFalls)items.push(`<li><b>${state.lavaFalls} gang i lava:</b> ${state.lavaFalls*10} poeng</li>`);
   if(state.bonusNuts)items.push(`<li><b>Snarvei over lavaen:</b> +${state.bonusNuts} ⚙</li>`);
+  if(state.rescues)items.push(`<li><b>${state.rescues} veltehjelp:</b> ingen straff</li>`);
   if(state.drowned)items.push(`<li><b>${state.drowned} druknet motor:</b> ${state.drowned*5} poeng</li>`);
   if(!items.length)items.push('<li><b>Ingen straffepoeng.</b> Akkurat sånn det skal gjøres.</li>');
   items.push(`<li><b>Kasser ${state.crates}/${LV.crates.length}:</b> ${state.crates?'−'+state.crates*2+' s på tiden':'ingen bonus'}</li>`);
@@ -502,15 +512,20 @@ function finishRun(){
   if(state.longJumps){e+=state.longJumps*20;el.push(`${state.longJumps} store hopp +${state.longJumps*20}`)}
   if(state.bonusNuts){e+=state.bonusNuts;el.push(`snarvei +${state.bonusNuts}`)}
   if(p===0){e+=100;el.push('feilfri +100')}
-  if(!prof.first[def.id]){prof.first[def.id]=1;e+=200;el.push('første gang i mål +200')}
-  const today=new Date().toDateString();let dbl=false;if(prof.lastDay!==today){prof.lastDay=today;dbl=true;e*=2}
+  // first-completion bonus is earned per gate: 200 for all gates, the rest can be picked up on a later run
+  const frac=gatesOK/def.gates,prevF=+prof.first[def.id]||0;
+  if(frac>prevF){const add=Math.round(200*frac)-Math.round(200*prevF);prof.first[def.id]=frac;e+=add;
+    el.push(frac<1?`${gatesOK}/${def.gates} porter tatt, banebonus +${add}`:prevF?`alle porter tatt, resten av banebonusen +${add}`:'første gang i mål +200')}
+  // the daily double needs a full run (no missed gates) and is saved for later otherwise
+  const today=new Date().toDateString();let dbl=false,dblNote='';
+  if(prof.lastDay!==today){if(state.missed===0){prof.lastDay=today;dbl=true;e*=2}else dblNote='Ta alle portene for å få dagens dobbel. '}
   prof.nuts+=e;prof.runs++;saveProf();
-  $('rNuts').textContent='+'+fmtN(e);$('rNutsNote').textContent=(dbl?'Dagens første tur: dobbelt! ':'')+el.join(' · ');
+  $('rNuts').textContent='+'+fmtN(e);$('rNutsNote').textContent=(dbl?'Dagens første tur: dobbelt! ':dblNote)+el.join(' · ');
   $('rLog').innerHTML=items.join('');
   $('rNext').textContent=state.levelIdx<LEVELS.length-1?'Neste bane':'Første bane';
   setTimeout(()=>{$('result').hidden=false;$('rNext').focus()},900);toast('Mål!');
 }
-function fmtTime(t){const m=Math.floor(t/60),s=t-m*60;return m+':'+(s<10?'0':'')+s.toFixed(1)}
+function fmtTime(t){t=Math.round(t*10)/10;const m=Math.floor(t/60),s=t-m*60;return m+':'+(s<10?'0':'')+s.toFixed(1)}
 let toastT=0;function toast(msg,bad){const el=$('toast');el.textContent=msg;el.classList.toggle('bad',!!bad);el.classList.add('on');toastT=1.6}
 
 function segX(p1,p2,a,b){const d=(p2.x-p1.x)*(b.z-a.z)-(p2.z-p1.z)*(b.x-a.x);if(Math.abs(d)<1e-9)return false;
@@ -520,7 +535,7 @@ function checkGates(){
   const p1={x:prevPos.x,z:prevPos.z},p2={x:car.pos.x,z:car.pos.z};
   LV.gates.forEach((gt,i)=>{
     // pole touch
-    const gv=gateVis[i];if(!gv.touched&&gv.state!=='missed'){for(const e of[gt.a,gt.b]){_t.set(e.x-car.pos.x,0,e.z-car.pos.z);const lx=_t.dot(car.lf)/Math.hypot(car.lf.x,car.lf.z),lz=_t.dot(car.fw)/Math.hypot(car.fw.x,car.fw.z);
+    const gv=gateVis[i];if(!gv.touched&&gv.state!=='missed'&&i>=state.next-1){for(const e of[gt.a,gt.b]){_t.set(e.x-car.pos.x,0,e.z-car.pos.z);const lx=_t.dot(car.lf)/Math.hypot(car.lf.x,car.lf.z),lz=_t.dot(car.fw)/Math.hypot(car.fw.x,car.fw.z);
       if(Math.abs(lx)<.5&&Math.abs(lz)<car.cfg.L/2+.12&&Math.abs(H(e.x,e.z)-car.pos.y)<1.2){gv.touched=true;state.touched++;addPenalty(2,'Berørt stang');break}}}
     if(i<state.next||!segX(p1,p2,gt.a,gt.b))return;
     for(let k=state.next;k<i;k++){setGateState(k,'missed');state.missed++;addPenalty(10,'Bom på port '+(k+1))}
@@ -560,7 +575,7 @@ function toggleGear(){car.low=!car.low;updateGearUI();toast(car.low?'Lavt gir: k
 function updateGearUI(){$('hGearTxt').textContent=car.low?'LAV':'HØY';$('hGearSub').textContent=car.low?'krabb':'fart';$('bGear').classList.toggle('hi',!car.low)}
 function setLights(on){state.lights=on;$('bLights').setAttribute('aria-pressed',on);const led=car&&car.tune.led;M.lamp.emissive.set(on?0xfff1c0:0x000000);M.tail.emissive.set(on?0x8a1010:0x000000);M.beam.opacity=on?(led?.14:.085):0;if(carVis)carVis.spots.forEach(s=>s.intensity=on?(led?3.8:2.2):0)}
 const CAMS=['Følgekamera','Bakkekamera','Førerkamera'];
-function cycleCam(){state.camMode=(state.camMode+1)%3;tripod=null;camSnap=true;fovZoom=1;toast(CAMS[state.camMode])}
+function cycleCam(){state.camMode=(state.camMode+1)%3;tripod=null;if(state.camMode===0){orbitYaw=0;orbitPitch=0}camSnap=true;fovZoom=1;toast(CAMS[state.camMode])}
 function setSound(on){state.sound=on;store.set('sound',on);$('pSound').textContent='Lyd: '+(on?'på':'av');$('pSound').setAttribute('aria-pressed',on)}
 function setVol(which,v){v=Math.max(0,Math.min(100,Math.round(v)));state[which]=v;store.set(which,v);const ids=which==='volCar'?['volCar','pVolCar']:['volAmb','pVolAmb'];
   for(const id of ids){const el=$(id);if(el&&el.value!==undefined)el.value=v;const o=$(id+'Out');if(o)o.textContent=v+' %'}}
@@ -616,7 +631,6 @@ function updateCamera(dt){
   if(state.mode==='menu'||state.mode==='garage'){const g=state.mode==='garage',a=performance.now()*(g?.0002:.00012)+.6,r=g?3.2:4.6;camTarget.set(car.pos.x+Math.sin(a)*r,0,car.pos.z+Math.cos(a)*r);camTarget.y=Math.max(car.pos.y+(g?.7:1.1),H(camTarget.x,camTarget.z)+.5);
     camLook.copy(car.pos).add(_c2.set(0,.2,0));camera.fov=g?34:40;}
   else if(state.camMode===0){
-    if(!drag)orbitYaw*=Math.pow(.35,dt*(Math.abs(car.throttle)>.1?1:0));
     const c=Math.cos(orbitYaw),s=Math.sin(orbitYaw),bx=-(fwf.x*c+fwf.z*s),bz=-(-fwf.x*s+fwf.z*c);
     const dkc=LEVELS[state.levelIdx].dark?LEVELS[state.levelIdx].dark(car.pos.x,car.pos.z):0,cd=camDist*(1-.4*dkc);   // closer to the car inside a tunnel
     camTarget.set(car.pos.x+bx*cd,car.pos.y+.9+cd*.28+orbitPitch*cd*.6,car.pos.z+bz*cd);
@@ -663,7 +677,7 @@ let hudT=0;
 function updateHUD(dt){
   hudT-=dt;if(toastT>0){toastT-=dt;if(toastT<=0)$('toast').classList.remove('on')}
   if(hudT>0)return;hudT=.1;
-  $('hGate').textContent=Math.min(state.next,LV.gates.length)+'/'+LV.gates.length;$('hTime').textContent=fmtTime(state.time);$('hPen').textContent=state.penalty;$('hCrate').textContent=state.crates+'/'+LV.crates.length;
+  $('hGate').textContent=(Math.min(state.next,LV.gates.length)-state.missed)+'/'+LV.gates.length;$('hTime').textContent=fmtTime(state.time);$('hPen').textContent=state.penalty;$('hCrate').textContent=state.crates+'/'+LV.crates.length;
   const sp=car.vel.dot(car.fw)*UNIT_CM;$('hSpeed').textContent=Math.round(Math.abs(sp));
   const ng=LV.gates[state.next];if(ng){const dcm=Math.hypot(ng.c.x-car.pos.x,ng.c.z-car.pos.z)*UNIT_CM;if(dcm>=100){$('hNext').textContent=(dcm/100).toFixed(1).replace('.',',');$('hNextU').textContent='m'}else{$('hNext').textContent=Math.round(dcm);$('hNextU').textContent='cm'}}
   const roll=Math.asin(Math.max(-1,Math.min(1,car.lf.y)))*57.3,pitch=Math.asin(Math.max(-1,Math.min(1,car.fw.y)))*57.3;
@@ -685,7 +699,7 @@ function frame(now){
     if(state.started)state.time+=dt;
     checkGates();
     if(car.up.y<.3&&car.vel.length()<1.5)state.flipT+=dt;else state.flipT=Math.max(0,state.flipT-dt*2);
-    if(state.flipT>1.3&&$('hint').hidden){$('hint').hidden=false;$('hint').innerHTML=car.assist?'Bilen har veltet. Vinsjen henter den straks.':'Bilen har veltet. Trykk <b>R</b> eller <button id="hWinch">Vinsj</button> for å komme videre.';const hb=$('hWinch');if(hb)hb.onclick=()=>winch()}
+    if(state.flipT>1.3&&$('hint').hidden){$('hint').hidden=false;$('hint').innerHTML=car.assist?'Bilen har veltet. Veltehjelpen henter den straks, uten straff.':'Bilen har veltet. Trykk <b>R</b> eller <button id="hWinch">Vinsj</button> for å komme videre.';const hb=$('hWinch');if(hb)hb.onclick=()=>winch()}
     if(state.flipT<.5&&!$('hint').hidden)$('hint').hidden=true;
     if(car.assist&&state.flipT>2.6)winch(true);
     // water: warn, then the engine floods
@@ -699,7 +713,7 @@ function frame(now){
     if(car.wheels.every(w=>!w.contact)&&car.pos.y>H(car.pos.x,car.pos.z)+.3){state.air+=dt}else if(state.air>0){if(state.air>.32){state.jumps++;if(state.air>.5)state.longJumps++;state.bestAir=Math.max(state.bestAir,state.air);toast('Hopp! '+state.air.toFixed(1).replace('.',',')+' s'+(state.air>.5?' · +20 ⚙':''))}state.air=0}
     // crates
     for(const c of crateVis){if(c.taken)continue;const dx=c.cr.x-car.pos.x,dz=c.cr.z-car.pos.z;if(dx*dx+dz*dz<.42&&Math.abs(c.cr.y-car.pos.y)<.9){c.taken=true;c.g.visible=false;state.crates++;toast('Kasse '+state.crates+'/'+LV.crates.length+' · +15 ⚙');for(let i=0;i<6;i++)spawnDust(c.g.position,0,true)}}
-    if(car.pos.y<-3||Math.abs(car.pos.x)>HALF-.5||Math.abs(car.pos.z)>HALF-.5){toast('Utenfor banen',true);winch(true)}
+    if(car.pos.y<-3||Math.abs(car.pos.x)>HALF-.5||Math.abs(car.pos.z)>HALF-.5){winch();toast('Utenfor banen: vinsj',true)}
     updateHUD(dt);
   }
   if(state.mode==='done'&&toastT>0)updateHUD(dt);
@@ -738,4 +752,5 @@ function boot(){
   for(let i=0;i<240;i++)stepCar(car,FIXED);
   requestAnimationFrame(frame);
 }
-Promise.race([Promise.all([document.fonts.load('40px "Saira Stencil One"'),document.fonts.load('600 17px "Barlow Condensed"')]).catch(()=>{}),new Promise(r=>setTimeout(r,1500))]).then(boot);
+const fontsReady=document.fonts?Promise.all([document.fonts.load('40px "Saira Stencil One"'),document.fonts.load('600 17px "Barlow Condensed"')]).catch(()=>{}):Promise.resolve();
+Promise.race([fontsReady,new Promise(r=>setTimeout(r,1500))]).then(boot);

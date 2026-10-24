@@ -1,6 +1,7 @@
 // MAL FOR NY BANE
 // 1. Kopier denne filen til f.eks. 06-fjellet.js (fjern .txt)
-// 2. Legg til <script src="data/levels/06-fjellet.js"></script> i index.html
+// 2. Legg til <script src="data/levels/06-fjellet.js"></script> i index.html (rekkefølgen der er rekkefølgen i menyen),
+//    og "./data/levels/06-fjellet.js" i FILES i sw.js
 // 3. Test: node tools/test-levels.js fjellet
 
 LEVELS.push(

@@ -1,4 +1,4 @@
-// Bane: se README for hva feltene betyr. Rekkefølgen i menyen følger filnavnet.
+// Bane: se README for hva feltene betyr. Rekkefølgen i menyen følger rekkefølgen i index.html.
 LEVELS.push(
 { id:'elv', name:'Elvedalen', diff:3, seed:97, gates:10, water:.74, waterCol:'#4d7064',
   desc:'Tre vadesteder, to gjørmehull og et hopp. Hold deg på grunnene, ellers drukner motoren.',
