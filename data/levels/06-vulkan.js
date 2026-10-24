@@ -83,7 +83,7 @@ LEVELS.push(
     c.pond(-18,-1.2,3.1,.45,{fill:.6});c.pond(-24,2.5,2,.3,{fill:.6});
     // --- stien: jord i jungelen, mørk, våt stein på hyllen bak fossen ---
     for(let i=0;i<c.pts.length;i+=2){const p=c.pts[i];if(rOf(p.x,p.z)>17.8&&seaD(p.x,p.z)>15.5&&lineD(RIVER,p.x,p.z)>2.9)paint(p.x,p.z,1.3,S.DIRT,S.MUD)}
-    for(let x=-23;x<=-9;x+=.6)paint(x,-7.9,1.45,S.ROCK);
+    for(let x=-23;x<=-9;x+=.6)paint(x,-7.9,1.45,S.GRAVEL);
     // --- veien jevnes ut så bilen ikke kjører på skrå ---
     c.bench(0,T(-20.7,-21.4),1.0,1.6);c.bench(T(-25.3,-17.6),T(-8.3,-7.8),1.1,1.6);
     c.bench(T(spiralStart[0],spiralStart[1]),1,1.5,1.8);
@@ -91,6 +91,7 @@ LEVELS.push(
     // --- gjørmestien: hjulspor, søledammer, røtter og en veltet stamme ---
     c.ruts(T(-18,-30.5),T(0,-29.8),.05);c.ruts(T(7,-27),T(-9,-18.5),.035);
     for(const[t,off,r]of[[.035,.2,.9],[.055,-.5,.7],[.075,.3,1.0],[.1,-.3,.8],[.125,.4,.7],[.2,-.2,.9],[.27,.3,.8],[.33,-.4,.7]]){const p=c.P(t),s=c.side(t);if(c.nearGate(p.x+s.x*off,p.z+s.z*off,1.3))continue;c.pond(p.x+s.x*off,p.z+s.z*off,r,.13,{fill:.55,mud:true,bed:S.MUD})}
+    for(const[x,off,r]of[[-20.5,.35,.55],[-16.5,-.3,.5],[-12.5,.3,.6]])c.pond(x,-7.9+off,r,.07,{fill:.5,mud:true,bed:S.MUD});   // søledammer på hyllen
     paint(-6,-30.4,1.6,S.MUD);paint(-13,-30.3,1.4,S.MUD);paint(11,-23.5,1.3,S.MUD);
     {const p=c.P(T(-6.5,-30.4)),s=c.side(T(-6.5,-30.4));log(p.x-s.x*2.3,p.z-s.z*2.3,p.x+s.x*2.3,p.z+s.z*2.3,.14,S.BARK,(u,d)=>d>.8?'#3d2a1a':mix('#5a3f28','#7a5638',G.noise(u*30,d*4)))}   // veltet stamme over stien
     for(let i=0;i<40;i++){const t=.02+R()*.36,p=c.P(t),s=c.side(t),b=(R()-.5)*2.4;if(c.nearGate(p.x,p.z,1.3))continue;const a=R()*6.28,len=.5+R()*1.2,x0=p.x+s.x*b,z0=p.z+s.z*b;
@@ -113,6 +114,7 @@ LEVELS.push(
       if(onLedge(x,z))continue;rock(x,z,r,h*(rr<17?1:.6),{ang:R()*6.3,ax:1+R()*.6})}
     for(let i=0;i<28;i++){const t=.45+R()*.53,p=c.P(t),s=c.side(t),b=(R()-.5)*2.2;if(c.nearGate(p.x,p.z,1.4)||c.lavaNear(p.x,p.z,3.5))continue;rock(p.x+s.x*b,p.z+s.z*b,.3+R()*.3,.16+R()*.18,{ang:R()*6.3})}
     for(const x of[-21.5,-20.2,-15.8,-14.5])rock(x,-9.6+R()*.4,.4+R()*.3,.3+R()*.2,{sharp:.5,nz:.2});   // steiner ved bassenget
+    for(let x=-23;x<-9;x+=.5+R()*.5)if(R()<.7)rock(x,-9.35+R()*.3,.12+R()*.16,.08+R()*.1,{ang:R()*6.3});   // småstein langs ytterkanten av hyllen
     for(let i=0;i<9;i++){const a=R()*6.28,d=2.2+R()*2.2;const x=FORD[0]+Math.cos(a)*d,z=FORD[1]+Math.sin(a)*d;if(c.dist(x,z)<1.4)continue;rock(x,z,.3+R()*.3,.3+R()*.3,{sharp:.5,nz:.2})}   // elvesteiner ved vadestedet
     // --- trær (plasseres før finish så røttene står på riktig høyde etterpå) ---
     const trunkOK=(x,z,r,minPath)=>!(c.dist(x,z)<minPath||dShort(x,z)<2.2||c.nearGate(x,z,2.2)||c.nearStart(x,z,3)||rOf(x,z)<18.5||seaD(x,z)<13.5||lineD(RIVER,x,z)<3.2||onLedge(x,z)||c.pools.some(p=>Math.hypot(p.x-x,p.z-z)<p.r+1.2)||c.trees.some(t=>Math.hypot(t.x-x,t.z-z)<r+t.r+1.6)||Math.abs(H(x+.5,z)-H(x-.5,z))+Math.abs(H(x,z+.5)-H(x,z-.5))>.35);
@@ -123,7 +125,7 @@ LEVELS.push(
     // --- fossen: overheng av stein over hyllen, planter som henger ned, vann som drypper ---
     const hL=H(-18,-7.9),topY=hL+2.45;
     // taket: en massiv steinhylle fra klippekanten (z≈-6) ut over stien til fossen (z≈-10.6). Mørkt under, med dryppstein.
-    c.fx.push({type:'roof',x0:-23.5,x1:-8.5,z0:-10.7,z1:-5.6,y:hL+2.3,th:1.1});
+    c.fx.push({type:'roof',x0:-23.5,x1:-8.5,z0:-10.7,z1:-5.9,y:hL+2.3,th:1.0,foot:hL+.9});
     {const vines=[];for(let i=0;i<16;i++){const x=-22+R()*12,z=-10.6+R()*1.2,l=.6+R()*1.2;vines.push({x,y:hL+2.3-l/2,z,sx:.02,sy:l,sz:.02,c:['#2f6a2a','#3f8a34'][i%2]})}
      instanced(DG.trunk,DM.white,vines,c.decor,false)}
     c.fall(-18,-10.4,0,4.6,topY,pool.level);

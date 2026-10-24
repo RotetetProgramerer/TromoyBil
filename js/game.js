@@ -296,7 +296,8 @@ const embers=[];for(let i=0;i<48;i++){const sp=new THREE.Sprite(new THREE.Sprite
 function updateEmbers(dt){if(!LV||!LV.hasLava)return;const pts=fxAnim.lavaPts;if(pts.length&&state.gfx==='hi'&&Math.random()<dt*22){const p=pts[Math.floor(Math.random()*pts.length)];const d2=(p.x-car.pos.x)**2+(p.z-car.pos.z)**2;
     if(d2<16*16){const e=embers.find(e=>e.life<=0);if(e){e.life=1.2+Math.random()*.8;e.s.visible=true;e.s.position.set(p.x+(Math.random()-.5)*p.hw*2,p.y+.05,p.z+(Math.random()-.5)*p.hw*2);e.v.set((Math.random()-.5)*.4,.7+Math.random()*.9,(Math.random()-.5)*.4);e.s.scale.setScalar(.06+Math.random()*.05)}}}
   for(const e of embers){if(e.life<=0)continue;e.life-=dt;e.v.x+=(Math.random()-.5)*dt*2;e.v.z+=(Math.random()-.5)*dt*2;e.s.position.addScaledVector(e.v,dt);e.s.material.opacity=Math.min(1,e.life);if(e.life<=0)e.s.visible=false}}
-let fxAnim={falls:[],smoke:[],lavaPts:[],ripples:[],mist:[],drips:[],fallMist:[]};
+let fxAnim={falls:[],smoke:[],lavaPts:[],ripples:[],mist:[],drips:[],fallMist:[]},roofs=[];
+function ceilAt(x,z){let c=1e9;for(const f of roofs){if(x>f.x0-.3&&x<f.x1+.3&&z>f.z0-.3&&z<f.z1+.3)c=Math.min(c,f.y)}return c}
 function lavaRibbon(s){const n=s.length,pos=new Float32Array(n*6),uv=new Float32Array(n*4),idx=[];let L=0;
   for(let i=0;i<n;i++){const p=s[i],a=s[Math.max(0,i-1)],b=s[Math.min(n-1,i+1)];let dx=b.x-a.x,dz=b.z-a.z;const l=Math.hypot(dx,dz)||1;dx/=l;dz/=l;const px=-dz,pz=dx,w=p.hw+.3;
     if(i)L+=Math.hypot(p.x-s[i-1].x,p.z-s[i-1].z);
@@ -333,18 +334,24 @@ function buildFall(f){const h=f.top-f.bot,ca=Math.cos(f.ang),sa=Math.sin(f.ang);
   // a cloud of mist at the foot
   for(let i=0;i<12;i++){const sp=new THREE.Sprite(mistMat.clone());sp.material.opacity=.22;const u=(i/12-.5)*f.w*1.1;sp.position.set(f.x+ca*u,f.bot+.3,f.z-sa*u);levelGroup.add(sp);fxAnim.fallMist.push({s:sp,t:Math.random(),x:f.x+ca*u,z:f.z-sa*u,y:f.bot})}
   fxAnim.falls.push({x:f.x,z:f.z,y:f.bot,w:f.w,ang:f.ang,top:f.top})}
-function buildRoof(f){const g=new THREE.Group(),rockM=amat('#3b3733',{roughness:.95}),dark=amat('#211d1b',{roughness:1});
-  // the slab: from the cliff (z1) out to the waterfall (z0). Top sits level with the cliff top so it reads as one piece of rock.
-  const w=f.x1-f.x0,dep=f.z1-f.z0,cx=(f.x0+f.x1)/2,cz=(f.z0+f.z1)/2;
-  const slab=new THREE.Mesh(boxGeo,rockM);slab.scale.set(w,f.th,dep);slab.position.set(cx,f.y+f.th/2,cz);slab.castShadow=true;slab.receiveShadow=true;g.add(slab);
-  const under=new THREE.Mesh(boxGeo,dark);under.scale.set(w-.2,.06,dep-.1);under.position.set(cx,f.y-.02,cz);under.receiveShadow=true;g.add(under);
-  // boulders on top and a rough front lip, so the edge is not a straight line
-  const r=mulberry32(f.x0*7+3),L=[];for(let i=0;i<Math.round(w*1.3);i++){const x=f.x0+r()*w,z=f.z0+r()*dep;L.push({x,y:f.y+f.th+r()*.2,z,sx:.9+r()*.9,sy:.5+r()*.4,sz:.8+r()*.9,rx:r()*3,ry:r()*3,c:mix('#3b3733','#57504a',r())})}
-  for(let i=0;i<Math.round(w*1.6);i++){const x=f.x0+r()*w;L.push({x,y:f.y+f.th*.5+(r()-.5)*.3,z:f.z0+(r()-.4)*.5,sx:.45+r()*.5,sy:.5+r()*.5,sz:.4+r()*.4,rx:r()*3,ry:r()*3,c:mix('#2e2a27','#4a443f',r())})}
-  instanced(DG.peb,DM.white,L,g);
-  // stalactites and dripping moss under the roof
-  const st=[];for(let i=0;i<Math.round(w*1.2);i++){const x=f.x0+.4+r()*(w-.8),z=f.z0+.3+r()*(dep-.6),l=.2+r()*.45;st.push({x,y:f.y-l/2,z,sx:.05+r()*.06,sy:l,sz:.05+r()*.06,rx:Math.PI,c:mix('#2a2624','#3e3833',r())})}
-  instanced(DG.fern,DM.white,st,g,false);
+function buildRoof(f){roofs.push(f);const g=new THREE.Group(),dark=amat('#1d1a18',{roughness:1});
+  const w=f.x1-f.x0,dep=f.z1-f.z0,cx=(f.x0+f.x1)/2,cz=(f.z0+f.z1)/2,r=mulberry32(f.x0*7+3),RK=[],MO=[],FE=[],VI=[];
+  // the slab keeps the underside solid and dark
+  const under=new THREE.Mesh(boxGeo,dark);under.scale.set(w,.5,dep);under.position.set(cx,f.y+.25,cz);under.receiveShadow=true;under.castShadow=true;g.add(under);
+  const rockC=()=>mix('#2f2b28','#514a43',r()),mossC=()=>mix('#3a6a2a','#6a9a3a',r());
+  // the overhang: rows of big rocks leaning out from the cliff foot (inner, low) to the lip (outer, high), like a face bulging over the road
+  const yFoot=f.foot,yTop=f.y+f.th,zIn=f.z1,zOut=f.z0;
+  for(let row=0;row<5;row++){const u=row/4,y=yFoot+(yTop-yFoot)*u,z=zIn+(zOut-zIn)*Math.pow(u,1.35);
+    for(let x=f.x0+.2;x<f.x1;x+=1.0+r()*.5){const sx=1.1+r()*.8,sy=.7+r()*.5,sz=1.0+r()*.9;RK.push({x:x+(r()-.5)*.4,y:y+(r()-.5)*.25,z:z+(r()-.5)*.35,sx,sy,sz,rx:r()*3,ry:r()*3,rz:r()*.5,c:rockC()});
+      if(r()<.55)MO.push({x:x+(r()-.5)*.5,y:y+.1+(r()-.5)*.3,z:z-.45*(u<.9?1:0)+(r()-.5)*.2,sx:.35+r()*.45,sy:.12+r()*.1,sz:.35+r()*.45,rx:(r()-.5)*1.2,ry:r()*3,rz:(r()-.5)*1.2,c:mossC()});
+      if(r()<.45&&u<.95)FE.push({x:x+(r()-.5)*.6,y:y-.15+(r()-.5)*.3,z:z-.55,sx:.22+r()*.2,sy:.35+r()*.3,sz:.22+r()*.2,rx:-1.2-r()*.6,ry:r()*6.28,c:['#2f7a2c','#3e8f35','#58a03a'][Math.floor(r()*3)]})}}
+  // boulders on top and a crumbly lip
+  for(let i=0;i<Math.round(w*1.2);i++){const x=f.x0+r()*w,z=zOut+r()*dep;RK.push({x,y:yTop+r()*.3,z,sx:.9+r()*1.0,sy:.5+r()*.5,sz:.8+r()*.9,rx:r()*3,ry:r()*3,c:rockC()});MO.push({x:x+(r()-.5)*.6,y:yTop+.35+r()*.3,z:z+(r()-.5)*.6,sx:.5+r()*.6,sy:.15,sz:.5+r()*.6,ry:r()*3,c:mossC()})}
+  for(let i=0;i<Math.round(w*1.8);i++){const x=f.x0+r()*w;RK.push({x,y:yTop-.4+(r()-.5)*.5,z:zOut+(r()-.5)*.5,sx:.4+r()*.5,sy:.35+r()*.4,sz:.35+r()*.4,rx:r()*3,ry:r()*3,c:rockC()})}
+  // roots and vines hanging from the lip, stalactites under the roof
+  for(let i=0;i<Math.round(w*1.6);i++){const x=f.x0+r()*w,z=zOut+r()*1.2,l=.5+r()*1.6;VI.push({x,y:f.y-l/2+.05,z,sx:.018+r()*.012,sy:l,sz:.018+r()*.012,rx:(r()-.5)*.15,rz:(r()-.5)*.15,c:r()<.6?'#4f6b2c':'#5a4330'})}
+  const ST=[];for(let i=0;i<Math.round(w*1.1);i++){const x=f.x0+.4+r()*(w-.8),z=zOut+.3+r()*(dep-.6),l=.15+r()*.4;ST.push({x,y:f.y-l/2,z,sx:.05+r()*.06,sy:l,sz:.05+r()*.06,rx:Math.PI,c:mix('#26221f','#3a3430',r())})}
+  instanced(DG.peb,DM.white,RK,g);instanced(DG.peb,DM.white,MO,g,false);instanced(DG.fern,DM.tuft,FE,g,false);instanced(DG.trunk,DM.white,VI,g,false);instanced(DG.fern,DM.white,ST,g,false);
   levelGroup.add(g)}
 function buildMist(f){const sp=new THREE.Sprite(mistMat.clone());sp.material.opacity=.12+Math.random()*.08;sp.position.set(f.x,f.y,f.z);sp.scale.set(f.s*1.6,f.s*.55,1);levelGroup.add(sp);fxAnim.mist.push({s:sp,x:f.x,z:f.z,ph:Math.random()*6.28})}
 function buildSmoke(f){const L=[],small=f.small||0,n=small?10:26;
@@ -357,7 +364,7 @@ function buildSign(f){const c=document.createElement('canvas');c.width=256;c.hei
   const post=new THREE.Mesh(boxGeo,postMat);post.scale.set(.06,1.1,.06);post.position.set(f.x,y+.55,f.z);post.castShadow=true;levelGroup.add(post);
   const b=new THREE.Mesh(new THREE.PlaneGeometry(1.1,.55),new THREE.MeshBasicMaterial({map:t,side:THREE.DoubleSide}));b.position.set(f.x,y+1.1,f.z);b.rotation.y=f.ang;levelGroup.add(b)}
 function buildFx(lv){
-  fxAnim={falls:[],smoke:[],lavaPts:[],ripples:[],mist:[],drips:[],fallMist:[]};
+  fxAnim={falls:[],smoke:[],lavaPts:[],ripples:[],mist:[],drips:[],fallMist:[]};roofs=[];
   for(const f of lv.fx){
     if(f.type==='lava'){const m=new THREE.Mesh(lavaRibbon(f.s),lavaMat);m.renderOrder=1;levelGroup.add(m);fxAnim.lavaPts.push(...f.s)}
     else if(f.type==='lavadisc'){const m=new THREE.Mesh(new THREE.CircleGeometry(f.r+.3,40),lavaMat);m.rotation.x=-Math.PI/2;m.position.set(f.x,f.y+.02,f.z);m.renderOrder=1;levelGroup.add(m);fxAnim.lavaPts.push({x:f.x,z:f.z,y:f.y,hw:f.r})}
@@ -615,10 +622,12 @@ function updateCamera(dt){
   else if(state.camMode===0){
     if(!drag)orbitYaw*=Math.pow(.35,dt*(Math.abs(car.throttle)>.1?1:0));
     const c=Math.cos(orbitYaw),s=Math.sin(orbitYaw),bx=-(fwf.x*c+fwf.z*s),bz=-(-fwf.x*s+fwf.z*c);
-    camTarget.set(car.pos.x+bx*camDist,car.pos.y+.9+camDist*.28+orbitPitch*camDist*.6,car.pos.z+bz*camDist);
-    camTarget.y=Math.max(camTarget.y,H(camTarget.x,camTarget.z)+.45);camLook.copy(car.pos).add(_c2.set(0,.35,0));camera.fov=55+Math.min(9,car.vel.length()*1.5);
+    const dkc=LEVELS[state.levelIdx].dark?LEVELS[state.levelIdx].dark(car.pos.x,car.pos.z):0,cd=camDist*(1-.4*dkc);   // closer to the car inside a tunnel
+    camTarget.set(car.pos.x+bx*cd,car.pos.y+.9+cd*.28+orbitPitch*cd*.6,car.pos.z+bz*cd);
+    camTarget.y=Math.max(camTarget.y,H(camTarget.x,camTarget.z)+.45);
+    if(roofs.length){const cl=ceilAt(camTarget.x,camTarget.z),cc=ceilAt(car.pos.x,car.pos.z);if(cc<1e8||cl<1e8){const lim=Math.min(cl,cc)-.3;if(camTarget.y>lim)camTarget.y=Math.max(H(camTarget.x,camTarget.z)+.3,lim)}}camLook.copy(car.pos).add(_c2.set(0,.35,0));camera.fov=55+Math.min(9,car.vel.length()*1.5);
   }else if(state.camMode===1){
-    if(!tripod||tripod.distanceTo(car.pos)>9.5){const sd=Math.random()<.5?1:-1;tripod=new V3(car.pos.x+fwf.x*5.5+fwf.z*2.4*sd,0,car.pos.z+fwf.z*5.5-fwf.x*2.4*sd);tripod.y=H(tripod.x,tripod.z)+.22;camSnap=true}
+    if(!tripod||tripod.distanceTo(car.pos)>9.5){const sd=Math.random()<.5?1:-1;tripod=new V3(car.pos.x+fwf.x*5.5+fwf.z*2.4*sd,0,car.pos.z+fwf.z*5.5-fwf.x*2.4*sd);tripod.y=H(tripod.x,tripod.z)+.22;if(ceilAt(tripod.x,tripod.z)<1e8)tripod.y=Math.min(tripod.y,ceilAt(tripod.x,tripod.z)-.4);camSnap=true}
     camTarget.copy(tripod);camLook.copy(car.pos).add(_c2.set(0,.15,0));camera.fov=38*fovZoom;
   }else{
     camTarget.set(0,.98,.25).applyQuaternion(car.q).add(car.pos);camLook.set(0,.55,4).applyQuaternion(car.q).add(car.pos);camera.fov=68*fovZoom;
