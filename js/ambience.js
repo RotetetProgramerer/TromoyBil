@@ -78,3 +78,9 @@ function ambEagle(x,z){initAmbience();const v=ambVoice(x,z,40);if(!v)return;cons
 function ambHorn(x,z){initAmbience();if(!AMB||!state.sound)return;const ac=AMB.ac,g=ac.createGain(),t=ac.currentTime,vol=.18*(state.volAmb/70);g.gain.value=0;g.connect(ac.destination);
   for(const[f,t0,d]of[[110,0,.9],[165,0,.9],[110,1.2,1.4],[165,1.2,1.4]]){const o=ac.createOscillator();o.type='sawtooth';const fl=ac.createBiquadFilter();fl.type='lowpass';fl.frequency.value=420;o.frequency.value=f;o.connect(fl);fl.connect(g);o.start(t+t0);o.stop(t+t0+d+.1)}
   g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+.08);g.gain.setValueAtTime(vol,t+.8);g.gain.linearRampToValueAtTime(0,t+.95);g.gain.setValueAtTime(0,t+1.2);g.gain.linearRampToValueAtTime(vol,t+1.3);g.gain.setValueAtTime(vol,t+2.4);g.gain.linearRampToValueAtTime(0,t+2.65)}
+
+// the golden nuts: a soft ping when one is near, a chime when you take it
+function ambPing(x,z,k){initAmbience();if(!AMB||!state.sound)return;const ac=AMB.ac,o=ac.createOscillator(),g=ac.createGain(),t=ac.currentTime,vol=(.012+.05*k)*(state.volAmb/70);o.type='sine';o.frequency.value=1320;o.connect(g);g.connect(ac.destination);
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+.35);o.start(t);o.stop(t+.4)}
+function ambChime(x,z){initAmbience();if(!AMB||!state.sound)return;const ac=AMB.ac,t=ac.currentTime,vol=.09*(state.volAmb/70);
+  [[880,0],[1108,.09],[1318,.18],[1760,.3]].forEach(([f,d])=>{const o=ac.createOscillator(),g=ac.createGain();o.type='triangle';o.frequency.value=f;o.connect(g);g.connect(ac.destination);g.gain.setValueAtTime(0,t+d);g.gain.linearRampToValueAtTime(vol,t+d+.02);g.gain.exponentialRampToValueAtTime(.0001,t+d+.8);o.start(t+d);o.stop(t+d+.85)})}

@@ -200,6 +200,8 @@ function genLevel(def){
     nearStart:(x,z,m)=>Math.hypot(pts[0].x-x,pts[0].z-z)<m,
     block:(x,z,r)=>blocks.push({x,z,r}), free:(x,z,r)=>!blocks.some(b=>Math.hypot(b.x-x,b.z-z)<b.r+r),
     pools:[],fx:[],vents:[],extra:[],bonuses:[],
+    // a golden nut hidden somewhere on the island (see README): worth 25 once
+    secrets:[],secret:(x,z,label)=>c.secrets.push({x,z,label}),
     bonus:(x,z,r,nuts,msg)=>c.bonuses.push({x,z,r,nuts,msg}),
     tOf:(x,z)=>{let m=1e9,bi=0;for(let i=0;i<pts.length;i++){const dx=pts[i].x-x,dz=pts[i].z-z,d=dx*dx+dz*dz;if(d<m){m=d;bi=i}}return bi/(pts.length-1)},
     lavaNear:(x,z,m)=>lavaAt(x,z,m)>-1e8,

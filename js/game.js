@@ -13,7 +13,7 @@ const state={mode:'menu',carIdx:idxOf(CARS,store.get('car',0)),levelIdx:idxOf(LE
   time:0,started:false,penalty:0,next:0,flipT:0,checkpoint:null,missed:0,touched:0,winches:0,log:[],input:{gas:0,rev:0,left:0,right:0}};
 let best=store.get('best',{});
 // player profile: currency, parts, paint
-const prof=Object.assign({nuts:0,parts:{},paint:0,paints:[0],first:{},runs:0,lastDay:''},store.get('prof',{}));
+const prof=Object.assign({nuts:0,parts:{},paint:0,paints:[0],first:{},runs:0,lastDay:'',secrets:{}},store.get('prof',{}));if(!prof.secrets)prof.secrets={};
 if(!PAINTS[prof.paint])prof.paint=0;
 const saveProf=()=>store.set('prof',prof);
 const fmtN=n=>String(n).replace(/\B(?=(\d{3})+(?!\d))/g,' ');
@@ -475,7 +475,7 @@ function loadLevel(i){
   hemi.color.set(def.hemi[0]).convertSRGBToLinear();hemi.groundColor.set(def.hemi[1]).convertSRGBToLinear();hemi.intensity=def.hemi[2]*1.15;
   sun.color.set(def.sun).convertSRGBToLinear();sun.intensity=def.sunI*1.55;
   sunGlow.material.color.set(def.sun).convertSRGBToLinear();sunGlow.visible=def.clouds!==false;
-  clearTracks();buildGates(LV);LV.hasLava=G.lavas.length>0;buildFx(LV);resetEruption(def);lavaLight.visible=LV.hasLava&&state.gfx==='hi';setupZone(def);buildAnimals(LV,def);buildBoulder(def);buildPortals(LV);buildFerry(LV);if(isIsland(def))buildMapBase(def);else MAP.base=null;$('bMap').hidden=!state.world;if(car)applyZone(car.pos.x,car.pos.z);
+  clearTracks();buildGates(LV);LV.hasLava=G.lavas.length>0;buildFx(LV);resetEruption(def);lavaLight.visible=LV.hasLava&&state.gfx==='hi';setupZone(def);buildAnimals(LV,def);buildBoulder(def);buildPortals(LV);buildFerry(LV);buildSecrets(LV);if(isIsland(def))buildMapBase(def);else MAP.base=null;$('bMap').hidden=!state.world;if(car)applyZone(car.pos.x,car.pos.z);
   if(car)resetToStart();
   $('hLevel').textContent=def.name;
 }
@@ -503,12 +503,12 @@ function renderGarage(){
   $('partList').innerHTML=PARTS.map(p=>{const lv=prof.parts[p.id]||0,max=lv>=3,price=max?0:p.price[lv+1],can=!max&&prof.nuts>=price;
     return`<div class="part"><span class="nm">${p.name} ${pips(lv,3)}</span><span class="lvn">${p.lv[lv]}</span><p class="ds">${p.desc}</p>
       <button class="buy ${can?'can':''} ${max?'max':''}" data-buy="${p.id}" ${can?'':'disabled'}>${max?'Fullt oppgradert':`Neste: ${p.lv[lv+1]}<b>⚙ ${price}</b>${can?'':'<span>mangler '+(price-prof.nuts)+'</span>'}`}</button></div>`}).join('');
-  $('paintList').innerHTML=PAINTS.map((p,i)=>{const own=prof.paints.includes(i);return`<button class="sw" data-paint="${i}" style="background:${p.c}" aria-pressed="${i===prof.paint}" aria-label="${p.n}${own?'':', koster '+p.p}">${own?'':'⚙'+p.p}</button>`}).join('');
-  const cp=PAINTS[prof.paint]||PAINTS[0];$('paintName').textContent=cp.n;
+  $('paintList').innerHTML=PAINTS.map((p,i)=>{const own=prof.paints.includes(i);if(p.locked&&!own)return`<button class="sw lk" data-paint="${i}" style="background:${p.c}" aria-label="${p.n}, låst" disabled>🔒</button>`;return`<button class="sw" data-paint="${i}" style="background:${p.c}" aria-pressed="${i===prof.paint}" aria-label="${p.n}${own?'':', koster '+p.p}">${own?'':'⚙'+p.p}</button>`}).join('');
+  const cp=PAINTS[prof.paint]||PAINTS[0];$('paintName').textContent=cp.n+(PAINTS.some(p=>p.locked&&!prof.paints.includes(PAINTS.indexOf(p)))?' · Gull-lakken låses opp når alle '+totalSecrets()+' gullmutterne er funnet ('+foundSecrets()+' funnet).':'');
 }
 function buyPart(id){const p=PARTS.find(x=>x.id===id),lv=prof.parts[id]||0;if(lv>=3)return;const price=p.price[lv+1];if(prof.nuts<price)return;
   prof.nuts-=price;prof.parts[id]=lv+1;saveProf();setCar(state.carIdx);renderGarage();const b=document.querySelector(`[data-buy="${id}"]`);if(b)b.classList.add('flash')}
-function pickPaint(i){const p=PAINTS[i];if(!prof.paints.includes(i)){if(prof.nuts<p.p)return;prof.nuts-=p.p;prof.paints.push(i)}prof.paint=i;saveProf();applyPaint();renderGarage()}
+function pickPaint(i){const p=PAINTS[i];if(p.locked&&!prof.paints.includes(i))return;if(!prof.paints.includes(i)){if(prof.nuts<p.p)return;prof.nuts-=p.p;prof.paints.push(i)}prof.paint=i;saveProf();applyPaint();renderGarage()}
 $('partList').addEventListener('click',e=>{const b=e.target.closest('[data-buy]');if(b)buyPart(b.dataset.buy)});
 $('paintList').addEventListener('click',e=>{const b=e.target.closest('[data-paint]');if(b)pickPaint(+b.dataset.paint)});
 $('mGarage').onclick=toGarage;$('rGarage').onclick=toGarage;$('gBack').onclick=toMenu;$('gDrive').onclick=startRun;
@@ -757,6 +757,7 @@ function frame(now){
     for(const c of crateVis){if(c.taken)continue;const dx=c.cr.x-car.pos.x,dz=c.cr.z-car.pos.z;if(dx*dx+dz*dz<.42&&Math.abs(c.cr.y-car.pos.y)<.9){c.taken=true;c.g.visible=false;state.crates++;toast('Kasse '+state.crates+'/'+LV.crates.length+' · +15 ⚙');for(let i=0;i<6;i++)spawnDust(c.g.position,0,true)}}
     if(car.pos.y<-3||Math.abs(car.pos.x)>HALF-.5||Math.abs(car.pos.z)>HALF-.5){winch();toast('Utenfor banen: vinsj',true)}
     if(state.world){updateWorld(dt);updateFog(dt);saveRoam(dt)}
+    updateSecrets(dt);
     updateHUD(dt);
   }
   if(state.mode==='done'&&toastT>0)updateHUD(dt);
@@ -923,6 +924,28 @@ function ferryArrive(){const di=FT.dest;loadLevel(di);const f=LV.ferry,g=ferryVi
   FT.dock=g.position.clone();FT.phase='in';FT.t=0;FT.loaded=true;g.position.set(FT.dock.x+f.dx*16,FT.dock.y,FT.dock.z+f.dz*16);FT.base=g.position.clone();ferryPlace(g);camSnap=true;
   $('hud').classList.add('free');$('hLevel').textContent=LEVELS[di].name;ambHorn(f.x,f.z)}
 function skipFerry(){if(!FT)return;if(FT.phase==='out'){$('fade').classList.add('on');FT.faded=true;FT.t=4.21}else FT.t=4.21}
+
+/* ---------- golden nuts: five hidden on every island ---------- */
+// a level places them with c.secret(x,z,'label'). Found ones are remembered in prof.secrets[level/i]; all of them unlock the gold paint.
+const SECRET_PER=5;
+let secretVis=[],secretPingT=0;
+const secretKey=(l,i)=>l.id+'/'+i;
+const totalSecrets=()=>LEVELS.reduce((n,l)=>n+(l.village||l.world?SECRET_PER:0),0);
+const foundSecrets=()=>Object.keys(prof.secrets).length;
+const foundOn=l=>{let n=0;for(let i=0;i<SECRET_PER;i++)if(prof.secrets[secretKey(l,i)])n++;return n};
+const nutGeo=new THREE.TorusGeometry(.26,.11,6,6),nutMat=new THREE.MeshStandardMaterial({color:LIN('#e6b43a'),emissive:LIN('#8a5a10'),roughness:.25,metalness:.8});
+function buildSecrets(lv){secretVis=[];const l=LEVELS[state.levelIdx];if(!lv.secrets)return;
+  lv.secrets.forEach((sc,i)=>{if(prof.secrets[secretKey(l,i)])return;const g=new THREE.Group();const m=new THREE.Mesh(nutGeo,nutMat);m.castShadow=true;g.add(m);
+    const gl=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:LIN('#ffd36a'),transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,opacity:.55}));gl.scale.set(1.8,1.8,1);g.add(gl);
+    const beam=new THREE.Mesh(new THREE.CylinderGeometry(.05,.09,5,8,1,true),new THREE.MeshBasicMaterial({color:LIN('#ffd36a'),transparent:true,opacity:.18,depthWrite:false,blending:THREE.AdditiveBlending,fog:false}));beam.position.y=2.4;g.add(beam);   // a faint shaft of light, visible from afar
+    const y=Math.max(H(sc.x,sc.z),WL(sc.x,sc.z))+.45;g.position.set(sc.x,y,sc.z);levelGroup.add(g);secretVis.push({g,sc,i,y,taken:false})})}
+function updateSecrets(dt){if(!secretVis.length||!car)return;const tm=performance.now()*.001,l=LEVELS[state.levelIdx];let nearest=1e9;
+  for(const s of secretVis){if(s.taken)continue;const g=s.g;g.rotation.y=tm*1.6;g.position.y=s.y+.08*Math.sin(tm*2.4+s.i);const d=Math.hypot(s.sc.x-car.pos.x,s.sc.z-car.pos.z);nearest=Math.min(nearest,d);
+    if(d<1.0&&Math.abs(g.position.y-car.pos.y)<1.3&&state.mode==='play'){s.taken=true;g.visible=false;prof.secrets[secretKey(l,s.i)]=1;prof.nuts+=25;
+      const all=foundSecrets()>=totalSecrets();if(all){const gi=PAINTS.findIndex(p=>p.locked);if(gi>=0&&!prof.paints.includes(gi)){prof.paints.push(gi);prof.nuts+=100}}saveProf();
+      for(let k=0;k<10;k++)spawnDust(g.position,99,true);ambChime(s.sc.x,s.sc.z);toast('Gullmutter '+foundOn(l)+'/'+SECRET_PER+' · '+s.sc.label+' · +25 ⚙'+(all?' · Alle funnet! Gull-lakk og +100 ⚙':''))}}
+  // a faint chime when one is near: faster and louder the closer you are
+  if(nearest<12&&state.mode==='play'){secretPingT-=dt;if(secretPingT<=0){secretPingT=.5+nearest*.12;ambPing(car.pos.x,car.pos.z,1-nearest/12)}}}
 
 /* ---------- boot ---------- */
 function boot(){

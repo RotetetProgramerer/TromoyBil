@@ -120,6 +120,7 @@ LEVELS.push(
     const trunkOK=(x,z,r,minPath)=>!(c.dist(x,z)<minPath||!c.onLand(x,z)||dShort(x,z)<2.2||c.nearGate(x,z,2.2)||c.nearStart(x,z,3)||rOf(x,z)<18.5||seaD(x,z)<13.5||lineD(RIVER,x,z)<3.2||onLedge(x,z)||c.pools.some(p=>Math.hypot(p.x-x,p.z-z)<p.r+1.2)||c.trees.some(t=>Math.hypot(t.x-x,t.z-z)<r+t.r+1.6)||Math.abs(H(x+.5,z)-H(x-.5,z))+Math.abs(H(x,z+.5)-H(x,z-.5))>.35);
     for(let i=0;i<4000&&c.trees.length<64;i++){const x=-10+R()*34,z=-31+R()*18;if(!FOREST_BOX(x,z)||!trunkOK(x,z,.3,1.75))continue;c.tree(x,z,{h:4.5+R()*3.5,r:.2+R()*.18})}       // den lille skogen: tett
     for(let i=0;i<4000&&c.trees.length<64+70;i++){const x=(R()-.5)*66,z=(R()-.5)*66;if(FOREST_BOX(x,z)||!trunkOK(x,z,.3,2.6))continue;c.tree(x,z,{h:5+R()*4.5,r:.22+R()*.2})}   // resten av regnskogen
+    {const p=pol(5.4,135);c.secret(p[0],p[1],'Kraterkanten')}c.secret(-21.5,-8.4,'Bak fossen');c.secret(16,-28,'Den lille skogen');c.secret(-10,-33,'Stranden');c.secret(-20,20,'Jungelen i nord');
     c.finish();
     c.forest();
     // --- fossen: faller fra klippen rett innenfor veien og spruter ut over den. Vannet renner over veien og ned i bassenget.

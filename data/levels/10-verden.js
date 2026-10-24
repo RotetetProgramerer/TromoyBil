@@ -149,6 +149,7 @@ LEVELS.push(
     const slope=(x,z)=>Math.abs(H(x+.5,z)-H(x-.5,z))+Math.abs(H(x,z+.5)-H(x,z-.5));
     const trunkOK=(x,z,r,minPath)=>!(near(x,z,minPath)||c.nearGate(x,z,2.2)||Math.hypot(x,z)>isl(x,z)-8||lineD(STREAM,x,z)<3.2||c.pools.some(p=>Math.hypot(p.x-x,p.z-z)<p.r+1.2)||c.trees.some(t=>Math.hypot(t.x-x,t.z-z)<r+t.r+1.6)||slope(x,z)>.4);
     for(let i=0;i<9000&&c.trees.length<150;i++){const x=-50+R()*44,z=-44+R()*60;if(!inJungle(x,z)||!trunkOK(x,z,.3,2.4))continue;c.tree(x,z,{h:4.5+R()*4,r:.2+R()*.18})}
+    {const p=polM(14.6,14);c.secret(p[0],p[1],'Bak fossen')}c.secret(44,-8,'Oppå mesaen');c.secret(33,-30,'Sandbanken');{const p=polM(25,100);c.secret(p[0],p[1],'Nederst på isbreen')}c.secret(M[0],M[1],'På tinden');
     c.finish();
     c.forest();
     // --- fossen ---

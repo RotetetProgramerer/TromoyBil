@@ -15,6 +15,7 @@ LEVELS.push(
     {const t=.45,p=c.P(t),s=c.side(t);c.pond(p.x+s.x*3.6,p.z+s.z*3.6,2.6,.7,{bed:S.MUD})}
     {const t=.72,p=c.P(t);c.pond(p.x,p.z,1.7,.26,{fill:.4})}
     c.ramp(.3,.45,3,2.8);
+    {const p=c.P(.45),s=c.side(.45);c.secret(p.x+s.x*6.4,p.z+s.z*6.4,'Bak oasen')}c.secret(0,0,'Midt i klittene');c.secret(2,-37,'Stranden i sør');c.secret(10,37,'Stranden i nord');c.secret(-33,18,'Bak landsbyen');
     c.finish();
     c.pebbles(900,['#bdb6a6','#d2cbbb','#a59e90'],.04,.13);
     c.tufts(110,['#b9a467','#a89558','#c9b77d']);

@@ -23,6 +23,7 @@ LEVELS.push(
     for(let i=0;i<600&&trunks.length<80;i++){const x=(R()-.5)*66,z=(R()-.5)*66,r=.5+R()*.75;if(Math.abs(z-def.stream(x))<r+2.6||!c.onLand(x,z))continue;
       if(c.dist(x,z)<r+2.3||c.nearGate(x,z,r+2.5)||c.nearStart(x,z,r+3))continue;if(trunks.some(t=>Math.hypot(t.x-x,t.z-z)<t.r+r+1.4))continue;
       trunks.push({x,z,r});c.colliders.push({x,z,r:r*1.05});rock(x,z,r*1.9,.32,{surf:S.BARK,sharp:1.8,nz:.2})}
+    c.secret(0,def.stream(0)+3,'Ved bekken');c.secret(-24,22,'Mellom de store trærne');c.secret(-37,0,'Stranden i vest');c.secret(36,10,'Østsiden');c.secret(11,-33,'Bak kaia');
     c.finish();
     instanced(DG.trunk,DM.bark,trunks.map(t=>({x:t.x,y:H(t.x,t.z)+11.6,z:t.z,sx:t.r,sy:24,sz:t.r,ry:R()*6,c:mix('#5a4331','#6e5440',R())})),c.decor);
     const ferns=[];for(let i=0;i<700&&ferns.length<260;i++){const x=(R()-.5)*66,z=(R()-.5)*66;if(c.dist(x,z)<1.9||Math.abs(z-def.stream(x))<1.8||!c.onLand(x,z))continue;const s=.25+R()*.4;

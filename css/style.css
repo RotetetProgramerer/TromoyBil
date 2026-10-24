@@ -202,3 +202,4 @@ html{box-sizing:border-box}*,*::before,*::after{box-sizing:inherit}body{margin:0
 .alist .pr{font-family:var(--f-display);color:var(--sand);align-self:center}
 
 .maptabs{border-color:#8a6a3a}.maptabs button{color:#4a3a28;padding:6px 10px;font-size:.85rem}.maptabs button[aria-pressed="true"]{background:#5a3a1a;color:#e9dcb9}
+.sw.lk{opacity:.55;cursor:default;font-size:1.1rem}

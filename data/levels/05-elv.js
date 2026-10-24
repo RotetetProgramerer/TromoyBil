@@ -21,6 +21,7 @@ LEVELS.push(
     const trunks=[];
     for(let i=0;i<500&&trunks.length<34;i++){const x=(R()-.5)*66,z=(R()-.5)*66,r=.5+R()*.7;if(Math.abs(z-def.stream(x))<r+4.5||c.dist(x,z)<r+2.4||c.nearGate(x,z,r+2.5)||c.nearStart(x,z,r+3)||!c.onLand(x,z))continue;
       if(trunks.some(t=>Math.hypot(t.x-x,t.z-z)<t.r+r+1.6))continue;trunks.push({x,z,r});c.colliders.push({x,z,r:r*1.05});rock(x,z,r*1.9,.3,{surf:S.BARK,sharp:1.8,nz:.2})}
+    c.secret(36,def.stream(36)+4.5,'Elvemunningen i øst');c.secret(-36,def.stream(-36)+4.5,'Elvemunningen i vest');c.secret(0,36,'Nordspissen');c.secret(10,-36,'Sørspissen');c.secret(2,def.stream(2)+5.5,'Over vadestedet');
     c.finish();
     instanced(DG.trunk,DM.bark,trunks.map(t=>({x:t.x,y:H(t.x,t.z)+11.6,z:t.z,sx:t.r,sy:24,sz:t.r,ry:R()*6,c:mix('#5a4331','#6e5440',R())})),c.decor);
     // reeds along the banks

@@ -20,6 +20,7 @@ LEVELS.push(
       if(d<r+.7){if(R()<.5)continue;r=Math.min(r,1.1);h=.18+R()*.32}else h=.4+R()*1.3;
       if((c.nearGate(x,z,r+.6)&&h>.35)||c.nearStart(x,z,r+3)||!c.free(x,z,r))continue;rock(x,z,r,h,{ang:R()*6.3,ax:1+R()*.8,sharp:.45})}
     for(const t of[.36,.64,.9]){const p=c.P(t),tn=c.T(t),s=c.side(t);for(let i=0;i<8;i++){const a=(R()-.5)*4,b=(R()-.5)*3;rock(p.x+tn.x*a+s.x*b,p.z+tn.z*a+s.z*b,.45+R()*.5,.28+R()*.25,{ang:R()*6.3,ax:1+R()*.6})}}
+    {const p=c.P(.17),s=c.side(.17);c.secret(p.x+s.x*4.5,p.z+s.z*4.5,'Ved steintrappa')}{const p=c.P(.55);c.secret(p.x,p.z+5,'Over den trange passasjen')}c.secret(0,36,'Nordspissen');c.secret(19,-33,'Bak kaia');c.secret(-2,2,'Midt på øya');
     c.finish();
     c.pebbles(1500,['#6f685d','#8f887c','#a49d90','#5d574e'],.04,.14);
   }}
