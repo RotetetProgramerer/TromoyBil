@@ -80,7 +80,7 @@ Bilen dukker opp i menyen med en gang.
 | `waterCol`, `waterOpacity` | Vannfarge og hvor gjennomsiktig vannet er (0–1, standard 0.7). |
 | `rain: true` | Regn. `clouds:false` fjerner skyer og sol. |
 | `snow: true`, `precip(x,z)` | Snøvær. `precip` (valgfritt) gir 0–1 for hvor mye det snør der bilen er, f.eks. bare rundt toppen. |
-| `wind: true` | Vindsus som øker med `zone` (brukes sammen med `ambience:'jungle'`). Se Øya. |
+| `wind: true` | Vindsus som øker med `zone` (brukes sammen med `ambience:'jungle'`). Se Sandglow-øya. |
 | `ash: true` | Glør og aske som svever i lufta (brukes i Vulkanen). |
 | `erupt:[min,maks]` | Vulkanen rumler med jevne mellomrom (sekunder mellom hver gang). Bare for show: ristende kamera og lavabomber, ingenting skader bilen. Krever `c.vent(...)`. |
 | `gateT(c)` | Valgfritt. Funksjon som gir portene nøyaktige plasser i stedet for jevn fordeling: `c=>[[x,z],[x,z],...].map(p=>c.tOf(p[0],p[1]))`. Da styrer antall punkter antall porter. |
@@ -136,10 +136,6 @@ Kjører bilen i lava, får spilleren 10 straffepoeng og settes tilbake ved forri
 
 **Rekkefølge i `build(c)`:** først `c.bench`, så `c.lava`/`c.lavaPool`, så `c.bridge`, så steiner, så `c.tree` for trærne, deretter `c.finish()`, og til slutt `c.forest()` og pynt. Legg ikke steiner nær lava eller på snarveien (bruk `c.lavaNear`).
 
-### Øya: strand, jungel og snøfjell
-
-`data/levels/07-oya.js` har en spiralvei opp et fjell med `S.SNOW` og `S.ICE` på toppen, snøvær bare rundt toppen (`precip`), en bekk som er en trapp av små `c.pond`-kulper (motoren har bare ett flatt havnivå), et vadested der `c.bench` er slått av så bekken beholder dybden, og en snarvei over en hengebro mens hovedveien tar en sløyfe ut mot kysten. Snarveien må møte hovedveien i samme kjøreretning, og det må ikke ligge porter mellom portene den hopper fra og til.
-
 ### Vulkanen: snarveien
 
 Etter port 13 kan du velge den lange runden sør om vulkanen, eller en smal bro rett over lavaelva (skilt vises ved avkjøringen). Snarveien har to kasser midt på broa og gir 40 muttere ekstra («Modig snarvei!»). Faller du i lava, mister du 10 poeng og går tilbake til port 13. Testen `node tools/test-levels.js vulkan` kjører også snarveien.
@@ -151,6 +147,21 @@ node tools/test-levels.js minbane
 ```
 
 Testen kjører banene som står i `index.html`, i samme rekkefølge, og varsler om banefiler som mangler der. I en åpen verden kjøres hver løype for seg. Autopiloten kjører banen i begge gir. Du vil se `prog 0.99` (kom i mål), `drown 0` (ingen druknet motor på selve løypa), `lava 0` (ingen i lavaen) og helst under 5 velt. Har banen `shortcut`, kjører den også snarveien (`SNARVEI`) og viser hvor lang tid hovedruten tar mellom de samme portene. Står den fast («fast» høyt) eller drukner, er noe i veien plassert feil.
+
+## Skjærgården: øyer, landsbyer og fergen
+
+Alle banene er øyer i samme skjærgård. «Kjør!» i menyen starter fri kjøring på Sandglow-øya (eller der du sist var); «Hurtigløp» kjører ett bestemt løp som før. På hver øy ligger en liten landsby med fergekai. Kjør om bord på fergen, velg øy, og fergen seiler (ca. 8 sekunder, hopp over med Enter). Overfarten koster 5 muttere. På øyene uten base finnes garasjen i pausemenyen; «Tau til kaia» på kartet setter deg tilbake i landsbyen.
+
+Slik blir en bane til en øy, uten at løypa endres:
+
+| Felt | Betydning |
+|---|---|
+| `size:120, coast:42` | Verden blir 120 bred, og alt utenfor r = 42 synker under havet. Den siste ringen innenfor er strand. Løypene ligger innenfor ±28 og er uendret. Baner uten vann får hav på nivå 0,3. |
+| `village:{at:[x,z], dir}` | Landsbyen: hus rundt et torg, lyktestolper, tønner, båter, FERGE-skilt, en plankebrygge på pæler ut over vannet, og fergedekket ytterst. `dir` (grader) peker mot havet, standard rett ut fra øyas midtpunkt. Bygges automatisk før `build(c)`. |
+
+I fri kjøring blir banens egen løype en startstrek (`c.course` lages automatisk for øyer som er løp), så du kan starte løpet ute i terrenget som på Sandglow-øya. Beste tid deles mellom Hurtigløp og fri kjøring.
+
+Fergerutene og plasseringen på skjærgårdskartet ligger i `data/archipelago.js` (`ISLANDS`, `ROUTES`). Kartet (K) har to faner: øya du er på, og skjærgården. Hver øy er fortsatt sin egen fil og kan endres og testes for seg: `node tools/test-levels.js sand`.
 
 ## Åpen verden (Sandglow-øya)
 

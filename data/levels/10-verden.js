@@ -35,7 +35,7 @@ const CH=[
  {id:'canyon',name:'Canyonkrabbingen',diff:3,gates:10,desc:'Rød stein, trange passasjer og en oase. Lavt gir og tålmodighet.',
   path:[[24,-20],[30,-16],[34,-9],[39,-2],[36,6],[30,3],[26,-5],[22,-12]],surf:S.GRAVEL,hw:1.1},
  {id:'is',name:'Issvingen',diff:2,gates:10,desc:'Ned isbreen på nordsiden og opp igjen gjennom snøen. Glatt som såpe. Avkjøring fra Toppturen.',
-  path:[polM(17.6,66),polM(19,74),polM(21.5,82),polM(24,92),polM(23.4,102),polM(22.2,110),polM(20.6,116),polM(18.6,118),polM(17.2,112),polM(17,102)],hw:1.3},
+  path:[polM(17.6,66),polM(19,74),polM(21.5,82),polM(22.6,92),polM(22.2,102),polM(21.4,110),polM(20.6,116),polM(18.6,118),polM(17.2,112),polM(17,102)],hw:1.3},
  {id:'topp',name:'Toppturen',diff:3,gates:14,desc:'Spiralveien til toppen: over hengebroa ved fossen, gjennom snøen og opp på selve tinden.',
   path:(()=>{const p=[[0,6]];for(let d=-80;d<=380;d+=12){const r=20-15.2*(d+80)/460;p.push(polM(r,d))}p.push(polM(2.5,400),polM(1,440));return p})(),hw:1.3,blend:1.8},
  {id:'natt',name:'Nattløpet',diff:2,gates:8,night:true,desc:'En kort runde rundt basen etter mørkets frembrudd. Lysene på!',
@@ -64,8 +64,8 @@ LEVELS.push(
   waterBand:(x,z)=>Math.hypot(x,z)>isl(x,z)-4||dSw(x,z)<SW_R+3||lineD(STREAM,x,z)<2.8||Math.hypot(x-TARN[0],z-TARN[1])<3.2,
   snow:true, precip:(x,z)=>Math.max(smt((12.5-rM(x,z))/5),GLACIER(x,z)), wind:true, ambience:'jungle',
   biome:(x,z)=>{const r=rM(x,z);return{snow:smt((15-r)/5),jungle:inJungle(x,z)?1:0,swamp:smt((SW_R+4-dSw(x,z))/6),beach:smt((Math.hypot(x,z)-(isl(x,z)-12))/5),desert:inDesert(x,z)?1:0}},
-  path:[[0,-10],[4,-7],[0,-3],[-4,-7],[0,-10]], challenges:CH, roads:ROADS, basePos:BASE, garageAt:[BASE[0],BASE[1]-.2],
-  mapLabels:[[-30,-2,'Jungelen'],[-24,-30,'Sumpen'],[8,-45,'Stranden'],[36,-14,'Canyonen'],[-4,24,'Snøfjellet'],[0,-6,'Basen'],[33,14,'Oasen'],[-1,46,'Isbreen']],
+  path:[[0,-10],[4,-7],[0,-3],[-4,-7],[0,-10]], challenges:CH, roads:ROADS, basePos:BASE, garageAt:[BASE[0],BASE[1]-.2], village:{at:[29.1,24.4],out:165},
+  mapLabels:[[-30,-2,'Jungelen'],[-24,-30,'Sumpen'],[8,-45,'Stranden'],[36,-14,'Canyonen'],[-4,24,'Snøfjellet'],[0,-6,'Basen'],[33,12,'Oasen'],[31,30,'Landsbyen'],[-1,46,'Isbreen']],
   animals:{parrots:14,circling:3,monkeys:9,butterflies:40,crabs:10,crabsAt:[-4,-41],eagle:M,bear:[polM(19,150),polM(21,120)],gulls:{at:[12,-41],n:7}},
   base(x,z,n){const r=rM(x,z),ri=isl(x,z),R=Math.hypot(x,z),ds=lineD(STREAM,x,z),sw=dSw(x,z);
     let h=1.0+.5*fbm(n,x*.035,z*.035,3)+.08*fbm(n,x*.3,z*.3,2);

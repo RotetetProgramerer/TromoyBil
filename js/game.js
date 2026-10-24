@@ -17,6 +17,8 @@ const prof=Object.assign({nuts:0,parts:{},paint:0,paints:[0],first:{},runs:0,las
 if(!PAINTS[prof.paint])prof.paint=0;
 const saveProf=()=>store.set('prof',prof);
 const fmtN=n=>String(n).replace(/\B(?=(\d{3})+(?!\d))/g,' ');
+const isIsland=l=>!!(l.world||l.village);
+const courseKey=(l,k)=>k.main?l.id:l.id+'/'+k.id;
 const starKeys=l=>l.world?l.challenges.map(c=>l.id+'/'+c.id):[l.id];
 const totalStars=()=>LEVELS.reduce((s,l)=>s+starKeys(l).reduce((a,k)=>a+((best[k]&&best[k].s)||0),0),0);
 const maxStars=()=>LEVELS.reduce((s,l)=>s+starKeys(l).length*3,0);
@@ -437,7 +439,7 @@ function loadLevel(i){
     if(o.material&&!keepMat.has(o.material)){if(o.material.map)o.material.map.dispose();o.material.dispose()}});
   scene.remove(levelGroup);levelGroup=new THREE.Group();scene.add(levelGroup);gateVis=[];
   LV=genLevel(def);if(tPos.length!==N*N*3)buildTerrainGeo();water.scale.set(WORLD/70,WORLD/70,1);
-  state.world=!!def.world;state.course=null;state.free=false;
+  state.world=isIsland(def)&&!!state.roam;state.course=null;state.free=false;LV.mainGates=LV.gates;LV.mainCrates=LV.crates;
   for(let k=0;k<N*N;k++){const i2=k%N,j=(k/N)|0;tPos[k*3]=-HALF+i2*CELL;tPos[k*3+1]=TH[k];tPos[k*3+2]=-HALF+j*CELL;tCol[k*3]=TC[k*3];tCol[k*3+1]=TC[k*3+1];tCol[k*3+2]=TC[k*3+2]}
   shadeTerrain();
   tGeo.attributes.position.needsUpdate=true;tGeo.attributes.color.needsUpdate=true;tGeo.computeVertexNormals();tGeo.computeBoundingSphere();tGeo.computeBoundingBox();
@@ -451,7 +453,7 @@ function loadLevel(i){
   hemi.color.set(def.hemi[0]).convertSRGBToLinear();hemi.groundColor.set(def.hemi[1]).convertSRGBToLinear();hemi.intensity=def.hemi[2]*1.15;
   sun.color.set(def.sun).convertSRGBToLinear();sun.intensity=def.sunI*1.55;
   sunGlow.material.color.set(def.sun).convertSRGBToLinear();sunGlow.visible=def.clouds!==false;
-  clearTracks();buildGates(LV);LV.hasLava=G.lavas.length>0;buildFx(LV);resetEruption(def);lavaLight.visible=LV.hasLava&&state.gfx==='hi';setupZone(def);buildAnimals(LV,def);buildBoulder(def);buildPortals(LV);if(def.world)buildMapBase(def);else MAP.base=null;$('bMap').hidden=!def.world;if(car)applyZone(car.pos.x,car.pos.z);
+  clearTracks();buildGates(LV);LV.hasLava=G.lavas.length>0;buildFx(LV);resetEruption(def);lavaLight.visible=LV.hasLava&&state.gfx==='hi';setupZone(def);buildAnimals(LV,def);buildBoulder(def);buildPortals(LV);buildFerry(LV);if(isIsland(def))buildMapBase(def);else MAP.base=null;$('bMap').hidden=!state.world;if(car)applyZone(car.pos.x,car.pos.z);
   if(car)resetToStart();
   $('hLevel').textContent=def.name;
 }
@@ -467,7 +469,7 @@ function startRun(){
   initAudio();if(AC&&AC.state==='suspended')AC.resume();
   if(state.world){if(state.course){const k=state.course;endCourse(true);placeCar(car,k.start.p.x,k.start.p.z,Math.atan2(k.start.tan.x,k.start.tan.z));camSnap=true;startCourse(k);return}return startFree()}
   $('garage').hidden=true;
-  state.mode='play';state.free=false;resetRunState();
+  state.mode='play';state.free=false;resetRunState();LV.gates=LV.mainGates;LV.crates=LV.mainCrates;buildGates(LV);buildCrates(LV);
   gateVis.forEach((g,i)=>{g.touched=false;setGateState(i,i===0?'next':'pending')});
   resetCrates();resetToStart();car.low=true;clearTracks();resetBoulder();
   showHud();updateGearUI();toast('Kjør til port 1');
@@ -498,9 +500,9 @@ function winch(auto){
   state.flipT=0;state.flood=0;state.deepWarn=false;state.air=0;$('hint').hidden=true;camSnap=true;
 }
 function finishRun(){
-  state.mode='done';const lvl=LEVELS[state.levelIdx],def=state.course?Object.assign({},state.course,{gates:state.course.gates.length}):lvl,key=state.course?lvl.id+'/'+state.course.id:lvl.id,t=Math.max(0,state.time-state.crates*2),p=state.penalty;const stars=p===0?3:p<=6?2:1;
+  state.mode='done';const lvl=LEVELS[state.levelIdx],def=state.course?Object.assign({},state.course,{gates:state.course.gates.length}):lvl,key=state.course?courseKey(lvl,state.course):lvl.id,t=Math.max(0,state.time-state.crates*2),p=state.penalty;const stars=p===0?3:p<=6?2:1;
   const prev=best[key];let isBest=false;if(!prev||p<prev.p||(p===prev.p&&t<prev.t)){best[key]={p,t,s:stars};store.set('best',best);isBest=true}
-  $('rLevel').textContent=state.course?lvl.name+' · '+def.name:def.name;$('rTitle').textContent=p===0?'Feilfri tur!':'I mål!';$('rTime').textContent=fmtTime(t);$('rPen').textContent=p;
+  $('rLevel').textContent=state.course&&!state.course.main?lvl.name+' · '+def.name:def.name;$('rTitle').textContent=p===0?'Feilfri tur!':'I mål!';$('rTime').textContent=fmtTime(t);$('rPen').textContent=p;
   $('rGates').textContent=(LV.gates.length-state.missed)+'/'+LV.gates.length;
   $('rStars').innerHTML=[0,1,2].map(i=>`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7-6.2-3.7-6.2 3.7 1.6-7L2 9.2l7.1-.6z" fill="${i<stars?'#E5A92B':'rgba(242,232,208,.15)'}"/></svg>`).join('');
   $('rStars').setAttribute('aria-label',stars+' av 3 stjerner');
@@ -561,6 +563,7 @@ addEventListener('keydown',e=>{
   if(state.mode==='menu'||state.mode==='garage'){if(k==='enter'&&document.activeElement===document.body)startRun();if(k==='escape'&&state.mode==='garage')toMenu();return}
   if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k))e.preventDefault();
   if(e.repeat)return;keys.add(k);
+  if(state.mode==='ferry'){if(k==='enter'||k===' '||k==='escape')skipFerry();return}
   if(MAP.open&&(k==='escape'||k==='k')){openMap(false);return}
   if(k==='escape'||k==='p'){if(state.mode==='play')pause(true);else if(state.mode==='pause')pause(false);else if(state.mode==='ask')answerAsk(false)}
   if(state.mode==='ask'&&(k==='enter'||k==='j'))answerAsk(true);
@@ -600,10 +603,10 @@ $('spdRange').addEventListener('input',e=>setSpeed(+e.target.value,true));
 $('gfxHi').onclick=()=>setGfx('hi');$('gfxLo').onclick=()=>setGfx('lo');$('bCam').onclick=cycleCam;$('bWinch').onclick=()=>winch();$('bPause').onclick=()=>pause(true);
 $('pResume').onclick=()=>pause(false);$('pRestart').onclick=()=>{if(state.world&&!state.course){pause(false);resetToStart();return}startRun()};$('pMenu').onclick=toMenu;$('pSound').onclick=()=>setSound(!state.sound);
 $('rRetry').onclick=startRun;$('rMenu').onclick=toMenu;$('rNext').onclick=()=>{if(state.world){endCourse();showHud();state.mode='play';return}loadLevel((state.levelIdx+1)%LEVELS.length);startRun()};
-$('bMap').onclick=()=>openMap();$('mClose').onclick=()=>openMap(false);$('pMap').onclick=()=>{$('pause').hidden=true;openMap(true)};
-$('mTow').onclick=()=>{if(prof.nuts<20){toast('Du trenger 20 muttere',true);return}prof.nuts-=20;saveProf();if(state.course)endCourse();openMap(false);resetToStart();state.checkpoint={x:car.pos.x,z:car.pos.z,h:0};toast('Tauet hjem til basen · −20 ⚙')};
-$('aYes').onclick=()=>answerAsk(true);$('aNo').onclick=()=>answerAsk(false);$('pAbort').onclick=()=>{pause(false);endCourse();toast('Løpet avbrutt')};
-$('startBtn').onclick=startRun;
+$('bMap').onclick=()=>openMap();$('mTabIsland').onclick=()=>setMapTab('island');$('mTabArch').onclick=()=>setMapTab('arch');$('mClose').onclick=()=>openMap(false);$('pMap').onclick=()=>{$('pause').hidden=true;openMap(true)};
+$('mTow').onclick=()=>{if(prof.nuts<20){toast('Du trenger 20 muttere',true);return}prof.nuts-=20;saveProf();if(state.course)endCourse();openMap(false);const lvl=LEVELS[state.levelIdx];if(lvl.basePos)resetToStart();else if(LV.ferry){const f=LV.ferry;placeCar(car,f.pad.x,f.pad.z,Math.atan2(-f.dx,-f.dz));camSnap=true}else resetToStart();state.checkpoint={x:car.pos.x,z:car.pos.z,h:Math.atan2(car.fw.x,car.fw.z)};toast(lvl.basePos?'Tauet hjem til basen · −20 ⚙':'Tauet til kaia · −20 ⚙')};
+$('aYes').onclick=()=>answerAsk(true);$('aNo').onclick=()=>answerAsk(false);$('aList').addEventListener('click',e=>{const b=e.target.closest('[data-dest]');if(b)answerAsk({dest:b.dataset.dest})});$('pAbort').onclick=()=>{pause(false);endCourse();toast('Løpet avbrutt')};
+$('startBtn').onclick=startRoam;$('raceBtn').onclick=()=>{state.roam=false;startRun()};
 document.querySelectorAll('.tb').forEach(b=>{const t=b.dataset.t;const on=e=>{e.preventDefault();state.input[t]=1;b.classList.add('on');try{b.setPointerCapture(e.pointerId)}catch(_){}};
   const off=e=>{state.input[t]=0;b.classList.remove('on')};b.addEventListener('pointerdown',on);b.addEventListener('pointerup',off);b.addEventListener('pointercancel',off);b.addEventListener('lostpointercapture',off)});
 const isTouch=()=>matchMedia('(pointer:coarse)').matches;
@@ -692,7 +695,7 @@ function syncVisuals(dt){
 let hudT=0;
 function updateHUD(dt){
   hudT-=dt;if(hudT>0)return;hudT=.1;
-  if(state.free){$('hNuts').textContent=fmtN(prof.nuts);const b=LEVELS[state.levelIdx].basePos||[0,0];const dm=Math.hypot(b[0]-car.pos.x,b[1]-car.pos.z)*UNIT_CM/100;$('hBase').textContent=dm.toFixed(1).replace('.',',')+' m';$('hDone').textContent=coursesDone()+'/'+LV.courses.length}
+  if(state.free){$('hNuts').textContent=fmtN(prof.nuts);const lvl=LEVELS[state.levelIdx],b=lvl.basePos||(LV.ferry?[LV.ferry.quay.x,LV.ferry.quay.z]:[0,0]);const dm=Math.hypot(b[0]-car.pos.x,b[1]-car.pos.z)*UNIT_CM/100;$('hBase').textContent=dm.toFixed(1).replace('.',',')+' m';$('hBaseL').textContent=lvl.basePos?'Basen':'Kaia';$('hDone').textContent=coursesDone()+'/'+LV.courses.length}
   else{$('hGate').textContent=(Math.min(state.next,LV.gates.length)-state.missed)+'/'+LV.gates.length;$('hTime').textContent=fmtTime(state.time);$('hPen').textContent=state.penalty;$('hCrate').textContent=state.crates+'/'+LV.crates.length}
   const sp=car.vel.dot(car.fw)*UNIT_CM;$('hSpeed').textContent=Math.round(Math.abs(sp));
   const ng=LV.gates[state.next];if(ng){const dcm=Math.hypot(ng.c.x-car.pos.x,ng.c.z-car.pos.z)*UNIT_CM;if(dcm>=100){$('hNext').textContent=(dcm/100).toFixed(1).replace('.',',');$('hNextU').textContent='m'}else{$('hNext').textContent=Math.round(dcm);$('hNextU').textContent='cm'}}else if(state.free){const n=nearestPortal();if(n){$('hNext').textContent=(n.d*UNIT_CM/100).toFixed(1).replace('.',',');$('hNextU').textContent='m til '+n.k.name}else{$('hNext').textContent='–';$('hNextU').textContent=''}}
@@ -709,8 +712,8 @@ function frame(now){
   if(!car||!LV){return}
   readInput(dt);if(toastT>0){toastT-=dt;if(toastT<=0)$('toast').classList.remove('on')}
   prevPos.copy(car.pos);
-  if(state.mode!=='pause'&&state.mode!=='ask'){acc+=dt;let n=0;while(acc>=FIXED&&n<20){stepCar(car,FIXED);acc-=FIXED;n++}if(n>=20)acc=0}
-  if(state.mode==='count')updateCountdown(dt);
+  if(state.mode!=='pause'&&state.mode!=='ask'&&state.mode!=='ferry'){acc+=dt;let n=0;while(acc>=FIXED&&n<20){stepCar(car,FIXED);acc-=FIXED;n++}if(n>=20)acc=0}
+  if(state.mode==='count')updateCountdown(dt);if(state.mode==='ferry')updateFerry(dt);
   if(!isFinite(car.pos.x)||!isFinite(car.q.w)){car.q.set(0,0,0,1);resetToStart()}
   if(state.mode==='play'){
     if(state.started)state.time+=dt;
@@ -731,7 +734,7 @@ function frame(now){
     // crates
     for(const c of crateVis){if(c.taken)continue;const dx=c.cr.x-car.pos.x,dz=c.cr.z-car.pos.z;if(dx*dx+dz*dz<.42&&Math.abs(c.cr.y-car.pos.y)<.9){c.taken=true;c.g.visible=false;state.crates++;toast('Kasse '+state.crates+'/'+LV.crates.length+' · +15 ⚙');for(let i=0;i<6;i++)spawnDust(c.g.position,0,true)}}
     if(car.pos.y<-3||Math.abs(car.pos.x)>HALF-.5||Math.abs(car.pos.z)>HALF-.5){winch();toast('Utenfor banen: vinsj',true)}
-    if(state.world){updateWorld(dt);updateFog(dt)}
+    if(state.world){updateWorld(dt);updateFog(dt);saveRoam(dt)}
     updateHUD(dt);
   }
   if(state.mode==='done'&&toastT>0)updateHUD(dt);
@@ -755,8 +758,8 @@ function renderMenu(){
     <span><span class="t">${l.name}</span><br><span class="d">${l.desc}</span></span><span class="best">Løyper<b>${done}/${l.challenges.length}</b></span></button>`}const b=best[l.id];return`<button class="lvl" data-lvl="${i}" aria-pressed="${i===state.levelIdx}"><span class="no">${no}</span>
     <span><span class="t">${l.name}<span class="diff" aria-label="Vanskelighet ${l.diff} av 3">${[1,2,3].map(k=>`<i class="${k<=l.diff?'on':''}"></i>`).join('')}</span></span><br><span class="d">${l.desc}</span></span>
     <span class="best">${b?`Beste<b>${fmtTime(b.t)}</b>${b.p} straff`:'Ikke kjørt'}</span></button>`};
-  const worlds=LEVELS.map((l,i)=>[l,i]).filter(([l])=>l.world),races=LEVELS.map((l,i)=>[l,i]).filter(([l])=>!l.world);
-  $('levelList').innerHTML=(worlds.length?'<p class="sect">Åpen verden</p>'+worlds.map(([l,i])=>lvlBtn(l,i,0)).join('')+'<p class="sect">Løp</p>':'')+races.map(([l,i],n)=>lvlBtn(l,i,n+1)).join('');
+  const races=LEVELS.map((l,i)=>[l,i]).filter(([l])=>!l.world);
+  $('levelList').innerHTML=races.map(([l,i],n)=>lvlBtn(l,i,n+1)).join('');const sel=LEVELS[state.levelIdx];$('raceBtn').textContent='Hurtigløp: '+(sel.world?races[0][0].name:sel.name);
   $('mNuts').textContent=fmtN(prof.nuts);$('mStars').textContent='★ '+totalStars()+' av '+maxStars();
   $('modeEasy').setAttribute('aria-pressed',state.assist);$('modeReal').setAttribute('aria-pressed',!state.assist);
   $('modeNote').textContent=state.assist?'Litt mer grep, veltehjelp, automatisk vinsj og en pil som peker mot neste port. Fint for barn og nybegynnere.':'Ingen hjelp. Bilen oppfører seg som en ekte crawler, og du må vinsje selv.';
@@ -769,7 +772,7 @@ $('modeReal').onclick=()=>{state.assist=false;store.set('assist',false);if(car)c
 /* ---------- open world: free driving, start portals, courses ---------- */
 // a world (def.world) has no gates of its own: LV.gates/LV.crates are swapped in when a course starts, so all the race code works unchanged
 let portals=[],courseArrows=null,countT=0,gateWake=null,nightOn=false,cpT=0;
-const coursesDone=()=>LV.courses.filter(k=>best[LEVELS[state.levelIdx].id+'/'+k.id]).length;
+const coursesDone=()=>LV.courses.filter(k=>best[courseKey(LEVELS[state.levelIdx],k)]).length;
 const DIFFCOL=['#8bbb4a','#8bbb4a','#f2c230','#d9432f'];
 function startFree(){state.mode='play';state.free=true;state.course=null;resetRunState();LV.gates=[];LV.crates=[];buildGates(LV);buildCrates(LV);
   resetToStart();car.low=true;clearTracks();showHud();updateGearUI();state.checkpoint={x:car.pos.x,z:car.pos.z,h:Math.atan2(car.fw.x,car.fw.z)};toast('Fri kjøring: kjør bort til en startstrek')}
@@ -793,14 +796,19 @@ function buildPortals(lv){portals=[];if(!lv.courses||!lv.courses.length)return;
     const b=new THREE.Mesh(new THREE.PlaneGeometry(1.2,.6),new THREE.MeshBasicMaterial({map:portalSign(k),side:THREE.DoubleSide}));b.position.set(sx,sy+1.25,sz);b.rotation.y=Math.atan2(-tn.x,-tn.z);g.add(b);
     levelGroup.add(g);portals.push({k,g,x:p.x,z:p.z,lights:g.children.filter(o=>o.isSprite)})}}
 function nearestPortal(){let b=null;for(const p of portals){const d=Math.hypot(p.x-car.pos.x,p.z-car.pos.z);if(!b||d<b.d)b={k:p.k,d}}return b}
-function openAsk(k){state.mode='ask';state.askK=k;
+function openAsk(k){state.mode='ask';state.askK=k;$('aList').hidden=true;$('aYes').hidden=false;
+  if(k==='ferry'){const here=LEVELS[state.levelIdx];$('aName').textContent='Fergen';$('aKind').textContent='Kaia på '+here.name;$('aDesc').textContent='Hvor vil du reise? Overfarten koster 5 muttere. Du har '+fmtN(prof.nuts)+'.';$('aBest').textContent='';$('aQ').textContent='';
+    const dests=ROUTES.filter(r=>r.includes(here.id)).map(r=>r[0]===here.id?r[1]:r[0]).map(id=>LEVELS.find(l=>l.id===id)).filter(Boolean);
+    $('aList').innerHTML=dests.map(l=>`<button data-dest="${l.id}"><span><span class="nm">${l.name}</span><span class="sub">${l.desc}</span></span><span class="pr">5 ⚙</span></button>`).join('');$('aList').hidden=false;$('aYes').hidden=true;$('aNo').textContent='Bli her';$('ask').hidden=false;return}
+  $('aQ').textContent='Vil du starte denne utfordringen?';$('aNo').textContent='NEI, kjør videre';
   if(k==='garage'){$('aName').textContent='Verkstedet';$('aKind').textContent='Basen';$('aDesc').textContent='Mekanikerne står klare. Her bruker du mutterne på dekk, fjæring, motor, vekt, utstyr og lakk.';$('aBest').textContent='Du har '+fmtN(prof.nuts)+' muttere.';$('ask').hidden=false;$('aYes').focus();return}
-  const key=LEVELS[state.levelIdx].id+'/'+k.id,b=best[key];
+  const key=courseKey(LEVELS[state.levelIdx],k),b=best[key];
   $('aName').textContent=k.name;$('aDesc').textContent=k.desc;$('aKind').textContent=['','Lett løype','Middels løype','Vanskelig løype'][k.diff]+' · '+k.gates.length+' porter';
   $('aBest').textContent=b?'Din beste: '+fmtTime(b.t)+' med '+b.p+' straffepoeng, '+b.s+' av 3 stjerner.':'Ikke kjørt ennå. Første gang i mål gir banebonus.';
   $('ask').hidden=false;$('aYes').focus()}
 function answerAsk(yes){if(state.mode!=='ask')return;$('ask').hidden=true;const k=state.askK;state.askK=null;
   if(k==='garage'){state.askCool='garage';if(yes){state.mode='play';toGarage()}else{state.mode='play';toast('Kjør videre når du vil')}return}
+  if(k==='ferry'){state.askCool='ferry';state.mode='play';if(yes&&yes.dest)startFerry(yes.dest);return}
   if(yes)startCourse(k);else{state.mode='play';state.askCool=k.id;toast('Kjør videre når du vil')}}
 function startCourse(k){state.course=k;state.free=false;resetRunState();LV.gates=k.gates;LV.crates=k.crates;buildGates(LV);buildCrates(LV);resetCrates();
   gateVis.forEach((g,i)=>{g.touched=false;setGateState(i,'pending')});gateWake={i:0,t:0};buildCourseArrows(k);
@@ -828,6 +836,7 @@ function updateWorld(dt){
   // free driving: a rolling checkpoint for the winch, and the start portals
   if(!state.course){cpT-=dt;if(cpT<=0&&car.up.y>.9&&car.wheels.every(w=>w.contact)&&car.depth<0){cpT=1.5;state.checkpoint={x:car.pos.x,z:car.pos.z,h:Math.atan2(car.fw.x,car.fw.z)}}
     for(const p of portals){const d=Math.hypot(p.x-car.pos.x,p.z-car.pos.z);if(d<2.2&&state.askCool!==p.k.id){openAsk(p.k);return}if(d>4&&state.askCool===p.k.id)state.askCool=null}
+    if(LV.ferry&&onFerryDeck()&&state.askCool!=='ferry'){openAsk('ferry');return}if(LV.ferry&&!onFerryDeck()&&state.askCool==='ferry')state.askCool=null;
     const ga=LEVELS[state.levelIdx].garageAt;if(ga){const d=Math.hypot(ga[0]-car.pos.x,ga[1]-car.pos.z);if(d<2.4&&state.askCool!=='garage'){openAsk('garage');return}if(d>4.5&&state.askCool==='garage')state.askCool=null}}
   else{const ng=LV.gates[state.next];if(ng&&Math.hypot(ng.c.x-car.pos.x,ng.c.z-car.pos.z)>30){endCourse();toast('For langt fra løypa: løpet er avbrutt',true)}}
   const tm=performance.now()*.001;for(const p of portals){if(Math.abs(p.x-car.pos.x)+Math.abs(p.z-car.pos.z)>40)continue;p.lights.forEach((l,i)=>l.material.opacity=.6+.4*Math.sin(tm*5+i*1.3))}
@@ -842,9 +851,57 @@ function updateBreakables(dt){if(!LV.breakables||!LV.propCyls)return;
       _bq.setFromAxisAngle(_bs.set(f.ax,0,f.az).normalize(),a);_bt.makeRotationFromQuaternion(_bq);_bt.setPosition(f.b.x,f.y0,f.b.z);_bt.multiply(new THREE.Matrix4().makeTranslation(-f.b.x,-f.y0,-f.b.z));_bm.premultiply(_bt);LV.propCyls.setMatrixAt(id,_bm)}
     LV.propCyls.instanceMatrix.needsUpdate=true;if(a>=1.5)falling.splice(i,1)}}
 
+/* ---------- roaming the archipelago ---------- */
+// «Kjør!» in the menu: free driving, starting on Sandglow-øya or wherever you last were
+let roamSaveT=0;
+function startRoam(){state.roam=true;const sv=store.get('roam',null);let i=LEVELS.findIndex(l=>l.id===(sv&&sv.id));if(i<0||!isIsland(LEVELS[i]))i=LEVELS.findIndex(l=>l.world);if(i<0)i=0;
+  if(i!==state.levelIdx||!state.world)loadLevel(i);startFree();
+  if(sv&&sv.id===LEVELS[i].id&&isFinite(sv.x)){placeCar(car,sv.x,sv.z,sv.h||0);camSnap=true;state.checkpoint={x:sv.x,z:sv.z,h:sv.h||0}}}
+function saveRoam(dt){if(!state.roam||!state.free||state.course)return;roamSaveT-=dt;if(roamSaveT>0)return;roamSaveT=3;if(car.up.y>.9&&car.depth<0)store.set('roam',{id:LEVELS[state.levelIdx].id,x:+car.pos.x.toFixed(2),z:+car.pos.z.toFixed(2),h:+Math.atan2(car.fw.x,car.fw.z).toFixed(3)})}
+// the ferry: hull, bulwarks, wheelhouse and funnel around the drivable deck the level made
+let ferryVis=null;
+function buildFerry(lv){ferryVis=null;const f=lv.ferry;if(!f)return;const g=new THREE.Group(),yaw=Math.atan2(f.dx,f.dz);g.position.set(f.x,f.y,f.z);g.rotation.y=yaw;
+  const hull=new THREE.MeshStandardMaterial({color:LIN('#3f5f78'),roughness:.6}),white=new THREE.MeshStandardMaterial({color:LIN('#eef0ea'),roughness:.5}),red=new THREE.MeshStandardMaterial({color:LIN('#c8463a'),roughness:.6});
+  const B=(w,h,d,mat,x,y,z)=>{const m=new THREE.Mesh(boxGeo,mat);m.scale.set(w,h,d);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;g.add(m);return m};
+  B(4.6,.9,f.len+.9,hull,0,-.5,0);B(4.8,.06,f.len+1.1,white,0,-.08,0);                                   // hull and gunwale line
+  for(const sd of[-1,1])B(.5,.42,f.len-.2,white,sd*2.05,.17,0);                                           // bulwarks beside the deck
+  B(.5,.42,3.4,white,0,.17,f.len/2+.2);                                                                  // stern wall (sea end)
+  B(1.3,1.25,1.5,white,1.65,.8,f.len/2-1.5);B(1.1,.45,1.1,new THREE.MeshStandardMaterial({color:LIN('#1a262d'),roughness:.1,metalness:.6}),1.65,1.1,f.len/2-1.5);   // wheelhouse
+  const fun=new THREE.Mesh(cylGeo,red);fun.scale.set(.22,.9,.22);fun.position.set(1.65,1.85,f.len/2-.6);g.add(fun);const fb=new THREE.Mesh(cylGeo,white);fb.scale.set(.24,.12,.24);fb.position.set(1.65,2.3,f.len/2-.6);g.add(fb);
+  const mast=new THREE.Mesh(cylGeo,white);mast.scale.set(.05,2.2,.05);mast.position.set(-1.9,1.1,f.len/2-1.2);g.add(mast);
+  for(const z of[-1.5,1.5]){const ring=new THREE.Mesh(new THREE.TorusGeometry(.2,.06,6,14),red);ring.position.set(2.32,.5,z);ring.rotation.y=Math.PI/2;g.add(ring)}
+  B(3.2,.05,1.4,new THREE.MeshStandardMaterial({color:LIN('#5a5a58'),roughness:.9}),0,.01,-f.len/2-.3);      // ramp onto the pier (land end)
+  levelGroup.add(g);ferryVis={g,f,yaw}}
+
+/* ---------- the ferry trip ---------- */
+// drive onto the deck, pick an island, and the ferry sails: out from this quay, a dark moment while the next island loads, in to its quay
+let FT=null;
+function onFerryDeck(){const f=LV.ferry;if(!f)return false;const rx=car.pos.x-f.x,rz=car.pos.z-f.z,along=rx*f.dx+rz*f.dz,lat=Math.abs(rx*f.dz-rz*f.dx);return Math.abs(along)<f.len/2-.3&&lat<f.hw-.15&&car.pos.y>f.y-.3}
+function startFerry(destId){const di=LEVELS.findIndex(l=>l.id===destId);if(di<0||!ferryVis)return;if(prof.nuts<5){toast('Du trenger 5 muttere til fergen',true);return}
+  prof.nuts-=5;saveProf();const g=ferryVis.g,f=LV.ferry;
+  FT={t:0,dest:di,phase:'out',from:g.position.clone(),dx:f.dx,dz:f.dz,off:car.pos.clone().sub(g.position),q:car.q.clone(),faded:false,loaded:false,base:g.position.clone()};
+  state.mode='ferry';car.vel.set(0,0,0);car.w.set(0,0,0);car.throttle=0;ambHorn(f.x,f.z);toast('Fergen går til '+LEVELS[di].name+' · −5 ⚙')}
+function ferryPlace(g){const tm=performance.now()*.001;g.position.y=FT.base.y+.04*Math.sin(tm*1.3);g.rotation.z=.012*Math.sin(tm*.9);car.pos.copy(g.position).add(FT.off);car.q.copy(FT.q)}
+function updateFerry(dt){if(!FT)return;FT.t+=dt;const g=ferryVis&&ferryVis.g;
+  if(FT.phase==='out'){const s=Math.min(1,FT.t/4.2),d=14*s*s;g.position.set(FT.from.x+FT.dx*d,FT.from.y,FT.from.z+FT.dz*d);FT.base.copy(g.position);ferryPlace(g);
+    if(FT.t>3.0&&!FT.faded){FT.faded=true;$('fade').classList.add('on')}
+    if(FT.t>4.2)ferryArrive()}
+  else{const s=Math.min(1,FT.t/4.2),d=16*(1-s)*(1-s);g.position.set(FT.dock.x+FT.dx*d,FT.dock.y,FT.dock.z+FT.dz*d);FT.base.copy(g.position);ferryPlace(g);
+    if(FT.t>.6&&FT.faded){FT.faded=false;$('fade').classList.remove('on')}
+    if(FT.t>4.2){g.position.copy(FT.dock);g.rotation.z=0;car.pos.copy(FT.dock).add(FT.off);car.pos.y=LV.ferry.y+.5;car.q.copy(FT.q);car.vel.set(0,0,0);
+      const f=LV.ferry;state.mode='play';state.free=true;state.askCool='ferry';state.checkpoint={x:f.pad.x,z:f.pad.z,h:Math.atan2(-f.dx,-f.dz)};FT=null;camSnap=true;roamSaveT=0;toast('Velkommen til '+LEVELS[state.levelIdx].name)}}}
+// the dark moment: load the destination island and put the ferry (with the car on it) out at sea off its quay, pointing in
+function ferryArrive(){const di=FT.dest;loadLevel(di);const f=LV.ferry,g=ferryVis.g;
+  // the car keeps its place on the deck: same along/lateral offset, now in the new ferry's frame, heading towards land
+  const along=FT.off.x*FT.dx+FT.off.z*FT.dz,lat=FT.off.x*FT.dz-FT.off.z*FT.dx;
+  FT.dx=f.dx;FT.dz=f.dz;FT.off.set(f.dx*along+f.dz*lat,.5,f.dz*along-f.dx*lat);FT.q.setFromAxisAngle(YAX,Math.atan2(-f.dx,-f.dz));
+  FT.dock=g.position.clone();FT.phase='in';FT.t=0;FT.loaded=true;g.position.set(FT.dock.x+f.dx*16,FT.dock.y,FT.dock.z+f.dz*16);FT.base=g.position.clone();ferryPlace(g);camSnap=true;
+  $('hud').classList.add('free');$('hLevel').textContent=LEVELS[di].name;ambHorn(f.x,f.z)}
+function skipFerry(){if(!FT)return;if(FT.phase==='out'){$('fade').classList.add('on');FT.faded=true;FT.t=4.21}else FT.t=4.21}
+
 /* ---------- boot ---------- */
 function boot(){
-  initMaps();decalMat=new THREE.MeshStandardMaterial({map:decalTexture(),transparent:true,roughness:.5});
+  state.roam=false;initMaps();decalMat=new THREE.MeshStandardMaterial({map:decalTexture(),transparent:true,roughness:.5});
   if(state.carIdx>=CARS.length)state.carIdx=0;if(state.levelIdx>=LEVELS.length)state.levelIdx=0;
   loadLevel(state.levelIdx);setCar(state.carIdx);setSound(state.sound);setVol('volCar',state.volCar);setVol('volAmb',state.volAmb);setSpeed(state.speed,true);setGfx(state.gfx);renderMenu();
   for(let i=0;i<240;i++)stepCar(car,FIXED);

@@ -1,0 +1,11 @@
+// Skjærgården: øyene og fergerutene mellom dem. pos er plassen på skjærgårdskartet (0–1).
+// Hver øy er sin egen banefil i data/levels/ med village:{at:[x,z]}; fergen går mellom kaiene.
+const ISLANDS=[
+  {id:'verden', pos:[.50,.52]},
+  {id:'sand',   pos:[.18,.80]},
+  {id:'stein',  pos:[.82,.84]},
+  {id:'skog',   pos:[.16,.26]},
+  {id:'elv',    pos:[.84,.24]},
+  {id:'vulkan', pos:[.50,.08]},
+];
+const ROUTES=[['verden','sand'],['verden','stein'],['verden','skog'],['verden','elv'],['verden','vulkan'],['sand','skog'],['stein','elv'],['elv','vulkan'],['skog','vulkan'],['sand','stein']];

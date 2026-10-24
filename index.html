@@ -16,6 +16,7 @@
 </head>
 <body>
 <div id="stage"></div>
+<div id="fade" aria-hidden="true"></div>
 
 <!-- HUD -->
 <div id="hud" hidden>
@@ -27,7 +28,7 @@
     <div class="r rc"><span>Kasser</span><b id="hCrate">0/6</b></div>
     <div class="r fr"><span>Muttere</span><b id="hNuts">0</b></div>
     <div class="r fr"><span>Løyper</span><b id="hDone">0/7</b></div>
-    <div class="r fr"><span>Basen</span><b id="hBase">0 m</b></div>
+    <div class="r fr"><span id="hBaseL">Basen</span><b id="hBase">0 m</b></div>
   </div>
   <div class="hud-btns">
     <button class="ib" id="bZoomOut" aria-label="Zoom ut (X)" title="Zoom ut (X)"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21M7.5 10.5h6"/></svg></button>
@@ -90,7 +91,7 @@
     <h2>Velg bil</h2>
     <div class="car-grid" id="carList"></div>
     <p class="car-desc" id="carDesc"></p>
-    <h2>Velg bane</h2>
+    <h2>Hurtigløp: velg løp</h2>
     <div class="level-list" id="levelList"></div>
     <h2>Kjøremodus</h2>
     <div class="seg" role="group" aria-label="Kjøremodus">
@@ -111,6 +112,8 @@
       <button id="gfxLo" aria-pressed="false">Lav</button>
     </div>
     <button class="go" id="startBtn">Kjør!</button>
+    <p class="note">Fri kjøring i skjærgården: du starter på Sandglow-øya, eller der du sist var. Fergen ved landsbyen tar deg til de andre øyene.</p>
+    <button class="ghost" id="raceBtn">Hurtigløp</button>
     <dl class="keys">
       <dt><kbd>←</kbd><kbd>↑</kbd><kbd>→</kbd><kbd>↓</kbd></dt><dd>Styr, gass og revers (også WASD)</dd>
       <dt><kbd>G</kbd> / <kbd>Mellomrom</kbd></dt><dd>Bytt mellom lavt og høyt gir</dd>
@@ -174,7 +177,8 @@
     <h2 id="aName">Jungelstien</h2>
     <p class="note" id="aDesc"></p>
     <p class="note" id="aBest"></p>
-    <p class="lede" style="font-size:1.05rem;margin:0">Vil du starte denne utfordringen?</p>
+    <div class="alist" id="aList" hidden></div>
+    <p class="lede" style="font-size:1.05rem;margin:0" id="aQ">Vil du starte denne utfordringen?</p>
     <div class="row">
       <button class="go" id="aYes">JA</button>
       <button class="ghost" id="aNo">NEI, kjør videre</button>
@@ -185,7 +189,7 @@
 <!-- ISLAND MAP (open world) -->
 <section class="overlay dialog" id="map" hidden>
   <div class="mapframe">
-    <header><p class="eyebrow">Sandglow-øya</p><h2>Øykartet</h2><button class="ghost" id="mClose">Lukk (K)</button></header>
+    <header><p class="eyebrow" id="mIsland">Sandglow-øya</p><h2>Kartet</h2><div class="seg maptabs" role="group"><button id="mTabIsland" aria-pressed="true">Øya</button><button id="mTabArch" aria-pressed="false">Skjærgården</button></div><button class="ghost" id="mClose">Lukk (K)</button></header>
     <div class="mapbox"><canvas id="mapCv" width="512" height="512"></canvas></div>
     <p class="note" id="mapInfo"></p>
     <div class="legend"><span><i style="background:#8bbb4a"></i>Lett</span><span><i style="background:#e5a92b"></i>Middels</span><span><i style="background:#d9432f"></i>Vanskelig</span><span><i class="ck"></i>Fullført</span><span><i style="background:#cdbf9c"></i>Uutforsket</span></div>
@@ -225,12 +229,12 @@
 <!-- Innhold: legg til nye biler i data/cars.js og nye baner som egne filer her -->
 <script src="data/parts.js"></script>
 <script src="data/cars.js"></script>
+<script src="data/archipelago.js"></script>
 <script src="data/levels/01-sand.js"></script>
 <script src="data/levels/02-stein.js"></script>
 <script src="data/levels/03-skog.js"></script>
 <script src="data/levels/05-elv.js"></script>
 <script src="data/levels/06-vulkan.js"></script>
-<script src="data/levels/07-oya.js"></script>
 <script src="data/levels/10-verden.js"></script>
 
 <!-- Spillet -->
