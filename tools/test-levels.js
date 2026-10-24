@@ -6,7 +6,10 @@ const fs=require('fs'),path=require('path'),vm=require('vm');
 const root=path.join(__dirname,'..');
 const load=f=>vm.runInThisContext(fs.readFileSync(path.join(root,f),'utf8'),{filename:f});
 load('js/core.js');load('data/parts.js');load('data/cars.js');
-for(const f of fs.readdirSync(path.join(root,'data/levels')).filter(f=>f.endsWith('.js')).sort())load('data/levels/'+f);
+// same levels and order as the game: the <script> tags in index.html
+const levelFiles=[...fs.readFileSync(path.join(root,'index.html'),'utf8').matchAll(/<script src="(data\/levels\/[^"]+\.js)"/g)].map(m=>m[1]);
+for(const f of fs.readdirSync(path.join(root,'data/levels')).filter(f=>f.endsWith('.js')))if(!levelFiles.includes('data/levels/'+f))console.log('ADVARSEL: data/levels/'+f+' mangler i index.html og er ikke med i spillet');
+levelFiles.forEach(load);
 const dt=1/240,only=process.argv[2];
 for(const def of LEVELS){
   if(only&&def.id!==only)continue;
@@ -24,7 +27,7 @@ for(const def of LEVELS){
       if(flood>1.4){drown++;flood=0;const p=lv.P(Math.min(1,pt+.02)),tn=lv.T(Math.min(1,pt+.02));placeCar(car,p.x,p.z,Math.atan2(tn.x,tn.z))}
       if(car.wheels.every(w=>!w.contact)&&car.pos.y>H(car.pos.x,car.pos.z)+.3)air+=dt;else{if(air>.32)jumps++;air=0}
       if(car.up.y<.2){flips++;placeCar(car,car.pos.x,car.pos.z,Math.atan2(fw.x,fw.z))}
-      if(i%2400===0){if(pt-lastProg<.004){stuck++;const p=lv.P(Math.min(1,pt+.02)),tn=lv.T(Math.min(1,pt+.02));placeCar(car,p.x,p.z,Math.atan2(tn.x,tn.z))}lastProg=pt}
+      if(i>0&&i%2400===0){if(pt-lastProg<.004){stuck++;const p=lv.P(Math.min(1,pt+.02)),tn=lv.T(Math.min(1,pt+.02));placeCar(car,p.x,p.z,Math.atan2(tn.x,tn.z))}lastProg=pt}
       if(pt>.985){t=i*dt;break}
     }
     console.log(def.id.padEnd(8),low?'LAV ':'HØY ','prog',pt.toFixed(2),'tid',(t||0).toFixed(0).padStart(3)+'s','velt',flips,'fast',stuck,'maksDybde',maxDepth.toFixed(2),'drown',drown,'hopp',jumps,'kasser',lv.crates.length);

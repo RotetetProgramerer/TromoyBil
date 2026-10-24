@@ -1,4 +1,4 @@
-// Bane: se README for hva feltene betyr. Rekkefølgen i menyen følger filnavnet.
+// Bane: se README for hva feltene betyr. Rekkefølgen i menyen følger rekkefølgen i index.html.
 LEVELS.push(
 { id:'sand', name:'Sandklitten', diff:1, seed:11, gates:10,
   desc:'Lyse klitter, en oase, et sandhopp og en vannpytt. Fin bane for å lære lavgiret.',
