@@ -304,7 +304,7 @@ function resetToStart(){const s=LV.start;placeCar(car,s.p.x,s.p.z,Math.atan2(s.t
 /* ---------- game flow ---------- */
 function startRun(){
   initAudio();if(AC&&AC.state==='suspended')AC.resume();
-  Object.assign(state,{mode:'play',time:0,started:false,penalty:0,next:0,flipT:0,missed:0,touched:0,winches:0,winchPen:0,log:[],crates:0,jumps:0,longJumps:0,bestAir:0,air:0,flood:0,drowned:0,deepWarn:false});
+  Object.assign(state,{mode:'play',time:0,started:false,penalty:0,next:0,flipT:0,missed:0,touched:0,winches:0,winchPen:0,rescues:0,log:[],crates:0,jumps:0,longJumps:0,bestAir:0,air:0,flood:0,drowned:0,deepWarn:false});
   gateVis.forEach((g,i)=>{g.touched=false;setGateState(i,i===0?'next':'pending')});
   resetCrates();resetToStart();car.low=true;clearTracks();
   $('menu').hidden=true;$('result').hidden=true;$('pause').hidden=true;$('hud').hidden=false;$('hint').hidden=true;
@@ -328,8 +328,12 @@ $('paintList').addEventListener('click',e=>{const b=e.target.closest('[data-pain
 $('mGarage').onclick=toGarage;$('rGarage').onclick=toGarage;$('gBack').onclick=toMenu;$('gDrive').onclick=startRun;
 function pause(on){if(state.mode!=='play'&&state.mode!=='pause')return;state.mode=on?'pause':'play';$('pause').hidden=!on;if(on)$('pResume').focus()}
 function addPenalty(n,why){state.penalty+=n;state.log.push(why);toast('+'+n+' '+why.split(':')[0],true)}
+// auto: the flip assist in easy mode puts the car back for free; everything else costs a winch penalty
 function winch(auto){
-  if(state.mode!=='play')return;const cp=state.checkpoint,cost=car.tune.winch;placeCar(car,cp.x,cp.z,cp.h);addPenalty(cost,'Vinsj');state.winches++;state.winchPen+=cost;state.flipT=0;$('hint').hidden=true;camSnap=true;
+  if(state.mode!=='play')return;const cp=state.checkpoint;placeCar(car,cp.x,cp.z,cp.h);
+  if(auto&&car.assist){state.rescues++;toast('Veltehjelp: bilen er tilbake på hjulene')}
+  else{const cost=car.tune.winch;addPenalty(cost,'Vinsj');state.winches++;state.winchPen+=cost}
+  state.flipT=0;state.flood=0;state.deepWarn=false;state.air=0;$('hint').hidden=true;camSnap=true;
 }
 function finishRun(){
   state.mode='done';const def=LEVELS[state.levelIdx],t=Math.max(0,state.time-state.crates*2),p=state.penalty;const stars=p===0?3:p<=6?2:1;
@@ -341,6 +345,7 @@ function finishRun(){
   const items=[];if(state.missed)items.push(`<li><b>${state.missed} port${state.missed>1?'er':''} bommet:</b> ${state.missed*10} poeng</li>`);
   if(state.winches)items.push(`<li><b>${state.winches} vinsj:</b> ${state.winchPen} poeng</li>`);
   if(state.touched)items.push(`<li><b>${state.touched} portstang${state.touched>1?'er':''} berørt:</b> ${state.touched*2} poeng</li>`);
+  if(state.rescues)items.push(`<li><b>${state.rescues} veltehjelp:</b> ingen straff</li>`);
   if(state.drowned)items.push(`<li><b>${state.drowned} druknet motor:</b> ${state.drowned*5} poeng</li>`);
   if(!items.length)items.push('<li><b>Ingen straffepoeng.</b> Akkurat sånn det skal gjøres.</li>');
   items.push(`<li><b>Kasser ${state.crates}/${LV.crates.length}:</b> ${state.crates?'−'+state.crates*2+' s på tiden':'ingen bonus'}</li>`);
@@ -352,10 +357,15 @@ function finishRun(){
   if(state.crates){e+=state.crates*15;el.push(`${state.crates} kasser +${state.crates*15}`)}
   if(state.longJumps){e+=state.longJumps*20;el.push(`${state.longJumps} store hopp +${state.longJumps*20}`)}
   if(p===0){e+=100;el.push('feilfri +100')}
-  if(!prof.first[def.id]){prof.first[def.id]=1;e+=200;el.push('første gang i mål +200')}
-  const today=new Date().toDateString();let dbl=false;if(prof.lastDay!==today){prof.lastDay=today;dbl=true;e*=2}
+  // first-completion bonus is earned per gate: 200 for all gates, the rest can be picked up on a later run
+  const frac=gatesOK/def.gates,prevF=+prof.first[def.id]||0;
+  if(frac>prevF){const add=Math.round(200*frac)-Math.round(200*prevF);prof.first[def.id]=frac;e+=add;
+    el.push(frac<1?`${gatesOK}/${def.gates} porter tatt, banebonus +${add}`:prevF?`alle porter tatt, resten av banebonusen +${add}`:'første gang i mål +200')}
+  // the daily double needs a full run (no missed gates) and is saved for later otherwise
+  const today=new Date().toDateString();let dbl=false,dblNote='';
+  if(prof.lastDay!==today){if(state.missed===0){prof.lastDay=today;dbl=true;e*=2}else dblNote='Ta alle portene for å få dagens dobbel. '}
   prof.nuts+=e;prof.runs++;saveProf();
-  $('rNuts').textContent='+'+fmtN(e);$('rNutsNote').textContent=(dbl?'Dagens første tur: dobbelt! ':'')+el.join(' · ');
+  $('rNuts').textContent='+'+fmtN(e);$('rNutsNote').textContent=(dbl?'Dagens første tur: dobbelt! ':dblNote)+el.join(' · ');
   $('rLog').innerHTML=items.join('');
   $('rNext').textContent=state.levelIdx<LEVELS.length-1?'Neste bane':'Første bane';
   setTimeout(()=>{$('result').hidden=false;$('rNext').focus()},900);toast('Mål!');
@@ -410,7 +420,7 @@ function toggleGear(){car.low=!car.low;updateGearUI();toast(car.low?'Lavt gir: k
 function updateGearUI(){$('hGearTxt').textContent=car.low?'LAV':'HØY';$('hGearSub').textContent=car.low?'krabb':'fart';$('bGear').classList.toggle('hi',!car.low)}
 function setLights(on){state.lights=on;$('bLights').setAttribute('aria-pressed',on);const led=car&&car.tune.led;M.lamp.emissive.set(on?0xfff1c0:0x000000);M.tail.emissive.set(on?0x8a1010:0x000000);M.beam.opacity=on?(led?.14:.085):0;if(carVis)carVis.spots.forEach(s=>s.intensity=on?(led?3.8:2.2):0)}
 const CAMS=['Følgekamera','Bakkekamera','Førerkamera'];
-function cycleCam(){state.camMode=(state.camMode+1)%3;tripod=null;camSnap=true;fovZoom=1;toast(CAMS[state.camMode])}
+function cycleCam(){state.camMode=(state.camMode+1)%3;tripod=null;if(state.camMode===0){orbitYaw=0;orbitPitch=0}camSnap=true;fovZoom=1;toast(CAMS[state.camMode])}
 function setSound(on){state.sound=on;store.set('sound',on);$('pSound').textContent='Lyd: '+(on?'på':'av');$('pSound').setAttribute('aria-pressed',on)}
 $('bGear').onclick=()=>{if(state.mode==='play')toggleGear()};$('bLights').onclick=()=>setLights(!state.lights);
 $('bSlow').onclick=()=>setSpeed(state.speed-10);$('bFast').onclick=()=>setSpeed(state.speed+10);
@@ -463,7 +473,6 @@ function updateCamera(dt){
   if(state.mode==='menu'||state.mode==='garage'){const g=state.mode==='garage',a=performance.now()*(g?.0002:.00012)+.6,r=g?3.2:4.6;camTarget.set(car.pos.x+Math.sin(a)*r,0,car.pos.z+Math.cos(a)*r);camTarget.y=Math.max(car.pos.y+(g?.7:1.1),H(camTarget.x,camTarget.z)+.5);
     camLook.copy(car.pos).add(_c2.set(0,.2,0));camera.fov=g?34:40;}
   else if(state.camMode===0){
-    if(!drag)orbitYaw*=Math.pow(.35,dt*(Math.abs(car.throttle)>.1?1:0));
     const c=Math.cos(orbitYaw),s=Math.sin(orbitYaw),bx=-(fwf.x*c+fwf.z*s),bz=-(-fwf.x*s+fwf.z*c);
     camTarget.set(car.pos.x+bx*camDist,car.pos.y+.9+camDist*.28+orbitPitch*camDist*.6,car.pos.z+bz*camDist);
     camTarget.y=Math.max(camTarget.y,H(camTarget.x,camTarget.z)+.45);camLook.copy(car.pos).add(_c2.set(0,.35,0));camera.fov=55+Math.min(9,car.vel.length()*1.5);
@@ -531,7 +540,7 @@ function frame(now){
     if(state.started)state.time+=dt;
     checkGates();
     if(car.up.y<.3&&car.vel.length()<1.5)state.flipT+=dt;else state.flipT=Math.max(0,state.flipT-dt*2);
-    if(state.flipT>1.3&&$('hint').hidden){$('hint').hidden=false;$('hint').innerHTML=car.assist?'Bilen har veltet. Vinsjen henter den straks.':'Bilen har veltet. Trykk <b>R</b> eller <button id="hWinch">Vinsj</button> for å komme videre.';const hb=$('hWinch');if(hb)hb.onclick=()=>winch()}
+    if(state.flipT>1.3&&$('hint').hidden){$('hint').hidden=false;$('hint').innerHTML=car.assist?'Bilen har veltet. Veltehjelpen henter den straks, uten straff.':'Bilen har veltet. Trykk <b>R</b> eller <button id="hWinch">Vinsj</button> for å komme videre.';const hb=$('hWinch');if(hb)hb.onclick=()=>winch()}
     if(state.flipT<.5&&!$('hint').hidden)$('hint').hidden=true;
     if(car.assist&&state.flipT>2.6)winch(true);
     // water: warn, then the engine floods
@@ -541,7 +550,7 @@ function frame(now){
     if(car.wheels.every(w=>!w.contact)&&car.pos.y>H(car.pos.x,car.pos.z)+.3){state.air+=dt}else if(state.air>0){if(state.air>.32){state.jumps++;if(state.air>.5)state.longJumps++;state.bestAir=Math.max(state.bestAir,state.air);toast('Hopp! '+state.air.toFixed(1).replace('.',',')+' s'+(state.air>.5?' · +20 ⚙':''))}state.air=0}
     // crates
     for(const c of crateVis){if(c.taken)continue;const dx=c.cr.x-car.pos.x,dz=c.cr.z-car.pos.z;if(dx*dx+dz*dz<.42&&Math.abs(c.cr.y-car.pos.y)<.9){c.taken=true;c.g.visible=false;state.crates++;toast('Kasse '+state.crates+'/'+LV.crates.length+' · +15 ⚙');for(let i=0;i<6;i++)spawnDust(c.g.position,0,true)}}
-    if(car.pos.y<-3||Math.abs(car.pos.x)>HALF-.5||Math.abs(car.pos.z)>HALF-.5){toast('Utenfor banen',true);winch(true)}
+    if(car.pos.y<-3||Math.abs(car.pos.x)>HALF-.5||Math.abs(car.pos.z)>HALF-.5){winch();toast('Utenfor banen: vinsj',true)}
     updateHUD(dt);
   }
   if(state.mode==='done'&&toastT>0)updateHUD(dt);
