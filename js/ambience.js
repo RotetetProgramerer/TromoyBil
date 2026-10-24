@@ -17,7 +17,9 @@ function initAmbience(){if(AMB||!AC)return;try{const ac=AC,buf=noiseBuf(ac);
   const wf=mk('lowpass',700,.7,0),wf2=mk('highpass',1800,.5,0);
   let wpan=null;try{wpan=ac.createStereoPanner();wf.g.disconnect();wf2.g.disconnect();wf.g.connect(wpan);wf2.g.connect(wpan);wpan.connect(master)}catch(e){}                                    // waterfall: a deep rush and a bright spray
   const rum=mk('lowpass',85,.8,0),hiss=mk('bandpass',2400,1.2,0);                                   // volcano: rumble and a hiss of steam
-  AMB={ac,master,ins,trem,wf,wf2,rum,hiss,wpan}}catch(e){AMB=null}}
+  const wind=mk('lowpass',380,.5,0);                                                                   // mountain: wind
+  const waves=mk('lowpass',460,.6,0);                                                                  // beach: surf
+  AMB={ac,master,ins,trem,wf,wf2,rum,hiss,wind,waves,wpan,frogT:0,hamT:0}}catch(e){AMB=null}}
 function ambPan(x,z){if(!camera)return 0;const dx=x-camera.position.x,dz=z-camera.position.z,d=Math.hypot(dx,dz)||1;const e=camera.matrixWorld.elements;return Math.max(-1,Math.min(1,(dx*e[0]+dz*e[2])/d))}
 function ambVoice(x,z,dist){if(!AMB)return null;const ac=AMB.ac,g=ac.createGain(),d=Math.hypot(x-camera.position.x,z-camera.position.z),vol=Math.max(0,1-d/dist);if(vol<=0||!(state.sound))return null;
   let out=g;try{const p=ac.createStereoPanner();p.pan.value=ambPan(x,z);g.connect(p);p.connect(AMB.master);out=g}catch(e){g.connect(AMB.master)}return{g,vol,t:ac.currentTime}}
@@ -40,7 +42,10 @@ function ambRumble(dur,vol){initAmbience();if(!AMB||!state.sound)return;try{cons
 function updateAmbience(dt){if(!AC||!LV)return;initAmbience();if(!AMB)return;const def=LEVELS[state.levelIdx],ac=AMB.ac,t=ac.currentTime,S_=(g,v)=>g.gain.setTargetAtTime(v,t,.25);
   const on=state.sound&&def.ambience==='jungle'&&(state.mode==='play'||state.mode==='menu'||state.mode==='pause'),vol=(state.mode==='play'?1:.45)*(state.volAmb/70);
   S_(AMB.master,on?vol:0);if(!on)return;
-  const k=ZL.on?Math.max(0,ZL.k):0,jungle=1-k;                                        // 0 = jungle, 1 = volcano
+  const k=ZL.on?Math.max(0,ZL.k):0;                                                   // 0 = jungle, 1 = volcano/mountain
+  // biome weights: a world gives them with def.biome(x,z); older levels only know jungle vs. the zone
+  const B=def.biome?def.biome(car.pos.x,car.pos.z):{jungle:1-k,snow:k},jungle=B.jungle||0,snowW=B.snow||0,beach=B.beach||0,swamp=B.swamp||0;
+  const bp=def.basePos,baseW=bp?Math.max(0,1-Math.hypot(bp[0]-car.pos.x,bp[1]-car.pos.z)/16):0;
   // cicadas: louder in the jungle, swelling and fading
   insT+=dt;S_(AMB.ins.out,.028*jungle*(.6+.4*Math.sin(insT*.5)));
   // birds
@@ -49,5 +54,22 @@ function updateAmbience(dt){if(!AC||!LV)return;initAmbience();if(!AMB)return;con
   // waterfall: you hear it from far away, it swells as you come closer and roars when you drive behind it
   let wv=0,wf=null;for(const f of fxAnim.falls){const d=Math.hypot(f.x-car.pos.x,f.z-car.pos.z),v=Math.pow(Math.max(0,1-d/34),2.2);if(v>wv){wv=v;wf=f}}
   S_(AMB.wf.g,.55*wv);S_(AMB.wf2.g,.09*wv);if(AMB.wpan&&wf)AMB.wpan.pan.setTargetAtTime(ambPan(wf.x,wf.z)*(1-wv*.7),t,.3);
-  // volcano
-  S_(AMB.rum.g,.16*k+(ERU.phase?.1:0));S_(AMB.hiss.g,.02*k)}
+  // volcano (only where the level has eruptions) or wind (def.wind): both grow with zone k
+  const vol_=def.erupt?1:0;S_(AMB.rum.g,.16*k*vol_+(ERU.phase?.1:0));S_(AMB.hiss.g,.02*k*vol_);
+  S_(AMB.wind.g,def.wind?.09*snowW*(.65+.35*Math.sin(insT*.41)+.15*Math.sin(insT*1.7)):0);
+  // beach: surf swelling and fading
+  S_(AMB.waves.g,.16*beach*(.55+.45*Math.sin(insT*.62)));
+  // swamp: frogs; the base: hammer blows from the workshop
+  AMB.frogT-=dt;if(swamp>.15&&AMB.frogT<=0){AMB.frogT=.25+Math.random()*1.4/swamp;ambFrog(car.pos.x+(Math.random()-.5)*14,car.pos.z+(Math.random()-.5)*14)}
+  AMB.hamT-=dt;if(baseW>.05&&AMB.hamT<=0){AMB.hamT=.5+Math.random()*(Math.random()<.3?2.5:.4);ambHammer(bp[0],bp[1]+4)}}
+// a frog croaking somewhere in the reeds
+function ambFrog(x,z){const v=ambVoice(x,z,18);if(!v)return;const ac=AMB.ac,o=ac.createOscillator();o.type='sawtooth';const f=ac.createBiquadFilter();f.type='lowpass';f.frequency.value=520;o.connect(f);f.connect(v.g);const t=v.t,f0=85+Math.random()*60;
+  o.frequency.setValueAtTime(f0,t);o.frequency.linearRampToValueAtTime(f0*1.25,t+.12);o.frequency.linearRampToValueAtTime(f0*.9,t+.3);v.g.gain.setValueAtTime(0,t);v.g.gain.linearRampToValueAtTime(.07*v.vol,t+.03);v.g.gain.linearRampToValueAtTime(0,t+.32);o.start(t);o.stop(t+.35)}
+// a hammer on steel at the workshop
+function ambHammer(x,z){const v=ambVoice(x,z,22);if(!v)return;const ac=AMB.ac,s=noiseSrc(ac,noiseBuf(ac,.2)),f=ac.createBiquadFilter();f.type='bandpass';f.frequency.value=2600+Math.random()*800;f.Q.value=6;s.connect(f);f.connect(v.g);const t=v.t;
+  v.g.gain.setValueAtTime(.12*v.vol,t);v.g.gain.exponentialRampToValueAtTime(.001,t+.16);s.stop(t+.2)}
+// a gull taking off, and the eagle's cry high above
+function ambGull(x,z){initAmbience();const v=ambVoice(x,z,26);if(!v)return;const ac=AMB.ac,o=ac.createOscillator();o.type='triangle';o.connect(v.g);const t=v.t,n=1+Math.floor(Math.random()*3);
+  for(let i=0;i<n;i++){const t0=t+i*.3;o.frequency.setValueAtTime(1500,t0);o.frequency.linearRampToValueAtTime(1100,t0+.08);o.frequency.linearRampToValueAtTime(800,t0+.24);v.g.gain.setValueAtTime(0,t0);v.g.gain.linearRampToValueAtTime(.06*v.vol,t0+.03);v.g.gain.linearRampToValueAtTime(0,t0+.25)}o.start(t);o.stop(t+n*.3+.05)}
+function ambEagle(x,z){initAmbience();const v=ambVoice(x,z,40);if(!v)return;const ac=AMB.ac,o=ac.createOscillator();o.type='sine';o.connect(v.g);const t=v.t;
+  o.frequency.setValueAtTime(2600,t);o.frequency.exponentialRampToValueAtTime(1900,t+.5);o.frequency.exponentialRampToValueAtTime(2300,t+.8);v.g.gain.setValueAtTime(0,t);v.g.gain.linearRampToValueAtTime(.05*v.vol,t+.08);v.g.gain.linearRampToValueAtTime(0,t+.85);o.start(t);o.stop(t+.9)}

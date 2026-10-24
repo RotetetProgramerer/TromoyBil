@@ -21,14 +21,18 @@
 <div id="hud" hidden>
   <div class="hud-run" aria-live="polite">
     <div class="ln" id="hLevel">Sandklitten</div>
-    <div class="r"><span>Port</span><b id="hGate">0/10</b></div>
-    <div class="r"><span>Tid</span><b id="hTime">0:00.0</b></div>
-    <div class="r"><span>Straff</span><b id="hPen" class="pen">0</b></div>
-    <div class="r"><span>Kasser</span><b id="hCrate">0/6</b></div>
+    <div class="r rc"><span>Port</span><b id="hGate">0/10</b></div>
+    <div class="r rc"><span>Tid</span><b id="hTime">0:00.0</b></div>
+    <div class="r rc"><span>Straff</span><b id="hPen" class="pen">0</b></div>
+    <div class="r rc"><span>Kasser</span><b id="hCrate">0/6</b></div>
+    <div class="r fr"><span>Muttere</span><b id="hNuts">0</b></div>
+    <div class="r fr"><span>Løyper</span><b id="hDone">0/7</b></div>
+    <div class="r fr"><span>Basen</span><b id="hBase">0 m</b></div>
   </div>
   <div class="hud-btns">
     <button class="ib" id="bZoomOut" aria-label="Zoom ut (X)" title="Zoom ut (X)"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21M7.5 10.5h6"/></svg></button>
     <button class="ib" id="bZoomIn" aria-label="Zoom inn (Z)" title="Zoom inn (Z)"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21M7.5 10.5h6M10.5 7.5v6"/></svg></button>
+    <button class="ib" id="bMap" aria-label="Kart (K)" title="Kart (K)" hidden><svg viewBox="0 0 24 24"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/></svg></button>
     <button class="ib" id="bCam" aria-label="Bytt kamera (C)" title="Bytt kamera (C)"><svg viewBox="0 0 24 24"><path d="M3 8h4l2-3h6l2 3h4v11H3z"/><circle cx="12" cy="13" r="3.5"/></svg></button>
     <button class="ib" id="bLights" aria-pressed="false" aria-label="Lys av og på (L)" title="Lys (L)"><svg viewBox="0 0 24 24"><path d="M10 6c-4 0-6 3-6 6s2 6 6 6c2 0 3-2 3-6s-1-6-3-6z"/><path d="M15 8l6-1M15 12h6M15 16l6 1"/></svg></button>
     <button class="ib" id="bWinch" aria-label="Vinsj tilbake (R), 5 straffepoeng" title="Vinsj (R)">Vinsj</button>
@@ -54,7 +58,9 @@
       <div class="lbl"><span>Krengning <b id="hRoll">0°</b></span><span>Stigning <b id="hPitch">0°</b></span></div>
     </div>
   </div>
+  <canvas id="minimap" width="150" height="150" aria-hidden="true" hidden></canvas>
   <div class="toast" id="toast"></div>
+  <div class="count" id="count" hidden></div>
   <div class="hint" id="hint" hidden></div>
 
   <div class="touch">
@@ -144,6 +150,7 @@
       <button class="ghost" id="pRestart">Start på nytt</button>
       <button class="ghost" id="pMenu">Til menyen</button>
     </div>
+    <div class="row"><button class="ghost" id="pMap" hidden>Øykartet</button><button class="ghost" id="pAbort" hidden>Avbryt løpet</button></div>
     <div class="row"><button class="ghost" id="pSound" aria-pressed="true">Lyd: på</button></div>
     <div class="slider"><span class="lbl">Bil</span><input type="range" id="pVolCar" min="0" max="100" step="5" value="70" aria-label="Lydstyrke bil"><output id="pVolCarOut">70 %</output></div>
     <div class="slider"><span class="lbl">Omgivelser</span><input type="range" id="pVolAmb" min="0" max="100" step="5" value="70" aria-label="Lydstyrke omgivelser"><output id="pVolAmbOut">70 %</output></div>
@@ -157,6 +164,32 @@
       <li><b>Muttere:</b> 10 per port, 100 for feilfri runde, 20 for store hopp, opptil 200 i banebonus (full bonus krever alle portene)</li>
       <li><b>Dagens dobbel:</b> første tur hver dag der du tar alle portene</li>
     </ul>
+  </div>
+</section>
+
+<!-- START A COURSE? (open world) -->
+<section class="overlay dialog" id="ask" hidden>
+  <div class="sheet ask">
+    <p class="eyebrow" id="aKind">Løype</p>
+    <h2 id="aName">Jungelstien</h2>
+    <p class="note" id="aDesc"></p>
+    <p class="note" id="aBest"></p>
+    <p class="lede" style="font-size:1.05rem;margin:0">Vil du starte denne utfordringen?</p>
+    <div class="row">
+      <button class="go" id="aYes">JA</button>
+      <button class="ghost" id="aNo">NEI, kjør videre</button>
+    </div>
+  </div>
+</section>
+
+<!-- ISLAND MAP (open world) -->
+<section class="overlay dialog" id="map" hidden>
+  <div class="mapframe">
+    <header><p class="eyebrow">Sandglow-øya</p><h2>Øykartet</h2><button class="ghost" id="mClose">Lukk (K)</button></header>
+    <div class="mapbox"><canvas id="mapCv" width="512" height="512"></canvas></div>
+    <p class="note" id="mapInfo"></p>
+    <div class="legend"><span><i style="background:#8bbb4a"></i>Lett</span><span><i style="background:#e5a92b"></i>Middels</span><span><i style="background:#d9432f"></i>Vanskelig</span><span><i class="ck"></i>Fullført</span><span><i style="background:#cdbf9c"></i>Uutforsket</span></div>
+    <div class="row"><button class="ghost" id="mTow">Tau hjem til basen (20 ⚙)</button></div>
   </div>
 </section>
 
@@ -187,6 +220,7 @@
 <script src="js/core.js"></script>
 <script src="js/animals.js"></script>
 <script src="js/ambience.js"></script>
+<script src="js/map.js"></script>
 
 <!-- Innhold: legg til nye biler i data/cars.js og nye baner som egne filer her -->
 <script src="data/parts.js"></script>
@@ -194,9 +228,10 @@
 <script src="data/levels/01-sand.js"></script>
 <script src="data/levels/02-stein.js"></script>
 <script src="data/levels/03-skog.js"></script>
-<script src="data/levels/04-desk.js"></script>
 <script src="data/levels/05-elv.js"></script>
 <script src="data/levels/06-vulkan.js"></script>
+<script src="data/levels/07-oya.js"></script>
+<script src="data/levels/10-verden.js"></script>
 
 <!-- Spillet -->
 <script src="js/game.js"></script>

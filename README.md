@@ -74,11 +74,13 @@ Bilen dukker opp i menyen med en gang.
 | `gates` | Antall porter (10 er standard). |
 | `path` | Listen med `[x, z]`-punkter som løypa går gjennom. Verden er 70 × 70 enheter, fra −35 til 35. Hold deg innenfor ±28. |
 | `base(x,z,n)` | Funksjon som gir terrenghøyden. `n` er en støyfunksjon. Start med å kopiere en eksisterende. |
-| `surf(x,z)` | Underlag per punkt: `S.SAND`, `S.GRAVEL`, `S.GRASS`, `S.DIRT`, `S.MUD`, `S.BOG`, `S.ROCK`, `S.WOOD`, `S.ASH` (svart vulkansand). Styrer grep og farge. |
+| `surf(x,z)` | Underlag per punkt: `S.SAND`, `S.GRAVEL`, `S.GRASS`, `S.DIRT`, `S.MUD`, `S.BOG`, `S.ROCK`, `S.WOOD`, `S.ASH` (svart vulkansand), `S.SNOW` (lite grep), `S.ICE` (nesten ikke grep). Styrer grep og farge. |
 | `sky`, `fog`, `sun`, `hemi`, `sunDir` | Lys og himmel. |
 | `water` | Globalt vannivå (valgfritt). Alt terreng under dette blir vann. |
 | `waterCol`, `waterOpacity` | Vannfarge og hvor gjennomsiktig vannet er (0–1, standard 0.7). |
 | `rain: true` | Regn. `clouds:false` fjerner skyer og sol. |
+| `snow: true`, `precip(x,z)` | Snøvær. `precip` (valgfritt) gir 0–1 for hvor mye det snør der bilen er, f.eks. bare rundt toppen. |
+| `wind: true` | Vindsus som øker med `zone` (brukes sammen med `ambience:'jungle'`). Se Øya. |
 | `ash: true` | Glør og aske som svever i lufta (brukes i Vulkanen). |
 | `erupt:[min,maks]` | Vulkanen rumler med jevne mellomrom (sekunder mellom hver gang). Bare for show: ristende kamera og lavabomber, ingenting skader bilen. Krever `c.vent(...)`. |
 | `gateT(c)` | Valgfritt. Funksjon som gir portene nøyaktige plasser i stedet for jevn fordeling: `c=>[[x,z],[x,z],...].map(p=>c.tOf(p[0],p[1]))`. Da styrer antall punkter antall porter. |
@@ -134,6 +136,10 @@ Kjører bilen i lava, får spilleren 10 straffepoeng og settes tilbake ved forri
 
 **Rekkefølge i `build(c)`:** først `c.bench`, så `c.lava`/`c.lavaPool`, så `c.bridge`, så steiner, så `c.tree` for trærne, deretter `c.finish()`, og til slutt `c.forest()` og pynt. Legg ikke steiner nær lava eller på snarveien (bruk `c.lavaNear`).
 
+### Øya: strand, jungel og snøfjell
+
+`data/levels/07-oya.js` har en spiralvei opp et fjell med `S.SNOW` og `S.ICE` på toppen, snøvær bare rundt toppen (`precip`), en bekk som er en trapp av små `c.pond`-kulper (motoren har bare ett flatt havnivå), et vadested der `c.bench` er slått av så bekken beholder dybden, og en snarvei over en hengebro mens hovedveien tar en sløyfe ut mot kysten. Snarveien må møte hovedveien i samme kjøreretning, og det må ikke ligge porter mellom portene den hopper fra og til.
+
 ### Vulkanen: snarveien
 
 Etter port 13 kan du velge den lange runden sør om vulkanen, eller en smal bro rett over lavaelva (skilt vises ved avkjøringen). Snarveien har to kasser midt på broa og gir 40 muttere ekstra («Modig snarvei!»). Faller du i lava, mister du 10 poeng og går tilbake til port 13. Testen `node tools/test-levels.js vulkan` kjører også snarveien.
@@ -144,7 +150,31 @@ Etter port 13 kan du velge den lange runden sør om vulkanen, eller en smal bro 
 node tools/test-levels.js minbane
 ```
 
-Testen kjører banene som står i `index.html`, i samme rekkefølge, og varsler om banefiler som mangler der. Autopiloten kjører banen i begge gir. Du vil se `prog 0.99` (kom i mål), `drown 0` (ingen druknet motor på selve løypa), `lava 0` (ingen i lavaen) og helst under 5 velt. Har banen `shortcut`, kjører den også snarveien (`SNARVEI`) og viser hvor lang tid hovedruten tar mellom de samme portene. Står den fast («fast» høyt) eller drukner, er noe i veien plassert feil.
+Testen kjører banene som står i `index.html`, i samme rekkefølge, og varsler om banefiler som mangler der. I en åpen verden kjøres hver løype for seg. Autopiloten kjører banen i begge gir. Du vil se `prog 0.99` (kom i mål), `drown 0` (ingen druknet motor på selve løypa), `lava 0` (ingen i lavaen) og helst under 5 velt. Har banen `shortcut`, kjører den også snarveien (`SNARVEI`) og viser hvor lang tid hovedruten tar mellom de samme portene. Står den fast («fast» høyt) eller drukner, er noe i veien plassert feil.
+
+## Åpen verden (Sandglow-øya)
+
+`data/levels/10-verden.js` er en **verden**, ikke et løp: fri kjøring med basen i midten og løyper spredt rundt. En verden er en vanlig banefil med noen ekstra felt:
+
+| Felt | Betydning |
+|---|---|
+| `world:true` | Fri kjøring. Ingen porter på hovedlinjen; `path` trengs bare som en liten sløyfe ved basen. |
+| `size:120` | Verdens bredde (standard 70). Rutene er like store, så 120 gir ca. 3× arealet. |
+| `start:[x,z,retning]` | Der bilen står når du starter (ved basen). |
+| `challenges:[...]` | Løypene. Hver har `id`, `name`, `desc`, `diff`, `gates`, `path`, og valgfritt `surf`/`skip` (underlag som males på stien), `hw`/`blend` (bredde på utjevningen), `night:true` (nattløp). I `build(c)` registreres de med `c.course(ch)`. |
+| `roads:[...]` | Veiene fra basen ut til løypene (`c.road(poly,{hw,blend,surf,skip})`). Tegnes på kartet. |
+| `basePos`, `garageAt` | Hvor basen er (kartet, HUD, «Tau hjem») og hvor du kjører inn i verkstedet. |
+| `mapLabels:[[x,z,'Navn'],...]` | Stedsnavn på øykartet. |
+| `biome(x,z)` | Gir `{jungle,snow,beach,swamp,desert}` 0–1 for lydsonene (insekter og fugler, vind, bølger, frosker). |
+| `animals:{..., crabsAt:[x,z], eagle:[x,z], bear:[[x,z],[x,z]], gulls:{at:[x,z],n}}` | Krabber på en bestemt strand, ørn som sirkler over et punkt, bjørn som rusler mellom to punkter, måker som letter når bilen kommer. |
+
+Nye verktøy i `build(c)`: `c.course(ch)` (lager løypa, portene og kassene, jevner ut stien og flater ut startstreken), `c.road(poly,o)`, `c.flat(x,z,r,høyde,blend)` (flatt felt, f.eks. basen og toppen), `c.box(x,y,z,b,h,d,farge,ry)` og `c.cyl(x,y,z,r,h,farge)` (bygninger, master, tønner, mekanikere) som tegnes med `c.props()`. `c.dist` holder steiner og trær unna alle veier og løyper som er registrert.
+
+Nye underlag: `S.REDROCK` (rød canyonstein) og `S.ASPHALT` (flystripen).
+
+Slik virker det i spillet: Kjør bort til en startstrek (flagg, dekk og festivallys), så kommer spørsmålet «Vil du starte?». JA: portene våkner, piler viser veien og nedtellingen går. Resultat og muttere som i løpene; beste tid lagres per løype (`best['verden/jungel']`). Kjører du mer enn 30 enheter fra neste port, avbrytes løpet. **K** åpner øykartet (tåke over det du ikke har sett, lagres per verden), minikartet ligger i hjørnet. Kjør inn foran verkstedportene for å åpne garasjen, eller «Tau hjem» fra kartet for 20 muttere.
+
+Testen kjører hver løype for seg: `node tools/test-levels.js verden`.
 
 ## Justere garasjen
 
