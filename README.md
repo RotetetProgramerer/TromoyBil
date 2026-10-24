@@ -150,7 +150,31 @@ Etter port 13 kan du velge den lange runden sør om vulkanen, eller en smal bro 
 node tools/test-levels.js minbane
 ```
 
-Testen kjører banene som står i `index.html`, i samme rekkefølge, og varsler om banefiler som mangler der. Autopiloten kjører banen i begge gir. Du vil se `prog 0.99` (kom i mål), `drown 0` (ingen druknet motor på selve løypa), `lava 0` (ingen i lavaen) og helst under 5 velt. Har banen `shortcut`, kjører den også snarveien (`SNARVEI`) og viser hvor lang tid hovedruten tar mellom de samme portene. Står den fast («fast» høyt) eller drukner, er noe i veien plassert feil.
+Testen kjører banene som står i `index.html`, i samme rekkefølge, og varsler om banefiler som mangler der. I en åpen verden kjøres hver løype for seg. Autopiloten kjører banen i begge gir. Du vil se `prog 0.99` (kom i mål), `drown 0` (ingen druknet motor på selve løypa), `lava 0` (ingen i lavaen) og helst under 5 velt. Har banen `shortcut`, kjører den også snarveien (`SNARVEI`) og viser hvor lang tid hovedruten tar mellom de samme portene. Står den fast («fast» høyt) eller drukner, er noe i veien plassert feil.
+
+## Åpen verden (Sandglow-øya)
+
+`data/levels/10-verden.js` er en **verden**, ikke et løp: fri kjøring med basen i midten og løyper spredt rundt. En verden er en vanlig banefil med noen ekstra felt:
+
+| Felt | Betydning |
+|---|---|
+| `world:true` | Fri kjøring. Ingen porter på hovedlinjen; `path` trengs bare som en liten sløyfe ved basen. |
+| `size:120` | Verdens bredde (standard 70). Rutene er like store, så 120 gir ca. 3× arealet. |
+| `start:[x,z,retning]` | Der bilen står når du starter (ved basen). |
+| `challenges:[...]` | Løypene. Hver har `id`, `name`, `desc`, `diff`, `gates`, `path`, og valgfritt `surf`/`skip` (underlag som males på stien), `hw`/`blend` (bredde på utjevningen), `night:true` (nattløp). I `build(c)` registreres de med `c.course(ch)`. |
+| `roads:[...]` | Veiene fra basen ut til løypene (`c.road(poly,{hw,blend,surf,skip})`). Tegnes på kartet. |
+| `basePos`, `garageAt` | Hvor basen er (kartet, HUD, «Tau hjem») og hvor du kjører inn i verkstedet. |
+| `mapLabels:[[x,z,'Navn'],...]` | Stedsnavn på øykartet. |
+| `biome(x,z)` | Gir `{jungle,snow,beach,swamp,desert}` 0–1 for lydsonene (insekter og fugler, vind, bølger, frosker). |
+| `animals:{..., crabsAt:[x,z], eagle:[x,z], bear:[[x,z],[x,z]], gulls:{at:[x,z],n}}` | Krabber på en bestemt strand, ørn som sirkler over et punkt, bjørn som rusler mellom to punkter, måker som letter når bilen kommer. |
+
+Nye verktøy i `build(c)`: `c.course(ch)` (lager løypa, portene og kassene, jevner ut stien og flater ut startstreken), `c.road(poly,o)`, `c.flat(x,z,r,høyde,blend)` (flatt felt, f.eks. basen og toppen), `c.box(x,y,z,b,h,d,farge,ry)` og `c.cyl(x,y,z,r,h,farge)` (bygninger, master, tønner, mekanikere) som tegnes med `c.props()`. `c.dist` holder steiner og trær unna alle veier og løyper som er registrert.
+
+Nye underlag: `S.REDROCK` (rød canyonstein) og `S.ASPHALT` (flystripen).
+
+Slik virker det i spillet: Kjør bort til en startstrek (flagg, dekk og festivallys), så kommer spørsmålet «Vil du starte?». JA: portene våkner, piler viser veien og nedtellingen går. Resultat og muttere som i løpene; beste tid lagres per løype (`best['verden/jungel']`). Kjører du mer enn 30 enheter fra neste port, avbrytes løpet. **K** åpner øykartet (tåke over det du ikke har sett, lagres per verden), minikartet ligger i hjørnet. Kjør inn foran verkstedportene for å åpne garasjen, eller «Tau hjem» fra kartet for 20 muttere.
+
+Testen kjører hver løype for seg: `node tools/test-levels.js verden`.
 
 ## Justere garasjen
 

@@ -451,7 +451,7 @@ function loadLevel(i){
   hemi.color.set(def.hemi[0]).convertSRGBToLinear();hemi.groundColor.set(def.hemi[1]).convertSRGBToLinear();hemi.intensity=def.hemi[2]*1.15;
   sun.color.set(def.sun).convertSRGBToLinear();sun.intensity=def.sunI*1.55;
   sunGlow.material.color.set(def.sun).convertSRGBToLinear();sunGlow.visible=def.clouds!==false;
-  clearTracks();buildGates(LV);LV.hasLava=G.lavas.length>0;buildFx(LV);resetEruption(def);lavaLight.visible=LV.hasLava&&state.gfx==='hi';setupZone(def);buildAnimals(LV,def);buildBoulder(def);buildPortals(LV);if(car)applyZone(car.pos.x,car.pos.z);
+  clearTracks();buildGates(LV);LV.hasLava=G.lavas.length>0;buildFx(LV);resetEruption(def);lavaLight.visible=LV.hasLava&&state.gfx==='hi';setupZone(def);buildAnimals(LV,def);buildBoulder(def);buildPortals(LV);if(def.world)buildMapBase(def);else MAP.base=null;$('bMap').hidden=!def.world;if(car)applyZone(car.pos.x,car.pos.z);
   if(car)resetToStart();
   $('hLevel').textContent=def.name;
 }
@@ -487,7 +487,7 @@ function pickPaint(i){const p=PAINTS[i];if(!prof.paints.includes(i)){if(prof.nut
 $('partList').addEventListener('click',e=>{const b=e.target.closest('[data-buy]');if(b)buyPart(b.dataset.buy)});
 $('paintList').addEventListener('click',e=>{const b=e.target.closest('[data-paint]');if(b)pickPaint(+b.dataset.paint)});
 $('mGarage').onclick=toGarage;$('rGarage').onclick=toGarage;$('gBack').onclick=toMenu;$('gDrive').onclick=startRun;
-function pause(on){if(state.mode!=='play'&&state.mode!=='pause')return;state.mode=on?'pause':'play';$('pause').hidden=!on;$('pAbort').hidden=!state.course;$('pRestart').textContent=state.course?'Start løpet på nytt':state.world?'Tilbake til basen':'Start på nytt';if(on)$('pResume').focus()}
+function pause(on){if(state.mode!=='play'&&state.mode!=='pause')return;state.mode=on?'pause':'play';$('pause').hidden=!on;$('pAbort').hidden=!state.course;$('pMap').hidden=!state.world;$('pRestart').textContent=state.course?'Start løpet på nytt':state.world?'Tilbake til basen':'Start på nytt';if(on)$('pResume').focus()}
 function addPenalty(n,why){state.penalty+=n;state.log.push(why);toast('+'+n+' '+why.split(':')[0],true)}
 // auto: the flip assist in easy mode puts the car back for free; everything else costs a winch penalty
 function winch(auto){
@@ -560,9 +560,11 @@ addEventListener('keydown',e=>{
   if(state.mode==='menu'||state.mode==='garage'){if(k==='enter'&&document.activeElement===document.body)startRun();if(k==='escape'&&state.mode==='garage')toMenu();return}
   if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k))e.preventDefault();
   if(e.repeat)return;keys.add(k);
+  if(MAP.open&&(k==='escape'||k==='k')){openMap(false);return}
   if(k==='escape'||k==='p'){if(state.mode==='play')pause(true);else if(state.mode==='pause')pause(false);else if(state.mode==='ask')answerAsk(false)}
   if(state.mode==='ask'&&(k==='enter'||k==='j'))answerAsk(true);
   if(state.mode!=='play')return;
+  if(k==='k')openMap();
   if(k==='g'||k===' ')toggleGear();if(k==='l')setLights(!state.lights);if(k==='c')cycleCam();if(k==='r')winch();if(k==='m')setSound(!state.sound);
   if(k==='+'||k==='=')setSpeed(state.speed+10);if(k==='-'||k==='_')setSpeed(state.speed-10);
   if(k==='z'||k==='pageup')zoom(-1);if(k==='x'||k==='pagedown')zoom(1);
@@ -597,6 +599,8 @@ $('spdRange').addEventListener('input',e=>setSpeed(+e.target.value,true));
 $('gfxHi').onclick=()=>setGfx('hi');$('gfxLo').onclick=()=>setGfx('lo');$('bCam').onclick=cycleCam;$('bWinch').onclick=()=>winch();$('bPause').onclick=()=>pause(true);
 $('pResume').onclick=()=>pause(false);$('pRestart').onclick=()=>{if(state.world&&!state.course){pause(false);resetToStart();return}startRun()};$('pMenu').onclick=toMenu;$('pSound').onclick=()=>setSound(!state.sound);
 $('rRetry').onclick=startRun;$('rMenu').onclick=toMenu;$('rNext').onclick=()=>{if(state.world){endCourse();showHud();state.mode='play';return}loadLevel((state.levelIdx+1)%LEVELS.length);startRun()};
+$('bMap').onclick=()=>openMap();$('mClose').onclick=()=>openMap(false);$('pMap').onclick=()=>{$('pause').hidden=true;openMap(true)};
+$('mTow').onclick=()=>{if(prof.nuts<20){toast('Du trenger 20 muttere',true);return}prof.nuts-=20;saveProf();if(state.course)endCourse();openMap(false);resetToStart();state.checkpoint={x:car.pos.x,z:car.pos.z,h:0};toast('Tauet hjem til basen · −20 ⚙')};
 $('aYes').onclick=()=>answerAsk(true);$('aNo').onclick=()=>answerAsk(false);$('pAbort').onclick=()=>{pause(false);endCourse();toast('Løpet avbrutt')};
 $('startBtn').onclick=startRun;
 document.querySelectorAll('.tb').forEach(b=>{const t=b.dataset.t;const on=e=>{e.preventDefault();state.input[t]=1;b.classList.add('on');try{b.setPointerCapture(e.pointerId)}catch(_){}};
@@ -726,10 +730,11 @@ function frame(now){
     // crates
     for(const c of crateVis){if(c.taken)continue;const dx=c.cr.x-car.pos.x,dz=c.cr.z-car.pos.z;if(dx*dx+dz*dz<.42&&Math.abs(c.cr.y-car.pos.y)<.9){c.taken=true;c.g.visible=false;state.crates++;toast('Kasse '+state.crates+'/'+LV.crates.length+' · +15 ⚙');for(let i=0;i<6;i++)spawnDust(c.g.position,0,true)}}
     if(car.pos.y<-3||Math.abs(car.pos.x)>HALF-.5||Math.abs(car.pos.z)>HALF-.5){winch();toast('Utenfor banen: vinsj',true)}
-    if(state.world)updateWorld(dt);
+    if(state.world){updateWorld(dt);updateFog(dt)}
     updateHUD(dt);
   }
   if(state.mode==='done'&&toastT>0)updateHUD(dt);
+  updateMinimap();
   syncVisuals(dt);updateCamera(dt);updateAudio();updateAmbience(dt);
   const shk=(ERU.amp>.0005?ERU.amp:0)+boulderShake(),sx=(Math.random()-.5)*shk*2,sy=(Math.random()-.5)*shk*2,sz=(Math.random()-.5)*shk*2;if(shk)camera.position.add(_c1.set(sx,sy,sz));
   renderer.render(scene,camera);
@@ -787,11 +792,15 @@ function buildPortals(lv){portals=[];if(!lv.courses||!lv.courses.length)return;
     const b=new THREE.Mesh(new THREE.PlaneGeometry(1.2,.6),new THREE.MeshBasicMaterial({map:portalSign(k),side:THREE.DoubleSide}));b.position.set(sx,sy+1.25,sz);b.rotation.y=Math.atan2(-tn.x,-tn.z);g.add(b);
     levelGroup.add(g);portals.push({k,g,x:p.x,z:p.z,lights:g.children.filter(o=>o.isSprite)})}}
 function nearestPortal(){let b=null;for(const p of portals){const d=Math.hypot(p.x-car.pos.x,p.z-car.pos.z);if(!b||d<b.d)b={k:p.k,d}}return b}
-function openAsk(k){state.mode='ask';state.askK=k;const key=LEVELS[state.levelIdx].id+'/'+k.id,b=best[key];
+function openAsk(k){state.mode='ask';state.askK=k;
+  if(k==='garage'){$('aName').textContent='Verkstedet';$('aKind').textContent='Basen';$('aDesc').textContent='Mekanikerne står klare. Her bruker du mutterne på dekk, fjæring, motor, vekt, utstyr og lakk.';$('aBest').textContent='Du har '+fmtN(prof.nuts)+' muttere.';$('ask').hidden=false;$('aYes').focus();return}
+  const key=LEVELS[state.levelIdx].id+'/'+k.id,b=best[key];
   $('aName').textContent=k.name;$('aDesc').textContent=k.desc;$('aKind').textContent=['','Lett løype','Middels løype','Vanskelig løype'][k.diff]+' · '+k.gates.length+' porter';
   $('aBest').textContent=b?'Din beste: '+fmtTime(b.t)+' med '+b.p+' straffepoeng, '+b.s+' av 3 stjerner.':'Ikke kjørt ennå. Første gang i mål gir banebonus.';
   $('ask').hidden=false;$('aYes').focus()}
-function answerAsk(yes){if(state.mode!=='ask')return;$('ask').hidden=true;const k=state.askK;state.askK=null;if(yes)startCourse(k);else{state.mode='play';state.askCool=k.id;toast('Kjør videre når du vil')}}
+function answerAsk(yes){if(state.mode!=='ask')return;$('ask').hidden=true;const k=state.askK;state.askK=null;
+  if(k==='garage'){state.askCool='garage';if(yes){state.mode='play';toGarage()}else{state.mode='play';toast('Kjør videre når du vil')}return}
+  if(yes)startCourse(k);else{state.mode='play';state.askCool=k.id;toast('Kjør videre når du vil')}}
 function startCourse(k){state.course=k;state.free=false;resetRunState();LV.gates=k.gates;LV.crates=k.crates;buildGates(LV);buildCrates(LV);resetCrates();
   gateVis.forEach((g,i)=>{g.touched=false;setGateState(i,'pending')});gateWake={i:0,t:0};buildCourseArrows(k);
   if(k.def.night)setNight(true);
@@ -819,13 +828,14 @@ function nightTint(){if(!nightOn)return;scene.fog.color.multiplyScalar(.22);scen
 function updateWorld(dt){
   // free driving: a rolling checkpoint for the winch, and the start portals
   if(!state.course){cpT-=dt;if(cpT<=0&&car.up.y>.9&&car.wheels.every(w=>w.contact)&&car.depth<0){cpT=1.5;state.checkpoint={x:car.pos.x,z:car.pos.z,h:Math.atan2(car.fw.x,car.fw.z)}}
-    for(const p of portals){const d=Math.hypot(p.x-car.pos.x,p.z-car.pos.z);if(d<2.2&&state.askCool!==p.k.id){openAsk(p.k);return}if(d>4&&state.askCool===p.k.id)state.askCool=null}}
+    for(const p of portals){const d=Math.hypot(p.x-car.pos.x,p.z-car.pos.z);if(d<2.2&&state.askCool!==p.k.id){openAsk(p.k);return}if(d>4&&state.askCool===p.k.id)state.askCool=null}
+    const ga=LEVELS[state.levelIdx].garageAt;if(ga){const d=Math.hypot(ga[0]-car.pos.x,ga[1]-car.pos.z);if(d<2.4&&state.askCool!=='garage'){openAsk('garage');return}if(d>4.5&&state.askCool==='garage')state.askCool=null}}
   else{const ng=LV.gates[state.next];if(ng&&Math.hypot(ng.c.x-car.pos.x,ng.c.z-car.pos.z)>30){endCourse();toast('For langt fra løypa: løpet er avbrutt',true)}}
   const tm=performance.now()*.001;for(const p of portals){if(Math.abs(p.x-car.pos.x)+Math.abs(p.z-car.pos.z)>40)continue;p.lights.forEach((l,i)=>l.material.opacity=.6+.4*Math.sin(tm*5+i*1.3))}}
 
 /* ---------- boot ---------- */
 function boot(){
-  decalMat=new THREE.MeshStandardMaterial({map:decalTexture(),transparent:true,roughness:.5});
+  initMaps();decalMat=new THREE.MeshStandardMaterial({map:decalTexture(),transparent:true,roughness:.5});
   if(state.carIdx>=CARS.length)state.carIdx=0;if(state.levelIdx>=LEVELS.length)state.levelIdx=0;
   loadLevel(state.levelIdx);setCar(state.carIdx);setSound(state.sound);setVol('volCar',state.volCar);setVol('volAmb',state.volAmb);setSpeed(state.speed,true);setGfx(state.gfx);renderMenu();
   for(let i=0;i<240;i++)stepCar(car,FIXED);

@@ -64,8 +64,9 @@ LEVELS.push(
   waterBand:(x,z)=>Math.hypot(x,z)>isl(x,z)-4||dSw(x,z)<SW_R+3||lineD(STREAM,x,z)<2.8||Math.hypot(x-TARN[0],z-TARN[1])<3.2,
   snow:true, precip:(x,z)=>Math.max(smt((12.5-rM(x,z))/5),GLACIER(x,z)), wind:true, ambience:'jungle',
   biome:(x,z)=>{const r=rM(x,z);return{snow:smt((15-r)/5),jungle:inJungle(x,z)?1:0,swamp:smt((SW_R+4-dSw(x,z))/6),beach:smt((Math.hypot(x,z)-(isl(x,z)-12))/5),desert:inDesert(x,z)?1:0}},
-  path:[[0,-10],[4,-7],[0,-3],[-4,-7],[0,-10]], challenges:CH, roads:ROADS, basePos:BASE,
-  animals:{parrots:14,circling:3,monkeys:9,butterflies:40,crabs:10,crabsAt:[-8,-44],eagle:M,bear:[polM(19,150),polM(21,120)],gulls:{at:[14,-47],n:7}},
+  path:[[0,-10],[4,-7],[0,-3],[-4,-7],[0,-10]], challenges:CH, roads:ROADS, basePos:BASE, garageAt:[BASE[0],BASE[1]-.2],
+  mapLabels:[[-30,-2,'Jungelen'],[-24,-30,'Sumpen'],[8,-45,'Stranden'],[36,-14,'Canyonen'],[-4,24,'Snøfjellet'],[0,-6,'Basen'],[33,14,'Oasen'],[-1,46,'Isbreen']],
+  animals:{parrots:14,circling:3,monkeys:9,butterflies:40,crabs:10,crabsAt:[-4,-41],eagle:M,bear:[polM(19,150),polM(21,120)],gulls:{at:[12,-41],n:7}},
   base(x,z,n){const r=rM(x,z),ri=isl(x,z),R=Math.hypot(x,z),ds=lineD(STREAM,x,z),sw=dSw(x,z);
     let h=1.0+.5*fbm(n,x*.035,z*.035,3)+.08*fbm(n,x*.3,z*.3,2);
     h-=2.4*smt((R-ri+2)/4);                                                   // havet
@@ -93,6 +94,24 @@ LEVELS.push(
     c.flat(BASE[0],BASE[1],BASE_R,1.1,4);
     c.flat(M[0],M[1],2.6,H(M[0],M[1])-.5,3.8);
     for(let x=-11;x<=11;x+=.5)for(let z=-2.5;z<=2.5;z+=.5)paint(BASE[0]+x,BASE[1]+z-3,.45,S.ASPHALT);
+    // --- verkstedet: hall med to porter, kontor, lysmaster, radiomast, løftebukk, mekanikere, dekkstabler og tønner ---
+    {const bx=BASE[0],bz=BASE[1]+4.2,y=1.1;                                  // hallen står nord på flaten, portene vender mot flystripa (sør)
+      c.box(bx,y,bz,7.4,.1,5.2,'#3a3a3a');c.box(bx,y,bz,7.0,2.6,4.8,'#6f7f8a');c.box(bx,y+2.6,bz,7.6,.25,5.4,'#3f4a52');c.box(bx,y+2.85,bz+.3,7.0,.12,4.2,'#8a2f22');
+      for(const dx of[-1.9,1.9]){c.box(bx+dx,y,bz-2.42,2.2,2.0,.1,'#1d1c1a');c.box(bx+dx,y+2.0,bz-2.42,2.4,.14,.16,'#e5a92b');for(let k=0;k<5;k++)c.box(bx+dx,y+.2+k*.42,bz-2.46,2.2,.04,.04,'#3a3a3a')}
+      c.box(bx,y+1.2,bz-2.5,.9,.7,.05,'#1a262d');c.box(bx,y+2.3,bz-2.5,3.6,.5,.08,'#e5a92b');c.box(bx,y+2.3,bz-2.55,3.2,.3,.02,'#14120e');  // vindu og skilt
+      c.box(bx+5.2,y,bz-.6,2.6,2.1,3.0,'#8a7f70');c.box(bx+5.2,y+2.1,bz-.6,2.9,.2,3.3,'#4a4038');c.box(bx+5.2,y+1.0,bz-2.12,1.2,.7,.05,'#1a262d');   // kontoret
+      c.cyl(bx+7.6,y,bz+1.2,.09,7.5,'#9a9a96');c.box(bx+7.6,y+7.5,bz+1.2,.5,.5,.5,'#d9432f');for(let k=0;k<3;k++)c.box(bx+7.6,y+2+k*1.8,bz+1.2,1.4-k*.3,.05,.05,'#9a9a96');   // radiomast
+      for(const[mx,mz]of[[bx-9,bz-7.5],[bx+9,bz-7.5],[bx-9,bz-1],[bx+9,bz-1]]){c.cyl(mx,y,mz,.07,3.6,'#5a5a58');c.box(mx,y+3.5,mz,.6,.22,.3,'#2a2a2a');c.box(mx,y+3.42,mz,.5,.06,.22,'#fff3c0')}   // lysmaster
+      c.box(bx-3.2,y,bz-4.4,1.9,.12,3.2,'#4a4a48');for(const dz of[-1.2,1.2]){c.box(bx-3.2,y+.12,bz-4.4+dz,1.9,.08,.25,'#e5a92b')}for(const dx of[-.6,.6])for(const dz of[-1,1])c.cyl(bx-3.2+dx,y+.2,bz-4.4+dz,.08,.9,'#5a5a58');   // løftebukk
+      const guy=(gx,gz,col,ry)=>{c.cyl(gx,y,gz,.09,.42,'#2c4a6b');c.cyl(gx,y+.4,gz,.13,.32,col);c.cyl(gx,y+.74,gz,.09,.17,'#d9a07a');c.box(gx,y+.9,gz,.22,.06,.22,'#e5a92b',ry);c.colliders.push({x:gx,z:gz,r:.18})};
+      guy(bx-3.9,bz-6.4,'#e5a92b',.3);guy(bx+2.6,bz-5.2,'#d9432f',1.2);guy(bx+4.2,bz-3.6,'#2c4a6b',2.4);
+      for(let k=0;k<4;k++)c.cyl(bx+3.6,y+k*.17,bz-6.8,.24,.16,'#1a1918');for(let k=0;k<3;k++)c.cyl(bx+4.2,y+k*.17,bz-6.6,.24,.16,'#1a1918');   // dekkstabler
+      for(const[ox,oz,col]of[[bx-5.4,bz-5.6,'#d9432f'],[bx-5.8,bz-5.2,'#2c4a6b'],[bx-5.5,bz-4.9,'#e5a92b']])c.cyl(ox,y,oz,.17,.44,col);   // tønner
+      c.box(bx-7.2,y,bz-5.8,.6,.9,.35,'#d9432f');c.box(bx-7.2,y+.9,bz-5.8,.5,.3,.25,'#1d1c1a');   // bensinpumpe
+      for(let k=-10;k<=10;k+=2.5)c.box(bx+k,y,bz-7.2,1.2,.02,.14,'#f2e8d0');c.box(bx-11,y,bz-7.2,.14,.02,5,'#f2e8d0');c.box(bx+11,y,bz-7.2,.14,.02,5,'#f2e8d0');   // striper på flystripa
+      c.cyl(bx-8.5,y,bz-10.8,.04,2.4,'#9a9a96');c.box(bx-8.2,y+2.0,bz-10.8,.6,.36,.03,'#e5a92b');   // flaggstang
+      for(const[ox,oz]of[[bx-5,bz+.5],[bx-4.6,bz-1.5],[bx+1.2,bz+3.4],[bx+2.0,bz+3.2]])c.colliders.push({x:ox,z:oz,r:.3});
+      c.block(bx,bz,6);c.block(bx+5.2,bz-.6,2.4)}
     // --- veier og løyper (før alt annet, så steiner og trær holder seg unna) ---
     for(const r of ROADS)c.road(r,{hw:1.3,blend:1.7,surf:S.DIRT,skip:S.MUD});
     for(const ch of CH)c.course(ch);
