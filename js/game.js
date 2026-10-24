@@ -133,6 +133,7 @@ function clearTracks(){tracks.count=0;trkI=0;if(car)car.wheels.forEach(w=>{if(w.
 const M={
   yel:new THREE.MeshStandardMaterial({color:0xe3a62a,roughness:.3,metalness:.08,envMapIntensity:.9}),
   blk:new THREE.MeshStandardMaterial({color:0x1d1c1a,roughness:.7}),
+  blkC:new THREE.MeshStandardMaterial({color:0x1d1c1a,roughness:.7}),   // the car's black parts (gets mud and snow like the paint)
   glass:new THREE.MeshStandardMaterial({color:0x1a262d,roughness:.06,metalness:.85,envMapIntensity:1.3}),
   tire:new THREE.MeshStandardMaterial({color:0x1a1918,roughness:.95,flatShading:true}),
   rim:new THREE.MeshStandardMaterial({color:0xe3a62a,roughness:.45,metalness:.2}),
@@ -148,6 +149,26 @@ const M={
   beam:new THREE.MeshBasicMaterial({color:0xffe6b0,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false,fog:false,side:THREE.DoubleSide})
 };
 Object.values(M).forEach(m=>m.color.convertSRGBToLinear());Object.values(DM).forEach(m=>m.color.convertSRGBToLinear());
+// mud, snow, dust and water on the car: a small shader addition on the paint and the black parts.
+// coat.x=mud, .y=snow, .z=dust, .w=wet. Mud and dust sit low on the body, snow settles on top, water darkens and makes it glossy.
+const coat={mud:0,snow:0,dust:0,wet:0},coatU={uCoat:{value:new THREE.Vector4()},uCarY:{value:0}};
+function coatMaterial(m){m.onBeforeCompile=sh=>{sh.uniforms.uCoat=coatU.uCoat;sh.uniforms.uCarY=coatU.uCarY;
+  sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nuniform float uCarY;varying float vCoatY;varying float vCoatN;')
+    .replace('#include <begin_vertex>','#include <begin_vertex>\n{vec4 wp=modelMatrix*vec4(position,1.0);vCoatY=wp.y-uCarY;vCoatN=normalize(mat3(modelMatrix)*normal).y;}');
+  sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform vec4 uCoat;varying float vCoatY;varying float vCoatN;')
+    .replace('#include <color_fragment>','#include <color_fragment>\n{float low=1.0-smoothstep(0.2,0.78,vCoatY);float top=smoothstep(0.25,0.75,vCoatN)*smoothstep(0.3,0.7,vCoatY);\n  float mud=uCoat.x*low;diffuseColor.rgb=mix(diffuseColor.rgb,vec3(0.18,0.12,0.07),mud*0.9);\n  float dust=uCoat.z*low*(1.0-mud);diffuseColor.rgb=mix(diffuseColor.rgb,vec3(0.62,0.50,0.30),dust*0.55);\n  float snow=uCoat.y*max(top,low*0.5);diffuseColor.rgb=mix(diffuseColor.rgb,vec3(0.90,0.93,0.97),snow*0.95);\n  diffuseColor.rgb*=1.0-0.22*uCoat.w*(1.0-snow);}')
+    .replace('#include <roughnessmap_fragment>','#include <roughnessmap_fragment>\nroughnessFactor=mix(roughnessFactor,0.12,uCoat.w*0.8);roughnessFactor=mix(roughnessFactor,0.95,max(uCoat.x,uCoat.y)*0.6);')}}
+coatMaterial(M.yel);coatMaterial(M.blkC);coatMaterial(M.tire);
+// how much the wheels pick up and lose each frame
+function updateCoat(dt){if(!car)return;let inMud=0,inSnow=0,inDust=0,inWater=0,moving=car.vel.lengthSq()>.3;
+  for(const w of car.wheels){if(!w.contact)continue;const s=w.surf;if(w.wd>0)inWater++;else if(s===S.MUD||s===S.BOG)inMud+=1+w.slip;else if(s===S.SNOW||s===S.ICE)inSnow++;else if(s===S.SAND||s===S.GRAVEL||s===S.DIRT||s===S.ASH)inDust++}
+  const def=LEVELS[state.levelIdx],rain=!!def.rain;
+  if(moving){coat.mud=Math.min(1,coat.mud+dt*.14*inMud);coat.snow=Math.min(1,coat.snow+dt*.12*inSnow);coat.dust=Math.min(1,coat.dust+dt*.05*inDust)}
+  if(inWater){coat.wet=1;coat.mud=Math.max(0,coat.mud-dt*.5);coat.dust=Math.max(0,coat.dust-dt*.9);coat.snow=Math.max(0,coat.snow-dt*.6)}
+  if(rain){coat.wet=Math.min(1,coat.wet+dt*.4);coat.dust=Math.max(0,coat.dust-dt*.2);coat.mud=Math.max(0,coat.mud-dt*.03)}
+  if(!inSnow)coat.snow=Math.max(0,coat.snow-dt*.03);if(!inMud)coat.mud=Math.max(0,coat.mud-dt*.004);if(!inDust)coat.dust=Math.max(0,coat.dust-dt*.01);if(!inWater&&!rain)coat.wet=Math.max(0,coat.wet-dt*.12);
+  coatU.uCoat.value.set(coat.mud,coat.snow,coat.dust,coat.wet);coatU.uCarY.value=car.pos.y}
+function clearCoat(){coat.mud=coat.snow=coat.dust=coat.wet=0;coatU.uCoat.value.set(0,0,0,0)}
 function decalTexture(){
   const c=document.createElement('canvas');c.width=256;c.height=128;const x=c.getContext('2d');
   x.fillStyle='#1d1c1a';x.beginPath();x.ellipse(128,64,124,60,0,0,Math.PI*2);x.fill();
@@ -174,9 +195,9 @@ function buildWheel(r,side){
 }
 function buildBody(cfg){
   const g=new THREE.Group(),L=cfg.L,W=.92,y0=.08,lh=.34,gh=cfg.gh,hood=cfg.hood,yT=y0+lh,fz=L/2,rz=-L/2;
-  bx(.5,.06,L*.86,M.blk,0,-.02,0,g);
+  bx(.5,.06,L*.86,M.blkC,0,-.02,0,g);
   bx(W,lh,L,M.yel,0,y0+lh/2,0,g);
-  bx(W+.012,.05,L*.98,M.blk,0,y0+.025,0,g);
+  bx(W+.012,.05,L*.98,M.blkC,0,y0+.025,0,g);
   const gz0=rz+.03,gz1=fz-hood,gl=gz1-gz0,gc=(gz0+gz1)/2,gy=yT+gh/2,ghW=cfg.style==='glass'?W-.06:W-.04;
   bx(ghW,gh,gl,M.yel,0,gy,gc,g);
   bx(ghW-.12,gh-.08,.012,M.glass,0,gy+.005,gz1+.006,g);
@@ -188,27 +209,27 @@ function buildBody(cfg){
   if(cfg.style==='step'){const sl=gl*.55,sc=gz0+sl/2;bx(ghW-.02,.07,sl,M.yel,0,roofY+.035,sc,g);
     for(const sx of[1,-1])bx(.012,.035,sl-.1,M.glass,sx*((ghW-.02)/2+.006),roofY+.035,sc,g);bx(ghW-.1,.035,.012,M.glass,0,roofY+.035,sc+sl/2+.006,g);roofY+=.07}
   bx(W-.22,.022,hood-.08,M.yel,0,yT+.011,fz-hood/2,g);
-  bx(W-.16,.17,.02,M.blk,0,y0+.2,fz+.01,g);
+  bx(W-.16,.17,.02,M.blkC,0,y0+.2,fz+.01,g);
   for(let i=0;i<4;i++)bx(W-.3,.012,.022,M.steel,0,y0+.14+i*.04,fz+.015,g);
   for(const sx of[1,-1]){cyl(.055,.03,M.lamp,sx*.33,y0+.21,fz+.022,g,'z');bx(.05,.03,.015,M.amber,sx*.33,y0+.12,fz+.015,g);bx(.05,.1,.015,M.tail,sx*.4,y0+.22,rz-.008,g);
     const beam=new THREE.Mesh(new THREE.ConeGeometry(.55,4,14,1,true),M.beam);beam.rotation.x=-Math.PI/2+.13;beam.position.set(sx*.33,y0+.21-.26,fz+1.98);beam.castShadow=false;g.add(beam);
-    const mir=bx(.03,.07,.05,M.blk,sx*(W/2+.06),yT+.08,gz1-.05,g);mir.castShadow=false;bx(.012,.05,.035,M.glass,sx*(W/2+.075),yT+.08,gz1-.05,g);
-    bx(.012,.014,.12,M.blk,sx*(W/2+.006),y0+.1,gz1-.42,g)}
-  bx(W+.1,.08,.1,M.blk,0,y0+.01,fz+.06,g);bx(.2,.07,.08,M.steel,0,y0+.01,fz+.13,g);
-  for(const sx of[1,-1])bx(.03,.24,.03,M.blk,sx*.22,y0+.16,fz+.11,g);bx(.47,.03,.03,M.blk,0,y0+.27,fz+.11,g);
-  bx(W+.06,.08,.09,M.blk,0,y0+.01,rz-.05,g);
+    const mir=bx(.03,.07,.05,M.blkC,sx*(W/2+.06),yT+.08,gz1-.05,g);mir.castShadow=false;bx(.012,.05,.035,M.glass,sx*(W/2+.075),yT+.08,gz1-.05,g);
+    bx(.012,.014,.12,M.blkC,sx*(W/2+.006),y0+.1,gz1-.42,g)}
+  bx(W+.1,.08,.1,M.blkC,0,y0+.01,fz+.06,g);bx(.2,.07,.08,M.steel,0,y0+.01,fz+.13,g);
+  for(const sx of[1,-1])bx(.03,.24,.03,M.blkC,sx*.22,y0+.16,fz+.11,g);bx(.47,.03,.03,M.blkC,0,y0+.27,fz+.11,g);
+  bx(W+.06,.08,.09,M.blkC,0,y0+.01,rz-.05,g);
   bx(.2,.1,.008,M.plate,0,y0+.08,rz-.098,g);
-  for(const sx of[1,-1])for(const wz of[cfg.wb/2,-cfg.wb/2])bx(.05,.05,.56,M.blk,sx*(W/2+.02),y0+.08,wz,g);
-  if(cfg.snorkel||(cfg.tune&&cfg.tune.snorkel)){cyl(.025,gh+.2,M.blk,-(W/2+.03),yT+gh/2+.03,gz1+.03,g);bx(.06,.05,.08,M.blk,-(W/2+.03),yT+gh+.13,gz1+.04,g)}
-  if(cfg.tune&&cfg.tune.lv.gear>=2){bx(.22,.09,.1,M.steel,0,y0+.12,fz+.12,g);cyl(.02,.2,M.blk,0,y0+.12,fz+.12,g,'x',8)}
+  for(const sx of[1,-1])for(const wz of[cfg.wb/2,-cfg.wb/2])bx(.05,.05,.56,M.blkC,sx*(W/2+.02),y0+.08,wz,g);
+  if(cfg.snorkel||(cfg.tune&&cfg.tune.snorkel)){cyl(.025,gh+.2,M.blkC,-(W/2+.03),yT+gh/2+.03,gz1+.03,g);bx(.06,.05,.08,M.blkC,-(W/2+.03),yT+gh+.13,gz1+.04,g)}
+  if(cfg.tune&&cfg.tune.lv.gear>=2){bx(.22,.09,.1,M.steel,0,y0+.12,fz+.12,g);cyl(.02,.2,M.blkC,0,y0+.12,fz+.12,g,'x',8)}
   // roof rack
   const ry=roofY+.07,rl=rackZ1-rackZ0,rc=(rackZ0+rackZ1)/2,rw=W-.08;
-  for(const sx of[1,-1]){bx(.025,.025,rl,M.blk,sx*rw/2,ry,rc,g);bx(.025,.08,.025,M.blk,sx*rw/2,ry-.04,rackZ0+.03,g);bx(.025,.08,.025,M.blk,sx*rw/2,ry-.04,rackZ1-.03,g)}
-  for(let z=rackZ0;z<=rackZ1+.001;z+=Math.max(.14,rl/8))bx(rw,.014,.02,M.blk,0,ry-.004,z,g);
-  bx(rw-.08,.05,.05,M.blk,0,ry+.04,rackZ1-.01,g);
-  if(cfg.tune&&cfg.tune.led){bx(rw-.1,.045,.04,M.blk,0,ry+.045,rackZ1+.01,g);bx(rw-.16,.025,.012,M.lamp,0,ry+.045,rackZ1+.032,g)}
+  for(const sx of[1,-1]){bx(.025,.025,rl,M.blkC,sx*rw/2,ry,rc,g);bx(.025,.08,.025,M.blkC,sx*rw/2,ry-.04,rackZ0+.03,g);bx(.025,.08,.025,M.blkC,sx*rw/2,ry-.04,rackZ1-.03,g)}
+  for(let z=rackZ0;z<=rackZ1+.001;z+=Math.max(.14,rl/8))bx(rw,.014,.02,M.blkC,0,ry-.004,z,g);
+  bx(rw-.08,.05,.05,M.blkC,0,ry+.04,rackZ1-.01,g);
+  if(cfg.tune&&cfg.tune.led){bx(rw-.1,.045,.04,M.blkC,0,ry+.045,rackZ1+.01,g);bx(rw-.16,.025,.012,M.lamp,0,ry+.045,rackZ1+.032,g)}
   else for(let i=0;i<4;i++)cyl(.026,.02,M.lamp,-.27+i*.18,ry+.04,rackZ1+.018,g,'z');
-  bx(.14,.12,.2,M.can,.17,ry+.07,rc-.15,g);bx(.14,.12,.2,M.can,-.02,ry+.07,rc-.15,g);bx(.24,.1,.16,M.blk,.08,ry+.06,rc+.2,g);
+  bx(.14,.12,.2,M.can,.17,ry+.07,rc-.15,g);bx(.14,.12,.2,M.can,-.02,ry+.07,rc-.15,g);bx(.24,.1,.16,M.blkC,.08,ry+.06,rc+.2,g);
   // spare
   const sp=buildWheel(.2,1);sp.root.scale.set(.85,.85,.85);
   if(cfg.spare==='rear'){sp.root.position.set(0,y0+.24,rz-.12);sp.root.rotation.y=Math.PI/2}
@@ -219,7 +240,7 @@ function buildBody(cfg){
   const hd=new THREE.Mesh(new THREE.PlaneGeometry(.3,.15),decalMat);hd.rotation.x=-Math.PI/2;hd.position.set(0,yT+.024,fz-hood/2);if(cfg.spare!=='hood')g.add(hd);
   // driver + navigator
   for(const sx of cfg.win>1?[1,-1]:[1]){const h=new THREE.Mesh(new THREE.SphereGeometry(.06,12,10),M.skin);h.position.set(sx*.2,yT+.13,gz1-.3);g.add(h);
-    const cap=new THREE.Mesh(new THREE.SphereGeometry(.062,12,8,0,Math.PI*2,0,Math.PI/2),M.blk);cap.position.copy(h.position);cap.position.y+=.01;g.add(cap);
+    const cap=new THREE.Mesh(new THREE.SphereGeometry(.062,12,8,0,Math.PI*2,0,Math.PI/2),M.blkC);cap.position.copy(h.position);cap.position.y+=.01;g.add(cap);
     bx(.17,.14,.12,M.shirt,sx*.2,yT+.02,gz1-.32,g)}
   return g;
 }
@@ -476,7 +497,7 @@ function startRun(){
   showHud();updateGearUI();toast('Kjør til port 1');
 }
 function toMenu(){if(state.course)endCourse();state.free=false;state.mode='menu';$('hud').hidden=true;$('pause').hidden=true;$('result').hidden=true;$('garage').hidden=true;$('menu').hidden=false;renderMenu();resetToStart()}
-function toGarage(){if(state.course)endCourse();state.mode='garage';$('hud').hidden=true;$('pause').hidden=true;$('result').hidden=true;$('menu').hidden=true;$('garage').hidden=false;resetToStart();renderGarage();$('gDrive').focus()}
+function toGarage(){if(state.course)endCourse();clearCoat();state.mode='garage';$('hud').hidden=true;$('pause').hidden=true;$('result').hidden=true;$('menu').hidden=true;$('garage').hidden=false;resetToStart();renderGarage();$('gDrive').focus()}
 function renderGarage(){
   $('gCar').textContent=CARS[state.carIdx].name;$('gNuts').textContent=fmtN(prof.nuts);
   $('partList').innerHTML=PARTS.map(p=>{const lv=prof.parts[p.id]||0,max=lv>=3,price=max?0:p.price[lv+1],can=!max&&prof.nuts>=price;
@@ -687,7 +708,7 @@ function syncVisuals(dt){
   if(ng&&state.mode==='play'){beacon.visible=true;beacon.position.set(ng.c.x,H(ng.c.x,ng.c.z),ng.c.z);beacon.userData.ring.scale.setScalar(1+.08*Math.sin(performance.now()*.005));
     arrow.visible=car.assist;if(arrow.visible){arrow.position.copy(car.pos).add(_c2.set(0,1.25,0));_c1.set(ng.c.x-car.pos.x,0,ng.c.z-car.pos.z).normalize();arrow.quaternion.setFromUnitVectors(YAX,_c1)}}
   else{beacon.visible=false;arrow.visible=false}
-  updateDust(dt);updateRain(dt);updateFx(dt);applyZone(car.pos.x,car.pos.z);nightTint();updateAnimals(dt);updateBoulder(dt);
+  updateDust(dt);updateRain(dt);updateFx(dt);applyZone(car.pos.x,car.pos.z);nightTint();updateCoat(dt);updateAnimals(dt);updateBoulder(dt);
   waterMat.normalMap.offset.x+=dt*.025;waterMat.normalMap.offset.y+=dt*.018;
   const tm=performance.now()*.001;for(const c of crateVis){if(c.taken)continue;c.g.rotation.y=tm*1.2;c.g.position.y=c.cr.y+Math.sin(tm*2.2+c.cr.x)*.03}
 }
