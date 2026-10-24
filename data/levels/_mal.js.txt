@@ -1,0 +1,32 @@
+// MAL FOR NY BANE
+// 1. Kopier denne filen til f.eks. 06-fjellet.js (fjern .txt)
+// 2. Legg til <script src="data/levels/06-fjellet.js"></script> i index.html
+// 3. Test: node tools/test-levels.js fjellet
+
+LEVELS.push(
+{ id:'fjellet', name:'Fjellet', diff:2, seed:123, gates:10,
+  desc:'Beskriv banen med én setning. Den vises i menyen.',
+  // himmel: [øverst, mot horisonten], tåkefarge, lys
+  sky:['#5c9ad1','#dce9ea'], fog:0xcfdad6, fogNear:26, fogFar:84, sun:0xfff0d0, sunI:1.1, hemi:[0xd8e6f0,0x6a6a4a,.62], sunDir:[-18,26,-12],
+  rockCol:'#8d8a7e', waterCol:'#4f6e5a',
+  // løypa: punkter [x,z] mellom -28 og 28. Start først, mål sist.
+  path:[[-26,-26],[-14,-20],[-4,-24],[6,-14],[0,-2],[-10,6],[-6,18],[8,22],[20,12],[26,0],[26,-20]],
+  // terrenghøyde. fbm(n,x*skala,z*skala,oktaver) gir myke åser mellom ca -0.5 og 0.5
+  base:(x,z,n)=>1+1.8*fbm(n,x*.05,z*.05,4)+.5*Math.sin(x*.1)*Math.cos(z*.08),
+  // underlag
+  surf:()=>S.GRAVEL,
+  build(c){const R=c.rng;
+    // steiner utenfor løypa
+    for(let i=0;i<120;i++){const x=(R()-.5)*64,z=(R()-.5)*64,r=.6+R()*1.8,h=.4+R()*1.2;
+      if(c.dist(x,z)<r+1.3||c.nearGate(x,z,r+1.5)||c.nearStart(x,z,r+3))continue;rock(x,z,r,h,{ang:R()*6.3,ax:1+R()*.6})}
+    // små steiner på løypa (gjør den teknisk)
+    for(const t of[.25,.55,.8]){const p=c.P(t),tn=c.T(t),s=c.side(t);for(let i=0;i<8;i++){const a=(R()-.5)*4,b=(R()-.5)*3;rock(p.x+tn.x*a+s.x*b,p.z+tn.z*a+s.z*b,.4+R()*.5,.25+R()*.25,{ang:R()*6.3})}}
+    // ett gjørmehull, én pytt og ett hopp
+    {const p=c.P(.4);c.pond(p.x,p.z,2.2,.18,{fill:.55,bog:true})}
+    {const p=c.P(.65);c.pond(p.x,p.z,1.6,.24,{fill:.4})}
+    c.ramp(.5,.5,3.2,2.6);
+    c.finish();                 // terrenget er ferdig; nå pynt
+    c.pebbles(900,['#7c7669','#9a9385','#5f5a50'],.04,.12);
+    c.tufts(80,['#6b8a3a','#8aa64a']);
+  }}
+);

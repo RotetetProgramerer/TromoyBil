@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="nb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Sandglow Crawl</title>
+<meta name="description" content="Kjør en 1:24 RC-crawler gjennom porter, gjørme og vadesteder. Tjen muttere og bygg bilen i garasjen.">
+<meta name="theme-color" content="#14120E">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=Saira+Stencil+One&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="stage"></div>
+
+<!-- HUD -->
+<div id="hud" hidden>
+  <div class="hud-run" aria-live="polite">
+    <div class="ln" id="hLevel">Sandklitten</div>
+    <div class="r"><span>Port</span><b id="hGate">0/10</b></div>
+    <div class="r"><span>Tid</span><b id="hTime">0:00.0</b></div>
+    <div class="r"><span>Straff</span><b id="hPen" class="pen">0</b></div>
+    <div class="r"><span>Kasser</span><b id="hCrate">0/6</b></div>
+  </div>
+  <div class="hud-btns">
+    <button class="ib" id="bZoomOut" aria-label="Zoom ut (X)" title="Zoom ut (X)"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21M7.5 10.5h6"/></svg></button>
+    <button class="ib" id="bZoomIn" aria-label="Zoom inn (Z)" title="Zoom inn (Z)"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21M7.5 10.5h6M10.5 7.5v6"/></svg></button>
+    <button class="ib" id="bCam" aria-label="Bytt kamera (C)" title="Bytt kamera (C)"><svg viewBox="0 0 24 24"><path d="M3 8h4l2-3h6l2 3h4v11H3z"/><circle cx="12" cy="13" r="3.5"/></svg></button>
+    <button class="ib" id="bLights" aria-pressed="false" aria-label="Lys av og på (L)" title="Lys (L)"><svg viewBox="0 0 24 24"><path d="M10 6c-4 0-6 3-6 6s2 6 6 6c2 0 3-2 3-6s-1-6-3-6z"/><path d="M15 8l6-1M15 12h6M15 16l6 1"/></svg></button>
+    <button class="ib" id="bWinch" aria-label="Vinsj tilbake (R), 5 straffepoeng" title="Vinsj (R)">Vinsj</button>
+    <button class="ib" id="bPause" aria-label="Pause (Esc)" title="Pause (Esc)"><svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></svg></button>
+  </div>
+  <div class="gauges">
+    <button class="g gear" id="bGear" aria-label="Bytt gir (G eller mellomrom)"><span>Gir</span><b id="hGearTxt">LAV</b><small id="hGearSub">krabb</small></button>
+    <div class="g spd"><button id="bSlow" aria-label="Senk fartsgrensen (minus)">−</button><div class="v"><span>Fartsgrense</span><b id="hSpd">100%</b></div><button id="bFast" aria-label="Øk fartsgrensen (pluss)">+</button></div>
+    <div class="g"><span>Fart</span><b id="hSpeed">0</b><small>cm/s</small></div>
+    <div class="g nxt"><span>Neste port</span><b id="hNext">–</b><small id="hNextU">cm</small></div>
+    <div class="g incl" id="gIncl">
+      <svg viewBox="-30 -30 60 60" aria-hidden="true">
+        <circle r="27" fill="none" stroke="rgba(242,232,208,.18)" stroke-width="1.5"/>
+        <path d="M-27 0H-21M21 0H27" stroke="rgba(242,232,208,.4)" stroke-width="1.5"/>
+        <g id="inclRoll">
+          <rect x="-14" y="-12" width="28" height="13" rx="2" fill="#E5A92B"/>
+          <rect x="-10" y="-17" width="20" height="6" fill="#1F1B15" stroke="#E5A92B" stroke-width="1.5"/>
+          <rect x="-19" y="0" width="8" height="10" rx="2" fill="#F2E8D0"/>
+          <rect x="11" y="0" width="8" height="10" rx="2" fill="#F2E8D0"/>
+          <path d="M-24 11H24" stroke="rgba(242,232,208,.35)" stroke-width="1"/>
+        </g>
+      </svg>
+      <div class="lbl"><span>Krengning <b id="hRoll">0°</b></span><span>Stigning <b id="hPitch">0°</b></span></div>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+  <div class="hint" id="hint" hidden></div>
+
+  <div class="touch">
+    <div class="tpad l">
+      <button class="tb" data-t="left" aria-label="Styr til venstre"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <button class="tb" data-t="right" aria-label="Styr til høyre"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
+    </div>
+    <div class="tpad r">
+      <div class="tcol">
+        <button class="tb big" data-t="gas" aria-label="Gass"><svg viewBox="0 0 24 24"><path d="M5 15l7-7 7 7"/></svg></button>
+        <button class="tb" data-t="rev" aria-label="Revers"><svg viewBox="0 0 24 24"><path d="M5 9l7 7 7-7"/></svg></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MENU -->
+<section class="overlay menu" id="menu">
+  <header class="brand">
+    <p class="eyebrow">Skala 1:24 · Krabbekjøring</p>
+    <h1>Sandglow<br>Crawl</h1>
+    <p class="lede">Gjennom portene, over hoppet, gjennom gjørma og vadestedene. Plukk opp kassene på veien, og ikke drukne motoren.</p>
+  </header>
+  <div class="panel">
+    <div class="wallet"><span class="n">⚙ <span id="mNuts">0</span></span><span class="s" id="mStars">★ 0 av 15</span><button class="ghost" id="mGarage">Garasje</button></div>
+    <h2>Velg bil</h2>
+    <div class="car-grid" id="carList"></div>
+    <p class="car-desc" id="carDesc"></p>
+    <h2>Velg bane</h2>
+    <div class="level-list" id="levelList"></div>
+    <h2>Kjøremodus</h2>
+    <div class="seg" role="group" aria-label="Kjøremodus">
+      <button id="modeEasy" aria-pressed="true">Lett</button>
+      <button id="modeReal" aria-pressed="false">Ekte</button>
+    </div>
+    <p class="note" id="modeNote"></p>
+    <h2>Fartsgrense</h2>
+    <div class="slider"><input type="range" id="spdRange" min="30" max="150" step="10" value="100" aria-label="Fartsgrense i prosent"><output id="spdOut" for="spdRange">100 %</output></div>
+    <p class="note">Senker eller hever toppfarten i begge gir. 50 % passer små barn, 150 % gir mer fres. Kan også endres underveis med + og −.</p>
+    <h2>Grafikk</h2>
+    <div class="seg" role="group" aria-label="Grafikk">
+      <button id="gfxHi" aria-pressed="true">Høy</button>
+      <button id="gfxLo" aria-pressed="false">Lav</button>
+    </div>
+    <button class="go" id="startBtn">Kjør!</button>
+    <dl class="keys">
+      <dt><kbd>←</kbd><kbd>↑</kbd><kbd>→</kbd><kbd>↓</kbd></dt><dd>Styr, gass og revers (også WASD)</dd>
+      <dt><kbd>G</kbd> / <kbd>Mellomrom</kbd></dt><dd>Bytt mellom lavt og høyt gir</dd>
+      <dt><kbd>+</kbd> / <kbd>−</kbd></dt><dd>Fartsgrense opp og ned</dd>
+      <dt><kbd>L</kbd> <kbd>C</kbd> <kbd>R</kbd></dt><dd>Lys, kamera, vinsj tilbake</dd>
+      <dt><kbd>Z</kbd> / <kbd>X</kbd></dt><dd>Zoom nærmere og lengre fra bilen</dd>
+      <dt>Mus</dt><dd>Dra for å se rundt, rull eller klyp for zoom</dd>
+    </dl>
+  </div>
+</section>
+
+<!-- GARAGE -->
+<section class="overlay menu" id="garage" hidden>
+  <header class="brand">
+    <p class="eyebrow">Garasjen</p>
+    <h1 id="gCar">Kobbe</h1>
+    <p class="lede">Du tjener muttere på hver port, hver kasse og hvert hopp. Bruk dem på deler som gjør bilen bedre. Delene gjelder alle bilene.</p>
+    <p class="wallet" style="display:inline-flex;margin-top:14px"><span class="n">⚙ <span id="gNuts">0</span></span><span class="s">muttere</span></p>
+  </header>
+  <div class="panel">
+    <h2>Deler</h2>
+    <div class="parts" id="partList"></div>
+    <h2>Lakk</h2>
+    <div class="paints" id="paintList"></div>
+    <p class="note" id="paintName"></p>
+    <button class="go" id="gDrive">Kjør!</button>
+    <button class="ghost" id="gBack">Til menyen</button>
+  </div>
+</section>
+
+<!-- PAUSE -->
+<section class="overlay dialog" id="pause" hidden>
+  <div class="sheet">
+    <h2>Pause</h2>
+    <button class="go" id="pResume">Fortsett</button>
+    <div class="row">
+      <button class="ghost" id="pRestart">Start på nytt</button>
+      <button class="ghost" id="pMenu">Til menyen</button>
+    </div>
+    <div class="row"><button class="ghost" id="pSound" aria-pressed="true">Lyd: på</button></div>
+    <ul class="log">
+      <li><b>Bom på en port:</b> 10 straffepoeng</li>
+      <li><b>Vinsj tilbake:</b> 5 straffepoeng</li>
+      <li><b>Berører en portstang:</b> 2 straffepoeng</li>
+      <li><b>Druknet motor:</b> 5 straffepoeng</li>
+      <li><b>Forsyningskasse:</b> 2 sekunder trukket fra tiden og 15 ⚙</li>
+      <li><b>Muttere:</b> 10 per port, 100 for feilfri runde, 20 for store hopp</li>
+    </ul>
+  </div>
+</section>
+
+<!-- RESULT -->
+<section class="overlay dialog" id="result" hidden>
+  <div class="sheet">
+    <p class="eyebrow" id="rLevel">Sandklitten</p>
+    <h2 id="rTitle">I mål!</h2>
+    <div class="stars" id="rStars"></div>
+    <div class="res">
+      <div><span>Tid</span><b id="rTime">0:00</b></div>
+      <div><span>Straff</span><b id="rPen">0</b></div>
+      <div><span>Porter</span><b id="rGates">10/10</b></div>
+    </div>
+    <ul class="log" id="rLog"></ul>
+    <div class="earn">⚙ <b id="rNuts">+0</b><small id="rNutsNote"></small></div>
+    <button class="go" id="rNext">Neste bane</button>
+    <div class="row">
+      <button class="ghost" id="rGarage">Garasje</button>
+      <button class="ghost" id="rRetry">Prøv igjen</button>
+      <button class="ghost" id="rMenu">Til menyen</button>
+    </div>
+  </div>
+</section>
+
+<!-- Motor -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="js/core.js"></script>
+
+<!-- Innhold: legg til nye biler i data/cars.js og nye baner som egne filer her -->
+<script src="data/parts.js"></script>
+<script src="data/cars.js"></script>
+<script src="data/levels/01-sand.js"></script>
+<script src="data/levels/02-stein.js"></script>
+<script src="data/levels/03-skog.js"></script>
+<script src="data/levels/04-desk.js"></script>
+<script src="data/levels/05-elv.js"></script>
+
+<!-- Spillet -->
+<script src="js/game.js"></script>
+<script>if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js').catch(()=>{});</script>
+</body>
+</html>
