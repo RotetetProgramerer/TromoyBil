@@ -108,7 +108,7 @@ function instanced(geo,mat,list,grp,shadow=true){
 function surfColor(s,x,z,n,def){
   const v=n(x*.45+50,z*.45),w=n(x*2.7,z*2.7-40);
   switch(s){
-    case S.SAND:return mix('#d4c6a8','#eee5d0',v*.7+w*.3);
+    case S.SAND:return mix('#c4a260','#dec284',v*.7+w*.3);
     case S.ROCK:{const b=col(def.rockCol||'#9a948a'),f=.76+w*.32+v*.12;return[b[0]*f,b[1]*f,b[2]*f]}
     case S.GRAVEL:return mix('#776f62','#a1998b',v*.5+w*.5);
     case S.DIRT:return mix('#5b412b','#80603f',v*.6+w*.4);
