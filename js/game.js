@@ -323,6 +323,7 @@ function buildBridge(dk){
     p.set(dk.ax+dk.ux*dk.len*t,yAt(t)-.035,dk.az+dk.uz*dk.len*t);e.set(-Math.atan(dyds)+((k*7919)%13/13-.5)*.07,yaw,((k*104729)%11/11-.5)*.06,'YXZ');q.setFromEuler(e);sc.set(dk.hw*2*1.04,.07,dk.len/n*.86);m4.compose(p,q,sc);planks.setMatrixAt(k,m4);
     cc.set(['#7b4e2c','#8c5c33','#6b4325','#9a6a3e'][k%4]);cc.convertSRGBToLinear();planks.setColorAt(k,cc)}
   planks.castShadow=true;planks.receiveShadow=true;levelGroup.add(planks);
+  if(dk.ferry){ferryDeckMesh=planks;return}   // the ferry's own deck: no railings, and it sails with the hull (see buildFerry)
   const pt=(t,lat,h)=>new V3(dk.ax+dk.ux*dk.len*t+lx*lat,yAt(t)+h,dk.az+dk.uz*dk.len*t+lz*lat),segs=[],ns=Math.max(6,Math.round(dk.len/.45));
   for(const sd of[-1,1]){const lat=sd*(dk.hw-.02);
     for(let i=0;i<ns;i++){const t0=i/ns,t1=(i+1)/ns;
@@ -859,8 +860,9 @@ function startRoam(){state.roam=true;const sv=store.get('roam',null);let i=LEVEL
   if(sv&&sv.id===LEVELS[i].id&&isFinite(sv.x)){placeCar(car,sv.x,sv.z,sv.h||0);camSnap=true;state.checkpoint={x:sv.x,z:sv.z,h:sv.h||0}}}
 function saveRoam(dt){if(!state.roam||!state.free||state.course)return;roamSaveT-=dt;if(roamSaveT>0)return;roamSaveT=3;if(car.up.y>.9&&car.depth<0)store.set('roam',{id:LEVELS[state.levelIdx].id,x:+car.pos.x.toFixed(2),z:+car.pos.z.toFixed(2),h:+Math.atan2(car.fw.x,car.fw.z).toFixed(3)})}
 // the ferry: hull, bulwarks, wheelhouse and funnel around the drivable deck the level made
-let ferryVis=null;
-function buildFerry(lv){ferryVis=null;const f=lv.ferry;if(!f)return;const g=new THREE.Group(),yaw=Math.atan2(f.dx,f.dz);g.position.set(f.x,f.y,f.z);g.rotation.y=yaw;
+let ferryVis=null,ferryDeckMesh=null;
+function buildFerry(lv){ferryVis=null;const f=lv.ferry;if(!f){ferryDeckMesh=null;return}const g=new THREE.Group(),yaw=Math.atan2(f.dx,f.dz);g.position.set(f.x,f.y,f.z);g.rotation.y=yaw;
+  if(ferryDeckMesh){g.attach(ferryDeckMesh);ferryDeckMesh=null}   // the plank deck built with the level comes along
   const hull=new THREE.MeshStandardMaterial({color:LIN('#3f5f78'),roughness:.6}),white=new THREE.MeshStandardMaterial({color:LIN('#eef0ea'),roughness:.5}),red=new THREE.MeshStandardMaterial({color:LIN('#c8463a'),roughness:.6});
   const B=(w,h,d,mat,x,y,z)=>{const m=new THREE.Mesh(boxGeo,mat);m.scale.set(w,h,d);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;g.add(m);return m};
   B(4.6,.9,f.len+.9,hull,0,-.5,0);B(4.8,.06,f.len+1.1,white,0,-.08,0);                                   // hull and gunwale line
