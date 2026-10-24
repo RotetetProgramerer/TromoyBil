@@ -11,6 +11,14 @@ const levelFiles=[...fs.readFileSync(path.join(root,'index.html'),'utf8').matchA
 for(const f of fs.readdirSync(path.join(root,'data/levels')).filter(f=>f.endsWith('.js')))if(!levelFiles.includes('data/levels/'+f))console.log('ADVARSEL: data/levels/'+f+' mangler i index.html og er ikke med i spillet');
 levelFiles.forEach(load);
 const dt=1/240,only=process.argv[2];
+// from the ferry deck, across the pier, through the village and up the road inland: the car must get out without falling or getting stuck
+function villageTest(def,lv){const f=lv.ferry,car=makeCar(CARS[1]);car.assist=false;car.low=true;const head=Math.atan2(-f.dx,-f.dz);placeCar(car,f.x,f.z,head);car.pos.y=f.y+.5;
+  const oa=(def.village.out??(f.dir/Math.PI*180+180))*Math.PI/180,ox=Math.cos(oa),oz=Math.sin(oa),goal={x:f.pad.x+ox*15,z:f.pad.z+oz*15};
+  let best=1e9,fell=0,wp=0;const pts=[{x:f.pad.x+(f.quay.x-f.pad.x)*.5,z:f.pad.z+(f.quay.z-f.pad.z)*.5},{x:f.pad.x,z:f.pad.z},goal];
+  for(let i=0;i<240*40;i++){const w=pts[wp],dx=w.x-car.pos.x,dz=w.z-car.pos.z,d=Math.hypot(dx,dz);if(d<1.2){wp++;if(wp>=pts.length)break;continue}
+    const fw=car.fw,lf=car.lf,ang=Math.atan2(dx*lf.x+dz*lf.z,dx*fw.x+dz*fw.z);car.steer=Math.max(-.6,Math.min(.6,ang*1.5));car.throttle=1;stepCar(car,dt);
+    if(car.depth>0)fell++;if(car.up.y<.2){console.log(def.id.padEnd(14),'LANDSBY  FEIL: velt ved',car.pos.x.toFixed(1),car.pos.z.toFixed(1));return}}
+  const dg=Math.hypot(goal.x-car.pos.x,goal.z-car.pos.z);console.log(def.id.padEnd(14),'LANDSBY ',wp>=pts.length?'OK  ':'FEIL','ut av landsbyen'+(wp>=pts.length?'':' (stoppet '+dg.toFixed(1)+' fra målet ved '+car.pos.x.toFixed(1)+','+car.pos.z.toFixed(1)+')'),'vann',fell)}
 // drives one line (a level, or one course inside an open world) in both gears
 function drive(def,lv,line,label){
   for(const low of[true,false]){
@@ -39,6 +47,7 @@ function drive(def,lv,line,label){
 for(const def of LEVELS){
   if(only&&def.id!==only)continue;
   const lv=genLevel(def);
+  if(lv.ferry)villageTest(def,lv);
   if(def.world){for(const k of lv.courses)drive(def,lv,k,def.id+'/'+k.id);continue}   // an open world: every course on its own
   drive(def,lv,lv,def.id);
 

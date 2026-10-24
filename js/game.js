@@ -865,12 +865,12 @@ function buildFerry(lv){ferryVis=null;const f=lv.ferry;if(!f)return;const g=new 
   const B=(w,h,d,mat,x,y,z)=>{const m=new THREE.Mesh(boxGeo,mat);m.scale.set(w,h,d);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;g.add(m);return m};
   B(4.6,.9,f.len+.9,hull,0,-.5,0);B(4.8,.06,f.len+1.1,white,0,-.08,0);                                   // hull and gunwale line
   for(const sd of[-1,1])B(.5,.42,f.len-.2,white,sd*2.05,.17,0);                                           // bulwarks beside the deck
-  B(.5,.42,3.4,white,0,.17,-f.len/2-.2);                                                                 // stern wall (sea end)
-  B(1.3,1.25,1.5,white,1.65,.8,-f.len/2+1.5);B(1.1,.45,1.1,new THREE.MeshStandardMaterial({color:LIN('#1a262d'),roughness:.1,metalness:.6}),1.65,1.1,-f.len/2+1.5);   // wheelhouse
-  const fun=new THREE.Mesh(cylGeo,red);fun.scale.set(.22,.9,.22);fun.position.set(1.65,1.85,-f.len/2+.6);g.add(fun);const fb=new THREE.Mesh(cylGeo,white);fb.scale.set(.24,.12,.24);fb.position.set(1.65,2.3,-f.len/2+.6);g.add(fb);
-  const mast=new THREE.Mesh(cylGeo,white);mast.scale.set(.05,2.2,.05);mast.position.set(-1.9,1.1,-f.len/2+1.2);g.add(mast);
+  B(.5,.42,3.4,white,0,.17,f.len/2+.2);                                                                  // stern wall (sea end)
+  B(1.3,1.25,1.5,white,1.65,.8,f.len/2-1.5);B(1.1,.45,1.1,new THREE.MeshStandardMaterial({color:LIN('#1a262d'),roughness:.1,metalness:.6}),1.65,1.1,f.len/2-1.5);   // wheelhouse
+  const fun=new THREE.Mesh(cylGeo,red);fun.scale.set(.22,.9,.22);fun.position.set(1.65,1.85,f.len/2-.6);g.add(fun);const fb=new THREE.Mesh(cylGeo,white);fb.scale.set(.24,.12,.24);fb.position.set(1.65,2.3,f.len/2-.6);g.add(fb);
+  const mast=new THREE.Mesh(cylGeo,white);mast.scale.set(.05,2.2,.05);mast.position.set(-1.9,1.1,f.len/2-1.2);g.add(mast);
   for(const z of[-1.5,1.5]){const ring=new THREE.Mesh(new THREE.TorusGeometry(.2,.06,6,14),red);ring.position.set(2.32,.5,z);ring.rotation.y=Math.PI/2;g.add(ring)}
-  B(3.2,.05,1.2,new THREE.MeshStandardMaterial({color:LIN('#5a5a58'),roughness:.9}),0,.02,f.len/2+.55);      // ramp onto the pier
+  B(3.2,.05,1.4,new THREE.MeshStandardMaterial({color:LIN('#5a5a58'),roughness:.9}),0,.01,-f.len/2-.3);      // ramp onto the pier (land end)
   levelGroup.add(g);ferryVis={g,f,yaw}}
 
 /* ---------- the ferry trip ---------- */
