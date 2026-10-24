@@ -13,7 +13,8 @@ const state={mode:'menu',carIdx:idxOf(CARS,store.get('car',0)),levelIdx:idxOf(LE
   time:0,started:false,penalty:0,next:0,flipT:0,checkpoint:null,missed:0,touched:0,winches:0,log:[],input:{gas:0,rev:0,left:0,right:0}};
 let best=store.get('best',{});
 // player profile: currency, parts, paint
-const prof=Object.assign({nuts:0,parts:{},paint:0,paints:[0],first:{},runs:0,lastDay:'',secrets:{}},store.get('prof',{}));if(!prof.secrets)prof.secrets={};
+const prof=Object.assign({nuts:0,parts:{},paint:0,paints:[0],first:{},runs:0,lastDay:'',secrets:{},cars:[],unlocked:[]},store.get('prof',{}));if(!prof.secrets)prof.secrets={};if(!prof.cars)prof.cars=[];if(!prof.unlocked)prof.unlocked=[];
+const ownsCar=c=>!c.price||prof.cars.includes(c.id);
 if(!PAINTS[prof.paint])prof.paint=0;
 const saveProf=()=>store.set('prof',prof);
 const fmtN=n=>String(n).replace(/\B(?=(\d{3})+(?!\d))/g,' ');
@@ -500,6 +501,7 @@ function toMenu(){if(state.course)endCourse();state.free=false;state.mode='menu'
 function toGarage(){if(state.course)endCourse();clearCoat();state.mode='garage';$('hud').hidden=true;$('pause').hidden=true;$('result').hidden=true;$('menu').hidden=true;$('garage').hidden=false;resetToStart();renderGarage();$('gDrive').focus()}
 function renderGarage(){
   $('gCar').textContent=CARS[state.carIdx].name;$('gNuts').textContent=fmtN(prof.nuts);
+  const forSale=CARS.filter(c=>c.price&&!ownsCar(c));$('carSale').innerHTML=forSale.length?'<h2>Biler til salgs</h2>'+forSale.map(c=>{const can=prof.nuts>=c.price;return`<div class="part"><span class="nm">${c.name}</span><span class="lvn">${c.kind}</span><p class="ds">${c.desc}</p><button class="buy ${can?'can':''}" data-buycar="${c.id}" ${can?'':'disabled'}>Kjøp<b>⚙ ${c.price}</b>${can?'':'<span>mangler '+(c.price-prof.nuts)+'</span>'}</button></div>`}).join(''):'';
   $('partList').innerHTML=PARTS.map(p=>{const lv=prof.parts[p.id]||0,max=lv>=3,price=max?0:p.price[lv+1],can=!max&&prof.nuts>=price;
     return`<div class="part"><span class="nm">${p.name} ${pips(lv,3)}</span><span class="lvn">${p.lv[lv]}</span><p class="ds">${p.desc}</p>
       <button class="buy ${can?'can':''} ${max?'max':''}" data-buy="${p.id}" ${can?'':'disabled'}>${max?'Fullt oppgradert':`Neste: ${p.lv[lv+1]}<b>⚙ ${price}</b>${can?'':'<span>mangler '+(price-prof.nuts)+'</span>'}`}</button></div>`}).join('');
@@ -510,6 +512,7 @@ function buyPart(id){const p=PARTS.find(x=>x.id===id),lv=prof.parts[id]||0;if(lv
   prof.nuts-=price;prof.parts[id]=lv+1;saveProf();setCar(state.carIdx);renderGarage();const b=document.querySelector(`[data-buy="${id}"]`);if(b)b.classList.add('flash')}
 function pickPaint(i){const p=PAINTS[i];if(p.locked&&!prof.paints.includes(i))return;if(!prof.paints.includes(i)){if(prof.nuts<p.p)return;prof.nuts-=p.p;prof.paints.push(i)}prof.paint=i;saveProf();applyPaint();renderGarage()}
 $('partList').addEventListener('click',e=>{const b=e.target.closest('[data-buy]');if(b)buyPart(b.dataset.buy)});
+$('carSale').addEventListener('click',e=>{const b=e.target.closest('[data-buycar]');if(!b)return;const c=CARS.find(x=>x.id===b.dataset.buycar);if(!c||prof.nuts<c.price)return;prof.nuts-=c.price;prof.cars.push(c.id);saveProf();setCar(CARS.indexOf(c));renderGarage();toast('Gratulerer med '+c.name+'!')});
 $('paintList').addEventListener('click',e=>{const b=e.target.closest('[data-paint]');if(b)pickPaint(+b.dataset.paint)});
 $('mGarage').onclick=toGarage;$('rGarage').onclick=toGarage;$('gBack').onclick=toMenu;$('gDrive').onclick=startRun;
 function pause(on){if(state.mode!=='play'&&state.mode!=='pause')return;state.mode=on?'pause':'play';$('pause').hidden=!on;$('pAbort').hidden=!state.course;$('pMap').hidden=!state.world;$('pRestart').textContent=state.course?'Start løpet på nytt':state.world?'Tilbake til basen':'Start på nytt';if(on)$('pResume').focus()}
@@ -553,7 +556,7 @@ function finishRun(){
   // the daily double needs a full run (no missed gates) and is saved for later otherwise
   const today=new Date().toDateString();let dbl=false,dblNote='';
   if(prof.lastDay!==today){if(state.missed===0){prof.lastDay=today;dbl=true;e*=2}else dblNote='Ta alle portene for å få dagens dobbel. '}
-  prof.nuts+=e;prof.runs++;saveProf();
+  prof.nuts+=e;prof.runs++;saveProf();if(state.world)rebuildPortalSign(null);
   $('rNuts').textContent='+'+fmtN(e);$('rNutsNote').textContent=(dbl?'Dagens første tur: dobbelt! ':dblNote)+el.join(' · ');
   $('rLog').innerHTML=items.join('');
   $('rNext').textContent=state.world?'Kjør videre':state.levelIdx<LEVELS.length-1?'Neste bane':'Første bane';
@@ -774,7 +777,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden&&state.mode
 /* ---------- menu ---------- */
 function pips(n,max=5){return'<span class="pips">'+Array.from({length:max},(_,i)=>`<i class="${i<n?'on':''}"></i>`).join('')+'</span>'}
 function renderMenu(){
-  $('carList').innerHTML=CARS.map((c,i)=>`<button class="card" data-car="${i}" aria-pressed="${i===state.carIdx}"><span class="nm">${c.name}</span><span class="kd">${c.kind}</span>
+  $('carList').innerHTML=CARS.map((c,i)=>`<button class="card ${ownsCar(c)?'':'locked'}" data-car="${i}" aria-pressed="${i===state.carIdx}"><span class="nm">${c.name}${ownsCar(c)?'':' 🔒'}</span><span class="kd">${ownsCar(c)?c.kind:'Kjøpes i verkstedet · '+c.price+' ⚙'}</span>
     <span class="stat">Klatring ${pips(c.stats[0])}</span><span class="stat">Sving ${pips(c.stats[1])}</span><span class="stat">Stabilitet ${pips(c.stats[2])}</span></button>`).join('');
   $('carDesc').textContent=CARS[state.carIdx].desc;
   const lvlBtn=(l,i,no)=>{if(l.world){const done=l.challenges.filter(c=>best[l.id+'/'+c.id]).length;return`<button class="lvl world" data-lvl="${i}" aria-pressed="${i===state.levelIdx}"><span class="no">★</span>
@@ -787,7 +790,7 @@ function renderMenu(){
   $('modeEasy').setAttribute('aria-pressed',state.assist);$('modeReal').setAttribute('aria-pressed',!state.assist);
   $('modeNote').textContent=state.assist?'Litt mer grep, veltehjelp, automatisk vinsj og en pil som peker mot neste port. Fint for barn og nybegynnere.':'Ingen hjelp. Bilen oppfører seg som en ekte crawler, og du må vinsje selv.';
 }
-$('carList').addEventListener('click',e=>{const b=e.target.closest('[data-car]');if(!b)return;setCar(+b.dataset.car);renderMenu()});
+$('carList').addEventListener('click',e=>{const b=e.target.closest('[data-car]');if(!b)return;const c=CARS[+b.dataset.car];if(!ownsCar(c)){$('carDesc').textContent=c.desc+' Kjøpes i verkstedet på basen for '+c.price+' muttere.';return}setCar(+b.dataset.car);renderMenu()});
 $('levelList').addEventListener('click',e=>{const b=e.target.closest('[data-lvl]');if(!b)return;loadLevel(+b.dataset.lvl);renderMenu()});
 $('modeEasy').onclick=()=>{state.assist=true;store.set('assist',true);if(car)car.assist=true;renderMenu()};
 $('modeReal').onclick=()=>{state.assist=false;store.set('assist',false);if(car)car.assist=false;renderMenu()};
@@ -797,12 +800,17 @@ $('modeReal').onclick=()=>{state.assist=false;store.set('assist',false);if(car)c
 let portals=[],courseArrows=null,countT=0,gateWake=null,nightOn=false,cpT=0;
 const coursesDone=()=>LV.courses.filter(k=>best[courseKey(LEVELS[state.levelIdx],k)]).length;
 const DIFFCOL=['#8bbb4a','#8bbb4a','#f2c230','#d9432f'];
+// a locked course needs a number of finished courses on this island, or can be bought open for nuts
+function courseLock(k){const n=k.def&&k.def.needs;if(!n)return null;const lvl=LEVELS[state.levelIdx];if(prof.unlocked.includes(courseKey(lvl,k)))return null;const done=coursesDone();if(n.courses&&done>=n.courses)return null;
+  const need=n.courses?('Fullfør '+n.courses+' løype'+(n.courses>1?'r':'')+' på øya først ('+done+' fullført)'):'';return{text:need,nuts:n.nuts||0}}
 function startFree(){state.mode='play';state.free=true;state.course=null;resetRunState();LV.gates=[];LV.crates=[];buildGates(LV);buildCrates(LV);
   resetToStart();car.low=true;clearTracks();showHud();updateGearUI();state.checkpoint={x:car.pos.x,z:car.pos.z,h:Math.atan2(car.fw.x,car.fw.z)};toast('Fri kjøring: kjør bort til en startstrek')}
 // the start of every course: two flag poles, tyre barriers, a string of festival lights and a sign
 function portalSign(k){const c=document.createElement('canvas');c.width=256;c.height=128;const x=c.getContext('2d');x.fillStyle='#f2e8d0';x.fillRect(0,0,256,128);x.fillStyle=DIFFCOL[k.diff];x.fillRect(0,0,256,22);
   x.strokeStyle='#14120E';x.lineWidth=6;x.strokeRect(3,3,250,122);x.fillStyle='#14120E';x.textAlign='center';x.font='700 40px "Barlow Condensed",sans-serif';x.fillText(k.name,128,72);
-  x.font='600 22px "Barlow Condensed",sans-serif';x.fillText(['','Lett','Middels','Vanskelig'][k.diff]+' · '+k.gates.length+' porter',128,106);const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;return t}
+  x.font='600 22px "Barlow Condensed",sans-serif';x.fillText(['','Lett','Middels','Vanskelig'][k.diff]+' · '+k.gates.length+' porter',128,106);
+  if(courseLock(k)){x.fillStyle='rgba(20,18,14,.55)';x.fillRect(0,0,256,128);x.fillStyle='#f2e8d0';x.font='700 56px sans-serif';x.fillText('🔒',128,84)}
+  const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;return t}
 function buildPortals(lv){portals=[];if(!lv.courses||!lv.courses.length)return;
   for(const k of lv.courses){const g=new THREE.Group(),p=k.start.p,tn=k.start.tan,s=new V3(tn.z,0,-tn.x),col=DIFFCOL[k.diff];
     const tops=[];
@@ -825,14 +833,19 @@ function openAsk(k){state.mode='ask';state.askK=k;$('aList').hidden=true;$('aYes
     $('aList').innerHTML=dests.map(l=>`<button data-dest="${l.id}"><span><span class="nm">${l.name}</span><span class="sub">${l.desc}</span></span><span class="pr">5 ⚙</span></button>`).join('');$('aList').hidden=false;$('aYes').hidden=true;$('aNo').textContent='Bli her';$('ask').hidden=false;return}
   $('aQ').textContent='Vil du starte denne utfordringen?';$('aNo').textContent='NEI, kjør videre';
   if(k==='garage'){$('aName').textContent='Verkstedet';$('aKind').textContent='Basen';$('aDesc').textContent='Mekanikerne står klare. Her bruker du mutterne på dekk, fjæring, motor, vekt, utstyr og lakk.';$('aBest').textContent='Du har '+fmtN(prof.nuts)+' muttere.';$('ask').hidden=false;$('aYes').focus();return}
-  const key=courseKey(LEVELS[state.levelIdx],k),b=best[key];
+  const key=courseKey(LEVELS[state.levelIdx],k),b=best[key],lock=courseLock(k);
   $('aName').textContent=k.name;$('aDesc').textContent=k.desc;$('aKind').textContent=['','Lett løype','Middels løype','Vanskelig løype'][k.diff]+' · '+k.gates.length+' porter';
   $('aBest').textContent=b?'Din beste: '+fmtTime(b.t)+' med '+b.p+' straffepoeng, '+b.s+' av 3 stjerner.':'Ikke kjørt ennå. Første gang i mål gir banebonus.';
+  if(lock){$('aKind').textContent='🔒 Låst løype';$('aBest').textContent=lock.text+(lock.nuts?(lock.text?', eller lås opp for ':'Lås opp for ')+lock.nuts+' ⚙ (du har '+fmtN(prof.nuts)+').':'.');
+    if(lock.nuts&&prof.nuts>=lock.nuts){$('aQ').textContent='Vil du låse opp løypa for '+lock.nuts+' muttere?';state.askUnlock=lock.nuts}else{$('aQ').textContent='';$('aYes').hidden=true;state.askUnlock=0}}else state.askUnlock=0;
   $('ask').hidden=false;$('aYes').focus()}
 function answerAsk(yes){if(state.mode!=='ask')return;$('ask').hidden=true;const k=state.askK;state.askK=null;
   if(k==='garage'){state.askCool='garage';if(yes){state.mode='play';toGarage()}else{state.mode='play';toast('Kjør videre når du vil')}return}
   if(k==='ferry'){state.askCool='ferry';state.mode='play';if(yes&&yes.dest)startFerry(yes.dest);return}
+  if(yes&&state.askUnlock){prof.nuts-=state.askUnlock;prof.unlocked.push(courseKey(LEVELS[state.levelIdx],k));saveProf();state.askUnlock=0;state.mode='play';state.askCool=k.id;rebuildPortalSign(k);toast(k.name+' er låst opp · −'+(k.def.needs.nuts)+' ⚙');return}
   if(yes)startCourse(k);else{state.mode='play';state.askCool=k.id;toast('Kjør videre når du vil')}}
+// after an unlock or a finished course the signs may change
+function rebuildPortalSign(k){for(const p of portals){if(k&&p.k!==k)continue;const b=p.g.children.find(o=>o.isMesh&&o.material.map&&o.geometry.parameters&&o.geometry.parameters.width===1.2);if(b){b.material.map.dispose();b.material.map=portalSign(p.k);b.material.needsUpdate=true}}}
 function startCourse(k){state.course=k;state.free=false;resetRunState();LV.gates=k.gates;LV.crates=k.crates;buildGates(LV);buildCrates(LV);resetCrates();
   gateVis.forEach((g,i)=>{g.touched=false;setGateState(i,'pending')});gateWake={i:0,t:0};buildCourseArrows(k);
   if(k.def.night)setNight(true);
@@ -950,7 +963,7 @@ function updateSecrets(dt){if(!secretVis.length||!car)return;const tm=performanc
 /* ---------- boot ---------- */
 function boot(){
   state.roam=false;initMaps();decalMat=new THREE.MeshStandardMaterial({map:decalTexture(),transparent:true,roughness:.5});
-  if(state.carIdx>=CARS.length)state.carIdx=0;if(state.levelIdx>=LEVELS.length)state.levelIdx=0;
+  if(state.carIdx>=CARS.length||!ownsCar(CARS[state.carIdx]))state.carIdx=0;if(state.levelIdx>=LEVELS.length)state.levelIdx=0;
   loadLevel(state.levelIdx);setCar(state.carIdx);setSound(state.sound);setVol('volCar',state.volCar);setVol('volAmb',state.volAmb);setSpeed(state.speed,true);setGfx(state.gfx);renderMenu();
   for(let i=0;i<240;i++)stepCar(car,FIXED);
   requestAnimationFrame(frame);

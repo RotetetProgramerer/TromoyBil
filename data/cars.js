@@ -14,5 +14,7 @@ CARS.push(
 {id:'ravn',name:'Ravn',kind:'Lav stasjonsvogn',L:1.96,wb:1.3,mass:10,gh:.27,hood:.5,win:2,style:'glass',spare:'rack',stats:[3,4,4],
    desc:'Lavt tak og godt utsyn. Et trygt valg for nye sjåfører.'},
 {id:'jerv',name:'Jerv',kind:'Trinntak',L:2.02,wb:1.38,mass:10.4,gh:.29,hood:.46,win:2,style:'step',spare:'rear',stats:[4,3,4],
-   desc:'Trinntak og høy last på taket. Allsidig i stein og skog.'}
+   desc:'Trinntak og høy last på taket. Allsidig i stein og skog.'},
+{id:'vinsjen',name:'Vinsjen',kind:'Pickup med vinsj',L:2.3,wb:1.5,mass:11.4,gh:.3,hood:.52,win:1,style:'box',snorkel:true,spare:'rack',stats:[5,2,5],price:600,winch:true,
+   desc:'Lang pickup med ekte vinsj i fronten: fest tauet i et tre eller en stein og dra deg opp. Tung og stødig, treig i svingene.'}
 );

@@ -161,6 +161,8 @@ Slik blir en bane til en øy, uten at løypa endres:
 
 I fri kjøring blir banens egen løype en startstrek (`c.course` lages automatisk for øyer som er løp), så du kan starte løpet ute i terrenget som på Sandglow-øya. Beste tid deles mellom Hurtigløp og fri kjøring.
 
+**Låste løyper:** `needs:{courses:3}` på en løype krever tre fullførte løyper på øya; `needs:{courses:5,nuts:200}` kan i tillegg låses opp for muttere. Skiltet og kartet viser hengelås. **Biler til salgs:** `price:600` på en bil i `data/cars.js` gjør at den må kjøpes i verkstedet på basen; `winch:true` gir den ekte vinsj.
+
 **Gullmuttere:** `c.secret(x,z,'Bak fossen')` gjemmer en gullmutter (25 ⚙, én gang). Fem per øy; finner du alle, får du 100 ⚙ og gull-lakken. Kartet viser bare de du har funnet.
 
 Fergerutene og plasseringen på skjærgårdskartet ligger i `data/archipelago.js` (`ISLANDS`, `ROUTES`). Kartet (K) har to faner: øya du er på, og skjærgården. Hver øy er fortsatt sin egen fil og kan endres og testes for seg: `node tools/test-levels.js sand`.

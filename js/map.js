@@ -60,9 +60,10 @@ function drawFog(x,W,alpha){const FN=MAP.FN;if(!MAP.fogCv){MAP.fogCv=document.cr
 /* ---------- markers ---------- */
 function drawCar(x,u,v,ang,s){x.save();x.translate(u,v);x.rotate(ang);x.fillStyle='#ff6a2a';x.strokeStyle='#14120E';x.lineWidth=1.5;x.beginPath();x.moveTo(0,-s);x.lineTo(s*.75,s*.8);x.lineTo(0,s*.4);x.lineTo(-s*.75,s*.8);x.closePath();x.fill();x.stroke();x.restore()}
 function drawBase(x,u,v,s){x.save();x.translate(u,v);x.fillStyle='#e5a92b';x.strokeStyle='#14120E';x.lineWidth=1.5;x.beginPath();x.moveTo(-s,s*.2);x.lineTo(-s,-s*.3);x.lineTo(0,-s);x.lineTo(s,-s*.3);x.lineTo(s,s*.2);x.lineTo(-s,s*.2);x.closePath();x.fill();x.stroke();x.fillStyle='#14120E';x.fillRect(-s*.3,-s*.35,s*.6,s*.55);x.restore()}
-function drawCourseIcon(x,u,v,k,done,s,hot){x.save();x.translate(u,v);x.fillStyle=DIFFC[k.diff];x.strokeStyle=hot?'#fff':'#14120E';x.lineWidth=hot?2.5:1.5;x.beginPath();x.arc(0,0,s,0,6.283);x.fill();x.stroke();
+function drawCourseIcon(x,u,v,k,done,s,hot){x.save();x.translate(u,v);const locked=typeof courseLock==='function'&&courseLock(k);x.fillStyle=locked?'#9a9382':DIFFC[k.diff];x.strokeStyle=hot?'#fff':'#14120E';x.lineWidth=hot?2.5:1.5;x.beginPath();x.arc(0,0,s,0,6.283);x.fill();x.stroke();
   x.fillStyle='#14120E';x.textAlign='center';x.textBaseline='middle';
   if(done){for(let i=0;i<3;i++)for(let j=0;j<3;j++)if((i+j)%2===0)x.fillRect(-s*.55+i*s*.37,-s*.55+j*s*.37,s*.37,s*.37)}
+  else if(locked){x.fillRect(-s*.3,-s*.1,s*.6,s*.5);x.lineWidth=s*.18;x.strokeStyle='#14120E';x.beginPath();x.arc(0,-s*.15,s*.22,Math.PI,0);x.stroke()}
   else{x.font='700 '+Math.round(s*1.6)+'px "Barlow Condensed",sans-serif';x.fillText('!',0,s*.08)}x.restore()}
 
 /* ---------- minimap ---------- */
