@@ -156,7 +156,7 @@ function genLevel(def){
     lavaNear:(x,z,m)=>lavaAt(x,z,m)>-1e8,
     crate:(x,z)=>c.extra.push({x,z}),vent:(x,z)=>c.vents.push({x,z,y:H(x,z)}),
     smoke:(x,z,y)=>c.fx.push({type:'smoke',x,z,y}),
-    fall:(x,z,ang,w,top,bot)=>c.fx.push({type:'fall',x,z,ang,w,top,bot}),
+    fall:(x,z,ang,w,top,bot,o={})=>c.fx.push({type:'fall',x,z,ang,w,top,bot,spray:!!o.spray}),
     // dig a pond into the base terrain and fill it; mud rim around it
     pond(x,z,r,dep,o={}){const i=Math.round((x+HALF)/CELL),j=Math.round((z+HALF)/CELL);let hc=TB[j*N+i];
       const R=r*1.25;cellsIn(x-R,z-R,x+R,z+R,(k,px,pz)=>{const d=Math.hypot(px-x,pz-z);if(d>R)return;const f=1-(d/R)**2,nh=hc-dep*f*(1-.15*G.noise(px*2,pz*2))+(TB[k]-hc)*(1-f);

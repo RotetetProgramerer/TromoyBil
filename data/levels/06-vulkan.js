@@ -59,7 +59,6 @@ LEVELS.push(
   // … og i jungelen (kaldt, grønnhvitt, tett tåke). zone() sier hvor mye vulkan det er der bilen står.
   alt:{fog:0xb6c7b2, fogNear:9, fogFar:44, sun:0xe6efe0, sunI:.55, hemi:[0xd2e4d6,0x2d4a24,.78]},
   zone:(x,z)=>smt((21-rOf(x,z))/7),
-  dark:(x,z)=>smt((x+23.5)/1.5)*smt((-8.5-x)/1.5)*smt((z+10.9)/.8)*smt((-5.4-z)/.8),   // mørkt inne i tunnelen bak fossen
   water:.32, waterCol:'#2f7f86', waterBand:(x,z)=>seaD(x,z)<12||lineD(RIVER,x,z)<2.6, ash:true, erupt:[16,26], ambience:'jungle',
   path, shortcut, shortcutGates:[12,13],
   gateT:c=>[[-10,-30],[2,-29.5],[16,-24],[14,-16.5],[-4,-18],[-20.7,-21.4],[-25,-10],[-18,-7.9],[-11.5,-7.9],b1.pre,b1.post,b2.pre,A,B,pol(rS(555),555),b5.pre,b5.post,FIN].map(p=>c.tOf(p[0],p[1])),
@@ -91,7 +90,8 @@ LEVELS.push(
     // --- gjørmestien: hjulspor, søledammer, røtter og en veltet stamme ---
     c.ruts(T(-18,-30.5),T(0,-29.8),.05);c.ruts(T(7,-27),T(-9,-18.5),.035);
     for(const[t,off,r]of[[.035,.2,.9],[.055,-.5,.7],[.075,.3,1.0],[.1,-.3,.8],[.125,.4,.7],[.2,-.2,.9],[.27,.3,.8],[.33,-.4,.7]]){const p=c.P(t),s=c.side(t);if(c.nearGate(p.x+s.x*off,p.z+s.z*off,1.3))continue;c.pond(p.x+s.x*off,p.z+s.z*off,r,.13,{fill:.55,mud:true,bed:S.MUD})}
-    for(const[x,off,r]of[[-20.5,.35,.55],[-16.5,-.3,.5],[-12.5,.3,.6]])c.pond(x,-7.9+off,r,.07,{fill:.5,mud:true,bed:S.MUD});   // søledammer på hyllen
+    c.pond(-18,-7.9,2.6,.06,{fill:.45,bed:S.GRAVEL});c.pond(-18,-10.0,1.7,.09,{fill:.5,bed:S.GRAVEL});   // vannfilm over veien der fossen treffer, og bekken ned i bassenget
+    for(const[x,off,r]of[[-21.5,.35,.55],[-14,-.3,.5]])c.pond(x,-7.9+off,r,.07,{fill:.5,mud:true,bed:S.MUD});   // søledammer på hyllen
     paint(-6,-30.4,1.6,S.MUD);paint(-13,-30.3,1.4,S.MUD);paint(11,-23.5,1.3,S.MUD);
     {const p=c.P(T(-6.5,-30.4)),s=c.side(T(-6.5,-30.4));log(p.x-s.x*2.3,p.z-s.z*2.3,p.x+s.x*2.3,p.z+s.z*2.3,.14,S.BARK,(u,d)=>d>.8?'#3d2a1a':mix('#5a3f28','#7a5638',G.noise(u*30,d*4)))}   // veltet stamme over stien
     for(let i=0;i<40;i++){const t=.02+R()*.36,p=c.P(t),s=c.side(t),b=(R()-.5)*2.4;if(c.nearGate(p.x,p.z,1.3))continue;const a=R()*6.28,len=.5+R()*1.2,x0=p.x+s.x*b,z0=p.z+s.z*b;
@@ -122,14 +122,9 @@ LEVELS.push(
     for(let i=0;i<4000&&c.trees.length<64+70;i++){const x=(R()-.5)*66,z=(R()-.5)*66;if(FOREST_BOX(x,z)||!trunkOK(x,z,.3,2.6))continue;c.tree(x,z,{h:5+R()*4.5,r:.22+R()*.2})}   // resten av regnskogen
     c.finish();
     c.forest();
-    // --- fossen: overheng av stein over hyllen, planter som henger ned, vann som drypper ---
-    const hL=H(-18,-7.9),topY=hL+2.45;
-    // taket: en massiv steinhylle fra klippekanten (z≈-6) ut over stien til fossen (z≈-10.6). Mørkt under, med dryppstein.
-    c.fx.push({type:'roof',x0:-23.5,x1:-8.5,z0:-10.7,z1:-5.9,y:hL+2.3,th:1.0,foot:hL+.9});
-    {const vines=[];for(let i=0;i<16;i++){const x=-22+R()*12,z=-10.6+R()*1.2,l=.6+R()*1.2;vines.push({x,y:hL+2.3-l/2,z,sx:.02,sy:l,sz:.02,c:['#2f6a2a','#3f8a34'][i%2]})}
-     instanced(DG.trunk,DM.white,vines,c.decor,false)}
-    c.fall(-18,-10.4,0,4.6,topY,pool.level);
-    c.fx.push({type:'drip',x0:-22,x1:-10,z:-8.3,y:hL+2.3});
+    // --- fossen: faller fra klippen rett innenfor veien og spruter ut over den. Vannet renner over veien og ned i bassenget.
+    const hL=H(-18,-7.9),topY=H(-18,-5.0)+.15;
+    c.fall(-18,-6.75,0,4.6,topY,hL,{spray:true});
     c.fx.push({type:'stream',pts:RIVER,level:def.water});
     c.smoke(C[0],C[1],H(C[0],C[1])+.2);
     for(const[a,r]of[[200,12],[320,9.5],[60,14],[130,11]]){const p=pol(r,a);if(c.dist(p[0],p[1])>2.5&&!c.lavaNear(p[0],p[1],1.5))c.steam(p[0],p[1])}   // dampende sprekker på skråningen

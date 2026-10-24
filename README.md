@@ -115,13 +115,12 @@ c.benchLine(punkter,hw,blend)// det samme langs en egen linje, f.eks. en snarvei
 c.lava(punkter,(x,z)=>halvBredde)   // lavaelv langs en linje, fra kilden og nedover. Lavaen følger terrenget.
 c.lavaPool(x,z,r,nivå)       // lavasjø (krater)
 c.bridge(ax,az,bx,bz,halvBredde,{sag:.2})  // hengebro fra A til B. Begge ender må ligge på fast grunn.
-c.fall(x,z,vinkel,bredde,topp,bunn)        // foss (bare utseende): kjør bak den ved å la løypa gå forbi
+c.fall(x,z,vinkel,bredde,topp,bunn,{spray:true})  // foss. spray: vannet spruter ut over veien, og dråper renner på skjermen når du kjører gjennom
 c.smoke(x,z,y)               // røyk og glød over et krater
 c.vent(x,z)                  // et sted utbruddet skyter lava (kreves for `erupt`)
 c.crate(x,z)                 // ekstra kasse på et bestemt sted (f.eks. midt på en smal bro)
 c.bonus(x,z,r,muttere,tekst) // belønning (muttere) første gang bilen kommer innenfor r. Brukes til snarveien.
 c.steam(x,z)                 // liten dampsøyle (sprekk i vulkanen)
-c.fx.push({type:'roof',x0,x1,z0,z1,y,th})  // massivt steintak (tunnel) med steiner oppå og dryppstein under
 c.tree(x,z,{h,r})            // regnskogstre med røtter, grener, krone, mose og lianer. Grener blir sitteplasser for dyr.
 c.forest()                   // bygger alle trærne. Kall etter c.finish().
 c.ruts(t0,t1,dybde)          // hjulspor i stien mellom t0 og t1
