@@ -17,4 +17,4 @@ getTangentAt(t){const[i]=this.seg(Math.min(.9999,Math.max(0,t)));return this.p[i
 class Obj{constructor(){this.position=new Vector3();this.rotation={x:0,y:0,z:0,set(){} };this.scale=new Vector3(1,1,1);this.children=[]}add(...o){this.children.push(...o)}translate(){return this}setMatrixAt(){}setColorAt(){}}
 const stub=class extends Obj{};
 global.THREE={Vector3,Quaternion,Color,CatmullRomCurve3:Curve,Group:stub,Mesh:stub,InstancedMesh:stub,Matrix4:class{compose(){}},Euler:class{set(){}},
-IcosahedronGeometry:stub,ConeGeometry:stub,CylinderGeometry:stub,SphereGeometry:stub,TorusGeometry:stub,CircleGeometry:stub,RingGeometry:stub,PointsMaterial:stub,Points:stub,BufferGeometry:stub,BufferAttribute:stub,MeshStandardMaterial:stub,MeshBasicMaterial:stub,DoubleSide:2,BackSide:1};
+IcosahedronGeometry:stub,ConeGeometry:stub,CylinderGeometry:stub,SphereGeometry:stub,TorusGeometry:stub,BoxGeometry:stub,PlaneGeometry:stub,CircleGeometry:stub,RingGeometry:stub,PointsMaterial:stub,Points:stub,BufferGeometry:stub,BufferAttribute:stub,MeshStandardMaterial:stub,MeshBasicMaterial:stub,DoubleSide:2,BackSide:1};

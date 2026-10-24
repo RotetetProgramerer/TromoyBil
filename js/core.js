@@ -83,17 +83,20 @@ function paint(x,z,r,surf,skip){cellsIn(x-r,z-r,x+r,z+r,(k,px,pz)=>{if(Math.hypo
 /* ---------- shared decor geometry ---------- */
 const DG={
   peb:new THREE.IcosahedronGeometry(1,0), tuft:new THREE.ConeGeometry(1,1,4,1,true), trunk:new THREE.CylinderGeometry(1,1.14,1,10),
-  fern:new THREE.ConeGeometry(1,1,6), cone:new THREE.SphereGeometry(1,6,5)
+  fern:new THREE.ConeGeometry(1,1,6), cone:new THREE.SphereGeometry(1,6,5),
+  canopy:new THREE.SphereGeometry(1,7,5), branch:new THREE.CylinderGeometry(.55,1,1,6), root:new THREE.BoxGeometry(1,1,1), leaf:new THREE.ConeGeometry(1,1,3,1,true)
 };
+DG.branch.translate(0,.5,0); DG.leaf.translate(0,.5,0);
 DG.tuft.translate(0,.5,0); DG.fern.translate(0,.5,0);
 const DM={
   white:new THREE.MeshStandardMaterial({color:0xffffff,roughness:.9,flatShading:true}),
   tuft:new THREE.MeshStandardMaterial({color:0xffffff,roughness:1,side:THREE.DoubleSide,flatShading:true}),
-  bark:new THREE.MeshStandardMaterial({color:0x5d4330,roughness:1,flatShading:true})
+  bark:new THREE.MeshStandardMaterial({color:0x5d4330,roughness:1,flatShading:true}),
+  leaf:new THREE.MeshStandardMaterial({color:0xffffff,roughness:.85,side:THREE.DoubleSide,flatShading:true})
 };
 function instanced(geo,mat,list,grp,shadow=true){
   if(!list.length)return null;const im=new THREE.InstancedMesh(geo,mat,list.length),m4=new THREE.Matrix4(),q=new Q4(),s=new V3(),p=new V3(),e=new THREE.Euler(),cc=new THREE.Color();
-  list.forEach((o,i)=>{p.set(o.x,o.y,o.z);e.set(o.rx||0,o.ry||0,o.rz||0);q.setFromEuler(e);s.set(o.sx,o.sy??o.sx,o.sz??o.sx);m4.compose(p,q,s);im.setMatrixAt(i,m4);if(o.c&&im.setColorAt){if(Array.isArray(o.c))cc.setRGB(o.c[0],o.c[1],o.c[2]);else{cc.set(o.c);if(cc.convertSRGBToLinear)cc.convertSRGBToLinear()}im.setColorAt(i,cc)}});
+  list.forEach((o,i)=>{p.set(o.x,o.y,o.z);e.set(o.rx||0,o.ry||0,o.rz||0,o.ord||'XYZ');q.setFromEuler(e);s.set(o.sx,o.sy??o.sx,o.sz??o.sx);m4.compose(p,q,s);im.setMatrixAt(i,m4);if(o.c&&im.setColorAt){if(Array.isArray(o.c))cc.setRGB(o.c[0],o.c[1],o.c[2]);else{cc.set(o.c);if(cc.convertSRGBToLinear)cc.convertSRGBToLinear()}im.setColorAt(i,cc)}});
   im.castShadow=shadow;im.receiveShadow=true;grp.add(im);return im;
 }
 
@@ -158,7 +161,34 @@ function genLevel(def){
     pond(x,z,r,dep,o={}){const i=Math.round((x+HALF)/CELL),j=Math.round((z+HALF)/CELL);let hc=TB[j*N+i];
       const R=r*1.25;cellsIn(x-R,z-R,x+R,z+R,(k,px,pz)=>{const d=Math.hypot(px-x,pz-z);if(d>R)return;const f=1-(d/R)**2,nh=hc-dep*f*(1-.15*G.noise(px*2,pz*2))+(TB[k]-hc)*(1-f);
         if(nh<TH[k]){TH[k]=nh;TCF[k]=0;TS[k]=d<r*1.18?(o.bed??S.MUD):S.MUD}});
-      c.pools.push({x,z,r:r*1.06,level:hc-dep*(o.fill??.32)});if(o.bog)paint(x,z,r*.9,S.BOG)},
+      c.pools.push({x,z,r:r*1.06,level:hc-dep*(o.fill??.32),mud:!!o.mud});if(o.bog)paint(x,z,r*.9,S.BOG)},
+    // two wheel ruts pressed into the trail between t0 and t1 (looks like a used jungle track)
+    ruts(t0,t1,depth=.05){const i0=Math.round(t0*(pts.length-1)),i1=Math.round(t1*(pts.length-1));
+      for(let i=i0;i<i1;i+=2){const p=pts[i],q=pts[Math.min(pts.length-1,i+2)];let tx=q.x-p.x,tz=q.z-p.z;const L=Math.hypot(tx,tz)||1;tx/=L;tz/=L;
+        cellsIn(p.x-.7,p.z-.7,p.x+.7,p.z+.7,(k,px,pz)=>{const b=Math.abs((px-p.x)*tz-(pz-p.z)*tx),a=Math.abs((px-p.x)*tx+(pz-p.z)*tz);if(a>L*.6)return;const d=Math.abs(b-.4);if(d>.14)return;
+          const w=1-(d/.14)**2;TH[k]-=depth*w*(.8+.4*G.noise(px*3,pz*3))})}},
+    steam:(x,z,y,s=.45)=>c.fx.push({type:'smoke',x,z,y:y??H(x,z),small:s}),
+    // a jungle tree: trunk with buttress roots, branches, canopy and moss. Returns the tree (perches for animals are collected in c.perches)
+    trees:[],perches:[],
+    tree(x,z,o={}){const t={x,z,h:o.h??(5+rng()*4),r:o.r??(.18+rng()*.16),lean:o.lean??(rng()-.5)*.14,ry:rng()*6.28,moss:o.moss??rng()<.75,kind:o.kind||'jungle',branches:[]};
+      const nb=o.branches??(2+Math.floor(rng()*3));for(let i=0;i<nb;i++){const hy=t.h*(.45+.4*i/nb+rng()*.1),ang=t.ry+i*2.1+rng()*.8,len=1.2+rng()*1.4,tilt=.55+rng()*.5;t.branches.push({hy,ang,len,tilt})}
+      c.trees.push(t);c.colliders.push({x,z,r:t.r*1.3});return t},
+    // build meshes for all trees added with c.tree (call after c.finish so H() is final)
+    forest(){const R=rng,trunks=[],roots=[],branches=[],canopies=[],moss=[],lianas=[];
+      for(const t of c.trees){const y=H(t.x,t.z),th=t.h,top={x:t.x-Math.sin(t.lean)*th,y:y+Math.cos(t.lean)*th,z:t.z};const bark=mix('#4a3826','#6b5137',R());
+        trunks.push({x:(t.x+top.x)/2,y:(y+top.y)/2-.1,z:t.z,sx:t.r,sy:th+.2,sz:t.r,rz:t.lean,c:bark});
+        for(let k=0;k<3;k++){const a=t.ry+k*2.09;roots.push({x:t.x+Math.cos(a)*t.r*1.1,y:y+.08,z:t.z+Math.sin(a)*t.r*1.1,sx:t.r*.5,sy:.5+R()*.3,sz:t.r*1.6,ry:-a,rx:.25,c:bark})}
+        if(t.moss)moss.push({x:t.x+Math.cos(t.ry)*t.r*.55,y:y+th*.3,z:t.z+Math.sin(t.ry)*t.r*.55,sx:t.r*.75,sy:th*.5,sz:t.r*.75,rz:t.lean,c:mix('#3e6b2a','#5a8a34',R())});
+        for(const b of t.branches){const bx=t.x-Math.sin(t.lean)*b.hy,by=y+Math.cos(t.lean)*b.hy,dx=Math.cos(b.ang),dz=Math.sin(b.ang);
+          const ex=bx+dx*Math.cos(b.tilt)*b.len,ey=by+Math.sin(b.tilt)*b.len,ez=t.z+dz*Math.cos(b.tilt)*b.len;
+          branches.push({x:bx,y:by,z:t.z,sx:t.r*.45,sy:b.len,sz:t.r*.45,ry:-b.ang,rz:-(Math.PI/2-b.tilt),c:bark,ord:'YZX'});
+          c.perches.push({x:ex-dx*.2,y:ey-.02,z:ez-dz*.2,tree:t,kind:'branch',dir:b.ang});
+          canopies.push({x:ex,y:ey+.3,z:ez,sx:.9+R()*.5,sy:.5+R()*.25,sz:.9+R()*.5,c:['#2d6b2a','#3b7f33','#246126','#4a8f3a'][Math.floor(R()*4)]})}
+        for(let k=0;k<3;k++){const a=R()*6.28,d=R()*.9;canopies.push({x:top.x+Math.cos(a)*d,y:top.y+.2+R()*.5,z:top.z+Math.sin(a)*d,sx:1.3+R()*.8,sy:.7+R()*.4,sz:1.3+R()*.8,c:['#2d6b2a','#3b7f33','#246126','#4a8f3a'][Math.floor(R()*4)]})}
+        c.perches.push({x:top.x,y:top.y+.9,z:top.z,tree:t,kind:'top'});
+        if(R()<.6){const a=R()*6.28,len=th*(.35+R()*.45),lx=top.x+Math.cos(a)*(.4+R()*1.2),lz=top.z+Math.sin(a)*(.4+R()*1.2);lianas.push({x:lx,y:top.y-len/2,z:lz,sx:.022,sy:len,sz:.022,rx:(R()-.5)*.12,rz:(R()-.5)*.12,c:'#4f6b2c'})}}
+      instanced(DG.trunk,DM.bark,trunks,c.decor);instanced(DG.root,DM.bark,roots,c.decor);instanced(DG.branch,DM.bark,branches,c.decor);
+      instanced(DG.canopy,DM.leaf,canopies,c.decor);instanced(DG.trunk,DM.tuft,moss,c.decor,false);instanced(DG.trunk,DM.white,lianas,c.decor,false)},
     // dirt ramp with a drop at the end: a jump in high gear
     ramp(t,h=.55,len=3.2,wid=2.6){const p=c.P(t),an=c.ang(t);c.block(p.x,p.z,3);
       shape(p.x,p.z,an,len,wid,(a,b)=>{const u=(a+len/2)/len;if(u<.08)return u/.08*.02;if(u<.88)return .02+(u-.08)/.8*h;return null},S.DIRT,(a,b)=>mix('#6d4b2d','#8d6a44',G.noise(a*3,b*3)*.7+(Math.abs(b)>wid/2-.18?.5:0)))},

@@ -9,6 +9,8 @@ index.html            Siden som laster alt. Her står rekkefølgen på skriptene
 css/style.css         Alt utseende (meny, HUD, garasje).
 js/core.js            Motoren: terreng, baneverktøy, bilfysikk. Trenger du sjelden å røre.
 js/game.js            Spillet: grafikk, kamera, lyd, meny, garasje, poeng.
+js/animals.js         Dyr (papegøyer, apekatter, sommerfugler, krabber) og den rullende steinen.
+js/ambience.js        Jungellyd laget med WebAudio (ingen lydfiler).
 data/cars.js          Bilene.                 ← legg til nye biler her
 data/levels/NN-id.js  Én fil per bane.         ← legg til nye baner her
 data/parts.js         Garasjedeler og lakkfarger.
@@ -79,6 +81,10 @@ Bilen dukker opp i menyen med en gang.
 | `erupt:[min,maks]` | Vulkanen rumler med jevne mellomrom (sekunder mellom hver gang). Bare for show: ristende kamera og lavabomber, ingenting skader bilen. Krever `c.vent(...)`. |
 | `gateT(c)` | Valgfritt. Funksjon som gir portene nøyaktige plasser i stedet for jevn fordeling: `c=>[[x,z],[x,z],...].map(p=>c.tOf(p[0],p[1]))`. Da styrer antall punkter antall porter. |
 | `shortcut:[[x,z],...]`, `shortcutGates:[a,b]` | Bare for testen: punkter en snarvei følger, og hvilke porter (0-indeksert) den hopper over. Se Vulkanen. |
+| `alt:{fog,fogNear,fogFar,sun,sunI,hemi}`, `zone(x,z)` | To lyssett i samme bane. `zone` gir 0–1 for hvor bilen er: 0 bruker `alt` (f.eks. jungel), 1 bruker banens vanlige lys (f.eks. vulkanen). Blandes mykt mens du kjører. |
+| `ambience:'jungle'` | Insekter, fugler, foss (etter avstand) og vulkanrumling (etter `zone`). Se `js/ambience.js`. |
+| `animals:{parrots,circling,monkeys,butterflies,crabs,liana:[x,z],bridgeMonkeys:{A}}` | Dyr. Papegøyer og apekatter trenger trær (`c.tree`), sommerfugler trenger blomster (`c.flowers`), krabber trenger sand ved start. Se `js/animals.js`. |
+| `boulder:{trigger:[x,z],from:[x,z],to:[x,z],speed,r}` | Rullende stein: når bilen passerer `trigger`, ruller en stein fra `from` til `to` (legg linja over veien). Én gang per runde. Dytter bilen litt, ingen straff. |
 | `build(c)` | Her plasserer du hindringer. |
 
 Verktøy du kan bruke i `build(c)`:
@@ -113,16 +119,21 @@ c.smoke(x,z,y)               // røyk og glød over et krater
 c.vent(x,z)                  // et sted utbruddet skyter lava (kreves for `erupt`)
 c.crate(x,z)                 // ekstra kasse på et bestemt sted (f.eks. midt på en smal bro)
 c.bonus(x,z,r,muttere,tekst) // belønning (muttere) første gang bilen kommer innenfor r. Brukes til snarveien.
+c.steam(x,z)                 // liten dampsøyle (sprekk i vulkanen)
+c.tree(x,z,{h,r})            // regnskogstre med røtter, grener, krone, mose og lianer. Grener blir sitteplasser for dyr.
+c.forest()                   // bygger alle trærne. Kall etter c.finish().
+c.ruts(t0,t1,dybde)          // hjulspor i stien mellom t0 og t1
+c.pond(x,z,r,dybde,{mud:true})  // søledam med brunt vann
 c.lavaNear(x,z,m)            // sant hvis det er lava innenfor m. Bruk når du plasserer steiner og planter.
 ```
 
 Kjører bilen i lava, får spilleren 10 straffepoeng og settes tilbake ved forrige port. Broer er kjørbare flater med en lav kant, og er høye nok over lavaen til at bilen ikke regnes som «i lava».
 
-**Rekkefølge i `build(c)`:** først `c.bench`, så `c.lava`/`c.lavaPool`, så `c.bridge`, så steiner og pynt, og til sist `c.finish()`. Legg ikke steiner nær lava eller på snarveien (bruk `c.lavaNear`).
+**Rekkefølge i `build(c)`:** først `c.bench`, så `c.lava`/`c.lavaPool`, så `c.bridge`, så steiner, så `c.tree` for trærne, deretter `c.finish()`, og til slutt `c.forest()` og pynt. Legg ikke steiner nær lava eller på snarveien (bruk `c.lavaNear`).
 
 ### Vulkanen: snarveien
 
-Etter port 9 kan du velge den lange runden sør om vulkanen, eller en smal bro rett over lavaelva (skilt vises ved avkjøringen). Snarveien har to kasser midt på broa og gir 40 muttere ekstra («Modig snarvei!»). Faller du i lava, mister du 10 poeng og går tilbake til port 9. Testen `node tools/test-levels.js vulkan` kjører også snarveien.
+Etter port 13 kan du velge den lange runden sør om vulkanen, eller en smal bro rett over lavaelva (skilt vises ved avkjøringen). Snarveien har to kasser midt på broa og gir 40 muttere ekstra («Modig snarvei!»). Faller du i lava, mister du 10 poeng og går tilbake til port 13. Testen `node tools/test-levels.js vulkan` kjører også snarveien.
 
 4. Kjør testen:
 
