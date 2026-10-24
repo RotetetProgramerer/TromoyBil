@@ -881,7 +881,9 @@ function startFerry(destId){const di=LEVELS.findIndex(l=>l.id===destId);if(di<0|
   prof.nuts-=5;saveProf();const g=ferryVis.g,f=LV.ferry;
   FT={t:0,dest:di,phase:'out',from:g.position.clone(),dx:f.dx,dz:f.dz,off:car.pos.clone().sub(g.position),q:car.q.clone(),faded:false,loaded:false,base:g.position.clone()};
   state.mode='ferry';car.vel.set(0,0,0);car.w.set(0,0,0);car.throttle=0;ambHorn(f.x,f.z);toast('Fergen går til '+LEVELS[di].name+' · −5 ⚙')}
-function ferryPlace(g){const tm=performance.now()*.001;g.position.y=FT.base.y+.04*Math.sin(tm*1.3);g.rotation.z=.012*Math.sin(tm*.9);car.pos.copy(g.position).add(FT.off);car.q.copy(FT.q)}
+function ferryPlace(g){const tm=performance.now()*.001;g.position.y=FT.base.y+.04*Math.sin(tm*1.3);g.rotation.z=.012*Math.sin(tm*.9);car.pos.copy(g.position).add(FT.off);car.q.copy(FT.q);
+  // the physics is paused, so the wheels and axles must be carried along with the body by hand
+  const up=_c1.set(0,1,0).applyQuaternion(car.q),trv=car.tune.travel;for(const w of car.wheels)w.center.copy(w.mount).applyQuaternion(car.q).add(car.pos).addScaledVector(up,-(trv-Math.min(w.comp,trv)))}
 function updateFerry(dt){if(!FT)return;FT.t+=dt;const g=ferryVis&&ferryVis.g;
   if(FT.phase==='out'){const s=Math.min(1,FT.t/4.2),d=14*s*s;g.position.set(FT.from.x+FT.dx*d,FT.from.y,FT.from.z+FT.dz*d);FT.base.copy(g.position);ferryPlace(g);
     if(FT.t>3.0&&!FT.faded){FT.faded=true;$('fade').classList.add('on')}
