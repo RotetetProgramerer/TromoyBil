@@ -17,19 +17,39 @@ for(const def of LEVELS){
   for(const low of[true,false]){
     const car=makeCar(CARS[1]);car.assist=false;car.low=low;const s=lv.start;placeCar(car,s.p.x,s.p.z,Math.atan2(s.tan.x,s.tan.z));
     for(let i=0;i<480;i++)stepCar(car,dt);
-    let pt=0,flips=0,maxDepth=-9,flood=0,drown=0,t=0,stuck=0,lastProg=0,jumps=0,air=0;
+    let pt=0,flips=0,maxDepth=-9,flood=0,drown=0,lava=0,gT={},evs=[],t=0,stuck=0,lastProg=0,jumps=0,air=0;
     for(let i=0;i<240*160;i++){
       let best=1e9,bt=pt;for(let k=0;k<=60;k++){const tt=Math.min(1,pt+k*.002),p=lv.P(tt),d=Math.hypot(p.x-car.pos.x,p.z-car.pos.z);if(d<best){best=d;bt=tt}}pt=bt;
       const tg=lv.P(Math.min(1,pt+.012)),dx=tg.x-car.pos.x,dz=tg.z-car.pos.z,fw=car.fw,lf=car.lf,ang=Math.atan2(dx*lf.x+dz*lf.z,dx*fw.x+dz*fw.z);
       car.steer=Math.max(-.6,Math.min(.6,ang*1.5));car.throttle=1;stepCar(car,dt);
       if(!isFinite(car.pos.x)){console.log(def.id,'FEIL: fysikken eksploderte');break}
       maxDepth=Math.max(maxDepth,car.depth);if(car.depth>car.tune.wade)flood+=dt;else flood=Math.max(0,flood-dt*2);
+      {const ll=lavaAt(car.pos.x,car.pos.z);if(ll>-1e8&&car.pos.y<ll+.12){lava++;evs.push('lava@'+car.pos.x.toFixed(1)+','+car.pos.z.toFixed(1));const p=lv.P(Math.min(1,pt+.02)),tn=lv.T(Math.min(1,pt+.02));placeCar(car,p.x,p.z,Math.atan2(tn.x,tn.z))}}
+      lv.gates.forEach((g,gi)=>{if(gT[gi]===undefined&&pt>=g.t)gT[gi]=i*dt});
       if(flood>1.4){drown++;flood=0;const p=lv.P(Math.min(1,pt+.02)),tn=lv.T(Math.min(1,pt+.02));placeCar(car,p.x,p.z,Math.atan2(tn.x,tn.z))}
       if(car.wheels.every(w=>!w.contact)&&car.pos.y>H(car.pos.x,car.pos.z)+.3)air+=dt;else{if(air>.32)jumps++;air=0}
-      if(car.up.y<.2){flips++;placeCar(car,car.pos.x,car.pos.z,Math.atan2(fw.x,fw.z))}
-      if(i>0&&i%2400===0){if(pt-lastProg<.004){stuck++;const p=lv.P(Math.min(1,pt+.02)),tn=lv.T(Math.min(1,pt+.02));placeCar(car,p.x,p.z,Math.atan2(tn.x,tn.z))}lastProg=pt}
+      if(car.up.y<.2){flips++;evs.push('velt@'+car.pos.x.toFixed(1)+','+car.pos.z.toFixed(1));placeCar(car,car.pos.x,car.pos.z,Math.atan2(fw.x,fw.z))}
+      if(i>0&&i%2400===0){if(pt-lastProg<.004){stuck++;evs.push('fast@'+car.pos.x.toFixed(1)+','+car.pos.z.toFixed(1));const p=lv.P(Math.min(1,pt+.02)),tn=lv.T(Math.min(1,pt+.02));placeCar(car,p.x,p.z,Math.atan2(tn.x,tn.z))}lastProg=pt}
       if(pt>.985){t=i*dt;break}
     }
-    console.log(def.id.padEnd(8),low?'LAV ':'HØY ','prog',pt.toFixed(2),'tid',(t||0).toFixed(0).padStart(3)+'s','velt',flips,'fast',stuck,'maksDybde',maxDepth.toFixed(2),'drown',drown,'hopp',jumps,'kasser',lv.crates.length);
+    console.log(def.id.padEnd(8),low?'LAV ':'HØY ','prog',pt.toFixed(2),'tid',(t||0).toFixed(0).padStart(3)+'s','velt',flips,'fast',stuck,'maksDybde',maxDepth.toFixed(2),'drown',drown,'lava',lava,'hopp',jumps,'kasser',lv.crates.length);
+    if(process.argv[3]==='v'&&evs.length)console.log('   hendelser:',evs.join(' '));
+    if(def.shortcutGates){const[a,b]=def.shortcutGates;if(gT[a]!==undefined&&gT[b]!==undefined)console.log('   hovedrute mellom port',a+1,'og',b+1,':',(gT[b]-gT[a]).toFixed(1)+'s')}
+  }
+
+  // snarvei: kjører hvert punkt i def.shortcut (første og siste punkt er på hovedveien)
+  if(def.shortcut){
+    for(const low of[true,false]){
+      const car=makeCar(CARS[1]);car.assist=false;car.low=low;const sp=def.shortcut,a=sp[0],b=sp[1];placeCar(car,a[0],a[1],Math.atan2(b[0]-a[0],b[1]-a[1]));
+      for(let i=0;i<480;i++)stepCar(car,dt);
+      let wi=1,flips=0,lava=0,t=0,ok=false;
+      for(let i=0;i<240*90;i++){
+        const w=sp[wi],dx=w[0]-car.pos.x,dz=w[1]-car.pos.z;if(Math.hypot(dx,dz)<(wi===sp.length-1?1.8:.9)){wi++;if(wi>=sp.length){t=i*dt;ok=true;break}continue}
+        const fw=car.fw,lf=car.lf,ang=Math.atan2(dx*lf.x+dz*lf.z,dx*fw.x+dz*fw.z);car.steer=Math.max(-.6,Math.min(.6,ang*1.5));car.throttle=1;stepCar(car,dt);
+        const ll=lavaAt(car.pos.x,car.pos.z);if(ll>-1e8&&car.pos.y<ll+.12){lava++;break}
+        if(car.up.y<.2){flips++;break}
+      }
+      console.log(def.id.padEnd(8),'SNARVEI',low?'LAV ':'HØY ',ok?'OK  tid '+t.toFixed(0)+'s':'FEIL',wi+'/'+sp.length,'lava',lava,'velt',flips);
+    }
   }
 }

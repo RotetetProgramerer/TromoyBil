@@ -120,6 +120,7 @@ kbd{font-family:var(--f-body);font-weight:700;border:1px solid rgba(242,232,208,
 .spd .v{display:flex;flex-direction:column;min-width:58px;text-align:center}
 .slider{display:flex;align-items:center;gap:10px}
 .slider input{flex:1;min-width:0;accent-color:var(--sand);height:28px}
+.slider .lbl{min-width:6.2em;font-weight:600;color:var(--muted)}
 .slider output{min-width:3.4em;text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
 .incl{flex-direction:row;gap:6px;align-items:center}
 .incl svg{width:52px;height:52px}
@@ -163,3 +164,5 @@ body.is-touch .hint{bottom:calc(120px + env(safe-area-inset-bottom,0px))}
 
 /* grunninnstillinger (ble tidligere levert av vertssiden) */
 html{box-sizing:border-box}*,*::before,*::after{box-sizing:inherit}body{margin:0}img{max-width:100%}[hidden]{display:none!important}
+
+#spray{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:6}

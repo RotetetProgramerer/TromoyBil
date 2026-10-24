@@ -72,6 +72,7 @@
 </div>
 
 <!-- MENU -->
+<canvas id="spray" aria-hidden="true"></canvas>
 <section class="overlay menu" id="menu">
   <header class="brand">
     <p class="eyebrow">Skala 1:24 · Krabbekjøring</p>
@@ -94,6 +95,10 @@
     <h2>Fartsgrense</h2>
     <div class="slider"><input type="range" id="spdRange" min="30" max="150" step="10" value="100" aria-label="Fartsgrense i prosent"><output id="spdOut" for="spdRange">100 %</output></div>
     <p class="note">Senker eller hever toppfarten i begge gir. 50 % passer små barn, 150 % gir mer fres. Kan også endres underveis med + og −.</p>
+    <h2>Lyd</h2>
+    <div class="slider"><span class="lbl">Bil</span><input type="range" id="volCar" min="0" max="100" step="5" value="70" aria-label="Lydstyrke bil"><output id="volCarOut" for="volCar">70 %</output></div>
+    <div class="slider"><span class="lbl">Omgivelser</span><input type="range" id="volAmb" min="0" max="100" step="5" value="70" aria-label="Lydstyrke omgivelser"><output id="volAmbOut" for="volAmb">70 %</output></div>
+    <p class="note">Motorlyd og omgivelser (fugler, foss, vulkan) kan stilles hver for seg. Knappen Lyd i pausemenyen slår alt av og på.</p>
     <h2>Grafikk</h2>
     <div class="seg" role="group" aria-label="Grafikk">
       <button id="gfxHi" aria-pressed="true">Høy</button>
@@ -140,6 +145,8 @@
       <button class="ghost" id="pMenu">Til menyen</button>
     </div>
     <div class="row"><button class="ghost" id="pSound" aria-pressed="true">Lyd: på</button></div>
+    <div class="slider"><span class="lbl">Bil</span><input type="range" id="pVolCar" min="0" max="100" step="5" value="70" aria-label="Lydstyrke bil"><output id="pVolCarOut">70 %</output></div>
+    <div class="slider"><span class="lbl">Omgivelser</span><input type="range" id="pVolAmb" min="0" max="100" step="5" value="70" aria-label="Lydstyrke omgivelser"><output id="pVolAmbOut">70 %</output></div>
     <ul class="log">
       <li><b>Bom på en port:</b> 10 straffepoeng</li>
       <li><b>Vinsj tilbake:</b> 5 straffepoeng (2 med vinsj fra garasjen)</li>
@@ -178,6 +185,8 @@
 <!-- Motor -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous"></script>
 <script src="js/core.js"></script>
+<script src="js/animals.js"></script>
+<script src="js/ambience.js"></script>
 
 <!-- Innhold: legg til nye biler i data/cars.js og nye baner som egne filer her -->
 <script src="data/parts.js"></script>
@@ -187,6 +196,7 @@
 <script src="data/levels/03-skog.js"></script>
 <script src="data/levels/04-desk.js"></script>
 <script src="data/levels/05-elv.js"></script>
+<script src="data/levels/06-vulkan.js"></script>
 
 <!-- Spillet -->
 <script src="js/game.js"></script>
