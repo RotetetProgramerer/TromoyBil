@@ -26,7 +26,7 @@ const maxStars=()=>LEVELS.reduce((s,l)=>s+starKeys(l).length*3,0);
 
 /* ---------- renderer & scene ---------- */
 const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
-renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.75));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.5));
 renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.0;
 $('stage').appendChild(renderer.domElement);
@@ -49,13 +49,23 @@ const sunGlow=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:0xfff
 sunGlow.scale.set(60,60,1);scene.add(sunGlow);
 
 // terrain mesh
-// rebuilt whenever a level asks for another world size (see setWorld in core.js)
-let tGeo,tPos,tCol,tIdx,terrain=null;const terrainMat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.93,metalness:0});
-function buildTerrainGeo(){if(terrain){scene.remove(terrain);tGeo.dispose()}
-  tGeo=new THREE.BufferGeometry();tPos=new Float32Array(N*N*3);tCol=new Float32Array(N*N*3);tIdx=new Uint32Array((N-1)*(N-1)*6);
-  let p=0;for(let j=0;j<N-1;j++)for(let i=0;i<N-1;i++){const a=j*N+i,b=a+1,c=a+N,d=c+1;tIdx[p++]=a;tIdx[p++]=c;tIdx[p++]=b;tIdx[p++]=b;tIdx[p++]=c;tIdx[p++]=d}
-  tGeo.setAttribute('position',new THREE.BufferAttribute(tPos,3));tGeo.setAttribute('color',new THREE.BufferAttribute(tCol,3));tGeo.setIndex(new THREE.BufferAttribute(tIdx,1));
-  terrain=new THREE.Mesh(tGeo,terrainMat);terrain.receiveShadow=true;terrain.castShadow=true;scene.add(terrain)}
+// the terrain is cut into TILES×TILES meshes so the GPU only draws (and shadows) what the camera sees.
+// tPos/tCol/tNrm are the master arrays for the whole grid; syncTerrain() copies them into the tiles after a level is generated.
+let tPos,tCol,tNrm,terrainTiles=[],terrainN=0;const TILES=8,terrainMat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.93,metalness:0});
+function buildTerrainGeo(){for(const t of terrainTiles){scene.remove(t.mesh);t.mesh.geometry.dispose()}terrainTiles=[];terrainN=N;
+  tPos=new Float32Array(N*N*3);tCol=new Float32Array(N*N*3);tNrm=new Float32Array(N*N*3);
+  const per=Math.ceil((N-1)/TILES);
+  for(let tj=0;tj<TILES;tj++)for(let ti=0;ti<TILES;ti++){const i0=ti*per,j0=tj*per,i1=Math.min(N-1,i0+per),j1=Math.min(N-1,j0+per);if(i1<=i0||j1<=j0)continue;
+    const w=i1-i0+1,h=j1-j0+1,idx=new Uint32Array((w-1)*(h-1)*6);let p=0;
+    for(let j=0;j<h-1;j++)for(let i=0;i<w-1;i++){const a=j*w+i,b=a+1,c=a+w,d=c+1;idx[p++]=a;idx[p++]=c;idx[p++]=b;idx[p++]=b;idx[p++]=c;idx[p++]=d}
+    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(w*h*3),3));g.setAttribute('color',new THREE.BufferAttribute(new Float32Array(w*h*3),3));g.setAttribute('normal',new THREE.BufferAttribute(new Float32Array(w*h*3),3));g.setIndex(new THREE.BufferAttribute(idx,1));
+    const mesh=new THREE.Mesh(g,terrainMat);mesh.receiveShadow=true;mesh.castShadow=true;scene.add(mesh);terrainTiles.push({mesh,i0,j0,w,h})}}
+// smooth normals straight from the height grid (so tile seams are invisible), then copy everything into the tiles
+function syncTerrain(){for(let j=0;j<N;j++)for(let i=0;i<N;i++){const k=j*N+i,s=(di,dj)=>TH[Math.min(N-1,Math.max(0,j+dj))*N+Math.min(N-1,Math.max(0,i+di))];
+    const nx=s(-1,0)-s(1,0),nz=s(0,-1)-s(0,1),ny=2*CELL,inv=1/Math.hypot(nx,ny,nz);tNrm[k*3]=nx*inv;tNrm[k*3+1]=ny*inv;tNrm[k*3+2]=nz*inv}
+  for(const t of terrainTiles){const P=t.mesh.geometry.attributes.position.array,C=t.mesh.geometry.attributes.color.array,Nn=t.mesh.geometry.attributes.normal.array;
+    for(let j=0;j<t.h;j++)for(let i=0;i<t.w;i++){const k=(t.j0+j)*N+(t.i0+i),q=(j*t.w+i)*3;P[q]=tPos[k*3];P[q+1]=tPos[k*3+1];P[q+2]=tPos[k*3+2];C[q]=tCol[k*3];C[q+1]=tCol[k*3+1];C[q+2]=tCol[k*3+2];Nn[q]=tNrm[k*3];Nn[q+1]=tNrm[k*3+1];Nn[q+2]=tNrm[k*3+2]}
+    const g=t.mesh.geometry;g.attributes.position.needsUpdate=true;g.attributes.color.needsUpdate=true;g.attributes.normal.needsUpdate=true;g.computeBoundingSphere();g.computeBoundingBox()}}
 buildTerrainGeo();
 // water: one shared material with a scrolling, tiling normal map; a big plane for rivers plus discs for ponds
 function waterNormalTex(){const s=256,P=8,c=document.createElement('canvas');c.width=c.height=s;const x=c.getContext('2d'),img=x.createImageData(s,s),r=mulberry32(77),grid=[];
@@ -188,99 +198,6 @@ function decalTexture(){
 let decalMat=null;
 function bx(w,h,d,mat,x,y,z,p){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;p.add(m);return m}
 function cyl(r,h,mat,x,y,z,p,axis,seg=14){const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,seg),mat);if(axis==='z')m.rotation.x=Math.PI/2;if(axis==='x')m.rotation.z=Math.PI/2;m.position.set(x,y,z);m.castShadow=true;p.add(m);return m}
-
-function buildWheel(r,side){
-  const root=new THREE.Group(),spin=new THREE.Group();root.add(spin);
-  const tire=new THREE.Mesh(new THREE.CylinderGeometry(r*.93,r*.93,.19,18),M.tire);tire.rotation.z=Math.PI/2;tire.castShadow=true;spin.add(tire);
-  const lugG=new THREE.BoxGeometry(.09,.06,.075);
-  for(let i=0;i<18;i++){const a=i/18*Math.PI*2;for(const sx of[-1,1]){const m=new THREE.Mesh(lugG,M.tire);const off=(i%2?.02:-.02)*sx;
-    m.position.set(sx*.05+off,Math.cos(a)*(r-.026),Math.sin(a)*(r-.026));m.rotation.x=a;m.castShadow=true;spin.add(m)}}
-  cyl(.135,.2,M.rim,0,0,0,spin,'x',16);
-  cyl(.148,.022,M.blk,side*.095,0,0,spin,'x',16);
-  cyl(.045,.215,M.blk,0,0,0,spin,'x',8);cyl(.03,.04,M.blk,side*.12,0,0,spin,'x',6);   // centre nut
-  for(let i=0;i<5;i++){const a=i/5*Math.PI*2;cyl(.018,.03,M.blk,side*.1,Math.cos(a)*.085,Math.sin(a)*.085,spin,'x',6)}
-  return{root,spin};
-}
-function buildBody(cfg){
-  const g=new THREE.Group(),L=cfg.L,W=.92,y0=.08,lh=.34,gh=cfg.gh,hood=cfg.hood,yT=y0+lh,fz=L/2,rz=-L/2;
-  bx(.5,.06,L*.86,M.blkC,0,-.02,0,g);
-  bx(W,lh,L,M.yel,0,y0+lh/2,0,g);
-  bx(W+.012,.05,L*.98,M.blkC,0,y0+.025,0,g);
-  const bedL=cfg.style==='pickup'?(L-cfg.hood)*.5:0;
-  const gz0=rz+.03+bedL,gz1=fz-hood,gl=gz1-gz0,gc=(gz0+gz1)/2,gy=yT+gh/2,ghW=cfg.style==='glass'?W-.06:W-.04;
-  bx(ghW,gh,gl,M.yel,0,gy,gc,g);
-  if(bedL){const bz=rz+.03+bedL/2;bx(W-.04,.04,bedL-.06,M.blkC,0,yT+.02,bz,g);for(const sx of[1,-1]){bx(.03,.14,bedL-.06,M.yel,sx*(W/2-.035),yT+.07,bz,g);bx(.04,.02,bedL-.04,M.blkC,sx*(W/2-.035),yT+.15,bz,g)}bx(W-.04,.14,.03,M.yel,0,yT+.07,rz+.045,g);bx(W-.02,.02,.04,M.blkC,0,yT+.15,rz+.045,g);   // the bed, side walls and tailgate
-    bx(.14,.12,.2,M.can,.2,yT+.1,bz+.1,g);bx(.14,.12,.2,M.red,.02,yT+.1,bz+.1,g);bx(.26,.1,.16,M.red,-.15,yT+.09,bz-.15,g);bx(.27,.015,.17,M.blkC,-.15,yT+.145,bz-.15,g);   // cans and a toolbox in the bed
-    for(const sx of[1,-1])bx(.025,.42,.025,M.blkC,sx*(W/2-.1),yT+.25,gz0-.06,g);bx(W-.2,.025,.025,M.blkC,0,yT+.46,gz0-.06,g);for(let i=0;i<3;i++)cyl(.028,.025,M.lamp,-.16+i*.16,yT+.5,gz0-.04,g,'z')}   // hoop behind the cab with lights
-  bx(ghW-.12,gh-.08,.012,M.glass,0,gy+.005,gz1+.006,g);
-  bx(ghW-.2,gh-.1,.012,M.glass,0,gy+.01,gz0-.006,g);
-  const nw=cfg.win,seg=gl/nw;
-  for(let i=0;i<nw;i++){const zc=gz1-seg*(i+.5),ww=cfg.style==='glass'?seg-.035:seg-.07;for(const sx of[1,-1])bx(.012,gh-(cfg.style==='glass'?.06:.09),ww,M.glass,sx*(ghW/2+.006),gy+.01,zc,g)}
-  let roofY=yT+gh;if(cfg.style==='pickup'){roofY+=.0}else{bx(ghW+.02,.03,gl+.02,M.yel,0,roofY+.015,gc,g);roofY+=.03}
-  let rackZ0=gz0+.02,rackZ1=gz1+.06;
-  if(cfg.style==='step'){const sl=gl*.55,sc=gz0+sl/2;bx(ghW-.02,.07,sl,M.yel,0,roofY+.035,sc,g);
-    for(const sx of[1,-1])bx(.012,.035,sl-.1,M.glass,sx*((ghW-.02)/2+.006),roofY+.035,sc,g);bx(ghW-.1,.035,.012,M.glass,0,roofY+.035,sc+sl/2+.006,g);roofY+=.07}
-  bx(W-.22,.022,hood-.08,M.yel,0,yT+.011,fz-hood/2,g);
-  bx(W-.16,.17,.02,M.blkC,0,y0+.2,fz+.01,g);
-  for(let i=0;i<4;i++)bx(W-.3,.012,.022,M.steel,0,y0+.14+i*.04,fz+.015,g);
-  for(const sx of[1,-1]){cyl(.055,.03,M.lamp,sx*.33,y0+.21,fz+.022,g,'z');bx(.05,.03,.015,M.amber,sx*.33,y0+.12,fz+.015,g);bx(.05,.1,.015,M.tail,sx*.4,y0+.22,rz-.008,g);
-    const beam=new THREE.Mesh(new THREE.ConeGeometry(.55,4,14,1,true),M.beam);beam.rotation.x=-Math.PI/2+.13;beam.position.set(sx*.33,y0+.21-.26,fz+1.98);beam.castShadow=false;g.add(beam);
-    const mir=bx(.03,.07,.05,M.blkC,sx*(W/2+.06),yT+.08,gz1-.05,g);mir.castShadow=false;bx(.012,.05,.035,M.glass,sx*(W/2+.075),yT+.08,gz1-.05,g);
-    bx(.012,.014,.12,M.blkC,sx*(W/2+.006),y0+.1,gz1-.42,g)}
-  bx(W+.1,.08,.1,M.blkC,0,y0+.01,fz+.06,g);bx(.2,.07,.08,M.steel,0,y0+.01,fz+.13,g);
-  for(const sx of[1,-1])bx(.03,.24,.03,M.blkC,sx*.22,y0+.16,fz+.11,g);bx(.47,.03,.03,M.blkC,0,y0+.27,fz+.11,g);
-  bx(W+.06,.08,.09,M.blkC,0,y0+.01,rz-.05,g);
-  bx(.2,.1,.008,M.plate,0,y0+.08,rz-.098,g);
-  for(const sx of[1,-1])for(const wz of[cfg.wb/2,-cfg.wb/2])bx(.05,.05,.56,M.blkC,sx*(W/2+.02),y0+.08,wz,g);
-  if(cfg.snorkel||(cfg.tune&&cfg.tune.snorkel)){cyl(.025,gh+.2,M.blkC,-(W/2+.03),yT+gh/2+.03,gz1+.03,g);cyl(.03,.2,M.blkC,-(W/2+.03),yT-.03,gz1+.12,g,'z',8);cyl(.055,.07,M.blkC,-(W/2+.03),yT+gh+.14,gz1+.03,g,'z',10);bx(.06,.03,.06,M.steel,-(W/2+.03),yT+gh+.185,gz1+.03,g)}
-  if(cfg.winch||(cfg.tune&&cfg.tune.lv.gear>=2)){bx(.22,.09,.1,M.steel,0,y0+.12,fz+.12,g);cyl(.02,.2,M.blkC,0,y0+.12,fz+.12,g,'x',8);if(cfg.winch||cfg.tune.lv.gear>=3){cyl(.045,.16,M.blkC,0,y0+.13,fz+.12,g,'x',10);cyl(.05,.12,M.trim,0,y0+.13,fz+.12,g,'x',10);bx(.04,.04,.06,M.steel,0,y0+.13,fz+.2,g);bx(.05,.02,.05,M.red,0,y0+.13,fz+.24,g)}}
-  // ---- details on every car: window frames, door handles, rock sliders, fender flares, tow hooks, front plate, light bar on a hoop, rear bumper, ladder, antenna ----
-  const X=cfg.extras||[];
-  for(let i=0;i<nw;i++){const zc=gz1-seg*(i+.5),ww=cfg.style==='glass'?seg-.035:seg-.07,wh=gh-(cfg.style==='glass'?.06:.09);for(const sx of[1,-1]){const fx=sx*(ghW/2+.004);
-    bx(.008,.012,ww+.02,M.trim,fx,gy+.01+wh/2,zc,g);bx(.008,.012,ww+.02,M.trim,fx,gy+.01-wh/2,zc,g);bx(.008,wh,.012,M.trim,fx,gy+.01,zc-ww/2,g);bx(.008,wh,.012,M.trim,fx,gy+.01,zc+ww/2,g);
-    if(i<2)bx(.014,.022,.09,M.blkC,sx*(W/2+.007),yT-.05,zc-ww/2+.1,g)}}                                                       // frames and handles
-  for(const sx of[1,-1]){bx(.06,.04,L*.5,M.blkC,sx*(W/2+.05),y0-.02,0,g);for(let k=-1;k<=1;k++)bx(.05,.03,.03,M.blkC,sx*(W/2+.03),y0,k*L*.18,g)}   // rock sliders
-  for(const sx of[1,-1])for(const wz of[cfg.wb/2,-cfg.wb/2]){bx(.04,.07,.7,M.blkC,sx*(W/2+.012),y0+.18,wz,g);bx(.03,.22,.05,M.blkC,sx*(W/2+.012),y0+.06,wz+.34,g);bx(.03,.22,.05,M.blkC,sx*(W/2+.012),y0+.06,wz-.34,g)}   // fender flares
-  for(const sx of[1,-1]){bx(.05,.05,.08,M.red,sx*.3,y0+.03,fz+.1,g);bx(.05,.05,.08,M.red,sx*.3,y0+.03,rz-.09,g)}           // tow hooks
-  bx(.26,.08,.01,M.plate,0,y0+.1,fz+.115,g);
-  {const hy=yT+gh*.35,hz=fz-hood+.06;for(const sx of[1,-1])bx(.025,.22,.025,M.blkC,sx*(W/2-.12),yT+.11,hz,g);bx(W-.2,.025,.025,M.blkC,0,hy+.08,hz,g);   // hoop over the hood
-    if(X.includes('lightbar')){bx(W-.3,.05,.04,M.blkC,0,hy+.12,hz+.01,g);bx(W-.36,.03,.012,M.lamp,0,hy+.12,hz+.035,g)}else for(let i=0;i<4;i++){cyl(.03,.025,M.lamp,-.24+i*.16,hy+.13,hz+.02,g,'z');cyl(.034,.02,M.blkC,-.24+i*.16,hy+.13,hz-.002,g,'z')}}
-  bx(W+.06,.04,.04,M.blkC,0,y0+.26,rz-.1,g);for(const sx of[1,-1])bx(.06,.05,.02,M.tail,sx*.3,y0+.26,rz-.125,g);          // rear bumper bar and lamps
-  if(X.includes('ladder')){const lx=W/2+.04,n=Math.max(3,Math.round((roofY-y0)/.12));for(const dz of[-.07,.07])bx(.02,roofY-y0+.1,.02,M.blkC,lx,(roofY+y0)/2+.05,rz+.18+dz,g);for(let k=0;k<n;k++)bx(.02,.02,.17,M.blkC,lx,y0+.1+k*.12,rz+.18,g)}
-  {const az=gz0+.1;cyl(.008,.55,M.blkC,-(W/2-.06),roofY+.25,az,g);const ball=new THREE.Mesh(new THREE.SphereGeometry(.025,8,6),M.red);ball.position.set(-(W/2-.06),roofY+.53,az);g.add(ball)}   // antenna
-  if(X.includes('sandLadders'))for(const sx of[1,-1]){const m=bx(.03,.2,.9,M.orange,sx*(W/2+.07),yT-.02,gz0+.5,g);for(let k=0;k<6;k++)bx(.035,.03,.06,M.blkC,sx*(W/2+.07),yT-.02,gz0+.1+k*.16,g)}   // sand ladders on the flanks
-  if(X.includes('jack'))bx(.05,.3,.08,M.red,W/2+.06,yT+.04,gz0+1.1,g);
-  // roof rack
-  const ry=roofY+.07,rl=rackZ1-rackZ0,rc=(rackZ0+rackZ1)/2,rw=W-.08;
-  for(const sx of[1,-1]){bx(.025,.025,rl,M.blkC,sx*rw/2,ry,rc,g);bx(.025,.08,.025,M.blkC,sx*rw/2,ry-.04,rackZ0+.03,g);bx(.025,.08,.025,M.blkC,sx*rw/2,ry-.04,rackZ1-.03,g)}
-  for(let z=rackZ0;z<=rackZ1+.001;z+=Math.max(.14,rl/8))bx(rw,.014,.02,M.blkC,0,ry-.004,z,g);
-  bx(rw-.08,.05,.05,M.blkC,0,ry+.04,rackZ1-.01,g);
-  if(cfg.tune&&cfg.tune.led){bx(rw-.1,.045,.04,M.blkC,0,ry+.045,rackZ1+.01,g);bx(rw-.16,.025,.012,M.lamp,0,ry+.045,rackZ1+.032,g)}   // the LED bar from the garage sits on the rack; the hoop lights are standard
-  const can=(x,z,mat)=>{bx(.14,.12,.2,mat,x,ry+.07,rc+z,g);bx(.03,.02,.12,M.blkC,x,ry+.14,rc+z,g)};
-  const spade=(sx)=>{cyl(.012,.6,M.wood,sx*(rw/2+.03),ry+.02,rc,g,'z',6);bx(.02,.09,.12,M.steel,sx*(rw/2+.03),ry+.02,rc+.33,g)};
-  const axe=(sx)=>{cyl(.011,.42,M.wood,sx*(rw/2+.03),ry+.05,rc-.1,g,'z',6);bx(.025,.08,.07,M.steel,sx*(rw/2+.035),ry+.07,rc+.13,g)};
-  if(X.includes('cans2')){can(.17,-.15,M.can);can(-.02,-.15,M.red)}
-  if(X.includes('cans3')){can(.2,-.2,M.can);can(.02,-.2,M.red);can(-.16,-.2,M.can)}
-  if(X.includes('box')){bx(.4,.14,.3,M.blkC,-.1,ry+.08,rc+.22,g);bx(.42,.02,.32,M.steel,-.1,ry+.155,rc+.22,g)}
-  if(X.includes('toolbox')){bx(.26,.1,.16,M.red,.12,ry+.06,rc+.2,g);bx(.27,.015,.17,M.blkC,.12,ry+.115,rc+.2,g)}
-  if(X.includes('tent')){cyl(.07,.52,M.orange,0,ry+.08,rc+.25,g,'x',10);for(const dx of[-.18,.18])bx(.02,.16,.16,M.blkC,dx,ry+.08,rc+.25,g)}
-  if(X.includes('crates')){bx(.22,.14,.2,M.blue,-.2,ry+.08,rc-.18,g);bx(.2,.12,.22,M.green,.1,ry+.07,rc-.18,g);bx(.18,.1,.14,M.orange,.26,ry+.06,rc+.1,g)}
-  if(X.includes('tarp')){bx(.5,.1,.36,M.canvas,0,ry+.06,rc-.05,g);for(const dz of[-.12,.12])bx(.54,.012,.02,M.blkC,0,ry+.115,rc-.05+dz,g)}
-  if(X.includes('spade'))spade(1);if(X.includes('axe'))axe(-1);
-  // spare
-  const sp=buildWheel(.2,1);sp.root.scale.set(.85,.85,.85);
-  if(cfg.spare==='rear'){sp.root.position.set(0,y0+.24,rz-.12);sp.root.rotation.y=Math.PI/2}
-  else if(cfg.spare==='hood'){sp.root.position.set(0,yT+.09,fz-hood/2);sp.root.rotation.z=Math.PI/2}
-  else{sp.root.position.set(-.18,ry+.08,rc-.1);sp.root.rotation.z=Math.PI/2}
-  g.add(sp.root);
-  for(const sx of[1,-1]){const p=new THREE.Mesh(new THREE.PlaneGeometry(.32,.16),decalMat);p.position.set(sx*(W/2+.004),y0+.2,gz1-.28);p.rotation.y=sx>0?Math.PI/2:-Math.PI/2;g.add(p)}
-  const hd=new THREE.Mesh(new THREE.PlaneGeometry(.3,.15),decalMat);hd.rotation.x=-Math.PI/2;hd.position.set(0,yT+.024,fz-hood/2);if(cfg.spare!=='hood')g.add(hd);
-  // driver + navigator
-  for(const sx of cfg.win>1?[1,-1]:[1]){const h=new THREE.Mesh(new THREE.SphereGeometry(.06,12,10),M.skin);h.position.set(sx*.2,yT+.13,gz1-.3);g.add(h);
-    const cap=new THREE.Mesh(new THREE.SphereGeometry(.062,12,8,0,Math.PI*2,0,Math.PI/2),M.blkC);cap.position.copy(h.position);cap.position.y+=.01;g.add(cap);
-    bx(.17,.14,.12,M.shirt,sx*.2,yT+.02,gz1-.32,g)}
-  return g;
-}
 
 let carVis=null;
 function buildCarVis(cfg){
@@ -497,11 +414,10 @@ function loadLevel(i){
   levelGroup.traverse(o=>{if((o.isInstancedMesh||o.isMesh)&&o.geometry&&!keepGeo.has(o.geometry))o.geometry.dispose();
     if(o.material&&!keepMat.has(o.material)){if(o.material.map)o.material.map.dispose();o.material.dispose()}});
   scene.remove(levelGroup);levelGroup=new THREE.Group();scene.add(levelGroup);gateVis=[];
-  LV=genLevel(def);if(tPos.length!==N*N*3)buildTerrainGeo();water.scale.set(WORLD/70,WORLD/70,1);
+  LV=genLevel(def);if(terrainN!==N)buildTerrainGeo();water.scale.set(WORLD/70,WORLD/70,1);
   state.world=isIsland(def)&&!!state.roam;state.course=null;state.free=false;LV.mainGates=LV.gates;LV.mainCrates=LV.crates;
   for(let k=0;k<N*N;k++){const i2=k%N,j=(k/N)|0;tPos[k*3]=-HALF+i2*CELL;tPos[k*3+1]=TH[k];tPos[k*3+2]=-HALF+j*CELL;tCol[k*3]=TC[k*3];tCol[k*3+1]=TC[k*3+1];tCol[k*3+2]=TC[k*3+2]}
-  shadeTerrain();
-  tGeo.attributes.position.needsUpdate=true;tGeo.attributes.color.needsUpdate=true;tGeo.computeVertexNormals();tGeo.computeBoundingSphere();tGeo.computeBoundingBox();
+  shadeTerrain();syncTerrain();
   levelGroup.add(LV.decor);
   water.visible=def.water!=null;if(water.visible)water.position.y=def.water;waterMat.color.set(def.waterCol||'#3f5c4d').convertSRGBToLinear();waterMat.opacity=def.waterOpacity??.7;
   buildPools(LV);buildCrates(LV);rain.visible=!!(def.rain||def.ash||def.snow);ashMode=!!def.ash;snowMode=!!def.snow;rain.material.color.set(ashMode?'#ffb070':snowMode?'#ffffff':'#dfe8ee');rain.material.size=ashMode?.06:snowMode?.075:.045;rain.material.opacity=.55;precipK=1;
@@ -613,7 +529,7 @@ function checkGates(){
     if(i<state.next||!segX(p1,p2,gt.a,gt.b))return;
     for(let k=state.next;k<i;k++){setGateState(k,'missed');state.missed++;addPenalty(10,'Bom på port '+(k+1))}
     setGateState(i,'passed');state.next=i+1;state.checkpoint={x:gt.c.x,z:gt.c.z,h:Math.atan2(gt.tan.x,gt.tan.z)};
-    if(gt.finish)finishRun();else{setGateState(i+1,'next');if(state.penalty===0||toastT<=0)toast('Port '+(i+1)+' ✓')}
+    if(gt.finish)finishRun();else{setGateState(i+1,'next');if(state.penalty===0||toastT<=0)toast('Port '+(i+1)+' ✓');ambGate()}
   });
 }
 
@@ -643,7 +559,7 @@ function zoom(dir){
 function setSpeed(v,quiet){v=Math.max(30,Math.min(150,Math.round(v/10)*10));const changed=v!==state.speed;state.speed=v;store.set('speed',v);if(car)car.speedScale=v/100;
   $('hSpd').textContent=v+'%';$('spdRange').value=v;$('spdOut').textContent=v+' %';if(!quiet&&changed&&state.mode==='play')toast('Fartsgrense '+v+' %')}
 function setGfx(q){state.gfx=q;store.set('gfx',q);const hi=q==='hi';
-  renderer.setPixelRatio(hi?Math.min(window.devicePixelRatio||1,1.75):1);
+  renderer.setPixelRatio(hi?Math.min(window.devicePixelRatio||1,1.5):Math.min(window.devicePixelRatio||1,1));for(const t of terrainTiles)t.mesh.castShadow=hi;
   const sz=hi?2048:1024;if(sun.shadow.mapSize.x!==sz){sun.shadow.mapSize.set(sz,sz);if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null}}
   tracks.visible=hi;if(LV)lavaLight.visible=LV.hasLava&&hi;$('gfxHi').setAttribute('aria-pressed',hi);$('gfxLo').setAttribute('aria-pressed',!hi);resize()}
 addEventListener('keyup',e=>{keys.delete(e.key.toLowerCase());if(e.key.toLowerCase()==='r'&&hasWinch())winchKey(false)});
@@ -667,7 +583,7 @@ $('rRetry').onclick=startRun;$('rMenu').onclick=toMenu;$('rNext').onclick=()=>{i
 $('bMap').onclick=()=>openMap();$('mTabIsland').onclick=()=>setMapTab('island');$('mTabArch').onclick=()=>setMapTab('arch');$('mClose').onclick=()=>openMap(false);$('pMap').onclick=()=>{$('pause').hidden=true;openMap(true)};
 $('mTow').onclick=()=>{if(prof.nuts<20){toast('Du trenger 20 muttere',true);return}prof.nuts-=20;saveProf();if(state.course)endCourse();openMap(false);const lvl=LEVELS[state.levelIdx];if(lvl.basePos)resetToStart();else if(LV.ferry){const f=LV.ferry;placeCar(car,f.pad.x,f.pad.z,Math.atan2(-f.dx,-f.dz));camSnap=true}else resetToStart();state.checkpoint={x:car.pos.x,z:car.pos.z,h:Math.atan2(car.fw.x,car.fw.z)};toast(lvl.basePos?'Tauet hjem til basen · −20 ⚙':'Tauet til kaia · −20 ⚙')};
 $('aYes').onclick=()=>answerAsk(true);$('aNo').onclick=()=>answerAsk(false);$('aList').addEventListener('click',e=>{const b=e.target.closest('[data-dest]');if(b)answerAsk({dest:b.dataset.dest})});$('pAbort').onclick=()=>{pause(false);endCourse();toast('Løpet avbrutt')};
-$('startBtn').onclick=startRoam;$('raceBtn').onclick=()=>{state.roam=false;startRun()};
+$("startBtn").onclick=()=>startRoam();$('raceBtn').onclick=()=>{state.roam=false;startRun()};
 document.querySelectorAll('.tb').forEach(b=>{const t=b.dataset.t;const on=e=>{e.preventDefault();state.input[t]=1;b.classList.add('on');try{b.setPointerCapture(e.pointerId)}catch(_){}};
   const off=e=>{state.input[t]=0;b.classList.remove('on')};b.addEventListener('pointerdown',on);b.addEventListener('pointerup',off);b.addEventListener('pointercancel',off);b.addEventListener('lostpointercapture',off)});
 const isTouch=()=>matchMedia('(pointer:coarse)').matches;
@@ -746,6 +662,8 @@ function syncVisuals(dt){
   const ng=LV.gates[state.next];
   if(ng&&state.mode==='play'){beacon.visible=true;beacon.position.set(ng.c.x,H(ng.c.x,ng.c.z),ng.c.z);beacon.userData.ring.scale.setScalar(1+.08*Math.sin(performance.now()*.005));
     arrow.visible=car.assist;if(arrow.visible){arrow.position.copy(car.pos).add(_c2.set(0,1.25,0));_c1.set(ng.c.x-car.pos.x,0,ng.c.z-car.pos.z).normalize();arrow.quaternion.setFromUnitVectors(YAX,_c1)}}
+  else if(state.free&&car.assist&&state.world){const n=nearestPortal();let tx=null,tz=null;if(n&&!courseLock(n.k)&&n.d>6){tx=n.k.start.p.x;tz=n.k.start.p.z}
+    if(tx!==null){arrow.visible=true;arrow.position.copy(car.pos).add(_c2.set(0,1.25,0));_c1.set(tx-car.pos.x,0,tz-car.pos.z).normalize();arrow.quaternion.setFromUnitVectors(YAX,_c1)}else arrow.visible=false;beacon.visible=false}
   else{beacon.visible=false;arrow.visible=false}
   updateDust(dt);updateRain(dt);updateFx(dt);applyZone(car.pos.x,car.pos.z);nightTint();updateCoat(dt);updateWinch(dt);updateAnimals(dt);updateBoulder(dt);
   waterMat.normalMap.offset.x+=dt*.025;waterMat.normalMap.offset.y+=dt*.018;
@@ -766,7 +684,7 @@ function updateHUD(dt){
 }
 
 /* ---------- main loop ---------- */
-let last=performance.now(),acc=0;
+let last=performance.now(),acc=0,landShake=0;
 function frame(now){
   requestAnimationFrame(frame);
   const dt=Math.min(.05,(now-last)/1000);last=now;
@@ -791,7 +709,7 @@ function frame(now){
       if(ll>-1e8&&car.pos.y<ll+.12){const cp=state.checkpoint;for(let i=0;i<14;i++)spawnDust(car.pos,15,true);placeCar(car,cp.x,cp.z,cp.h);state.lavaFalls++;state.flood=0;addPenalty(10,'Lava: tilbake til forrige port');camSnap=true}
       else LV.bonuses.forEach((b,bi)=>{if(!state.bonusDone[bi]&&Math.hypot(b.x-car.pos.x,b.z-car.pos.z)<b.r&&(ll<-1e8||car.pos.y>ll+.35)){state.bonusDone[bi]=1;state.bonusNuts+=b.nuts;toast(b.msg)}})}
     // airtime
-    if(car.wheels.every(w=>!w.contact)&&car.pos.y>H(car.pos.x,car.pos.z)+.3){state.air+=dt}else if(state.air>0){if(state.air>.32){state.jumps++;if(state.air>.5)state.longJumps++;state.bestAir=Math.max(state.bestAir,state.air);toast('Hopp! '+state.air.toFixed(1).replace('.',',')+' s'+(state.air>.5?' · +20 ⚙':''))}state.air=0}
+    if(car.wheels.every(w=>!w.contact)&&car.pos.y>H(car.pos.x,car.pos.z)+.3){state.air+=dt;state.fallV=Math.min(state.fallV||0,car.vel.y)}else if(state.air>0){const hit=-(state.fallV||0);if(state.air>.2&&hit>2.2){landShake=Math.min(.05,hit*.012);ambThump(Math.min(1,hit/8));for(let i=0;i<Math.min(14,hit*2|0);i++)for(const w of car.wheels)if(w.contact&&Math.random()<.5)spawnDust(w.P,w.surf,true)}state.fallV=0;if(state.air>.32){state.jumps++;if(state.air>.5)state.longJumps++;state.bestAir=Math.max(state.bestAir,state.air);toast('Hopp! '+state.air.toFixed(1).replace('.',',')+' s'+(state.air>.5?' · +20 ⚙':''))}state.air=0}
     // crates
     for(const c of crateVis){if(c.taken)continue;const dx=c.cr.x-car.pos.x,dz=c.cr.z-car.pos.z;if(dx*dx+dz*dz<.42&&Math.abs(c.cr.y-car.pos.y)<.9){c.taken=true;c.g.visible=false;state.crates++;toast('Kasse '+state.crates+'/'+LV.crates.length+' · +15 ⚙');for(let i=0;i<6;i++)spawnDust(c.g.position,0,true)}}
     if(car.pos.y<-3||Math.abs(car.pos.x)>HALF-.5||Math.abs(car.pos.z)>HALF-.5){winch();toast('Utenfor banen: vinsj',true)}
@@ -802,7 +720,7 @@ function frame(now){
   if(state.mode==='done'&&toastT>0)updateHUD(dt);
   updateMinimap();
   syncVisuals(dt);updateCamera(dt);updateAudio();updateAmbience(dt);
-  const shk=(ERU.amp>.0005?ERU.amp:0)+boulderShake(),sx=(Math.random()-.5)*shk*2,sy=(Math.random()-.5)*shk*2,sz=(Math.random()-.5)*shk*2;if(shk)camera.position.add(_c1.set(sx,sy,sz));
+  landShake*=Math.exp(-dt*9);const shk=(ERU.amp>.0005?ERU.amp:0)+boulderShake()+(landShake>.001?landShake:0),sx=(Math.random()-.5)*shk*2,sy=(Math.random()-.5)*shk*2,sz=(Math.random()-.5)*shk*2;if(shk)camera.position.add(_c1.set(sx,sy,sz));
   renderer.render(scene,camera);
   if(shk)camera.position.sub(_c1.set(sx,sy,sz));
 }
@@ -831,197 +749,6 @@ $('levelList').addEventListener('click',e=>{const b=e.target.closest('[data-lvl]
 $('modeEasy').onclick=()=>{state.assist=true;store.set('assist',true);if(car)car.assist=true;renderMenu()};
 $('modeReal').onclick=()=>{state.assist=false;store.set('assist',false);if(car)car.assist=false;renderMenu()};
 
-/* ---------- open world: free driving, start portals, courses ---------- */
-// a world (def.world) has no gates of its own: LV.gates/LV.crates are swapped in when a course starts, so all the race code works unchanged
-let portals=[],courseArrows=null,countT=0,gateWake=null,nightOn=false,cpT=0;
-const coursesDone=()=>LV.courses.filter(k=>best[courseKey(LEVELS[state.levelIdx],k)]).length;
-const DIFFCOL=['#8bbb4a','#8bbb4a','#f2c230','#d9432f'];
-// a locked course needs a number of finished courses on this island, or can be bought open for nuts
-function courseLock(k){const n=k.def&&k.def.needs;if(!n)return null;const lvl=LEVELS[state.levelIdx];if(prof.unlocked.includes(courseKey(lvl,k)))return null;const done=coursesDone();if(n.courses&&done>=n.courses)return null;
-  const need=n.courses?('Fullfør '+n.courses+' løype'+(n.courses>1?'r':'')+' på øya først ('+done+' fullført)'):'';return{text:need,nuts:n.nuts||0}}
-function startFree(){state.mode='play';state.free=true;state.course=null;resetRunState();LV.gates=[];LV.crates=[];buildGates(LV);buildCrates(LV);
-  resetToStart();car.low=true;clearTracks();showHud();updateGearUI();state.checkpoint={x:car.pos.x,z:car.pos.z,h:Math.atan2(car.fw.x,car.fw.z)};toast('Fri kjøring: kjør bort til en startstrek')}
-// the start of every course: two flag poles, tyre barriers, a string of festival lights and a sign
-function portalSign(k){const c=document.createElement('canvas');c.width=256;c.height=128;const x=c.getContext('2d');x.fillStyle='#f2e8d0';x.fillRect(0,0,256,128);x.fillStyle=DIFFCOL[k.diff];x.fillRect(0,0,256,22);
-  x.strokeStyle='#14120E';x.lineWidth=6;x.strokeRect(3,3,250,122);x.fillStyle='#14120E';x.textAlign='center';x.font='700 40px "Barlow Condensed",sans-serif';x.fillText(k.name,128,72);
-  x.font='600 22px "Barlow Condensed",sans-serif';x.fillText(['','Lett','Middels','Vanskelig'][k.diff]+' · '+k.gates.length+' porter',128,106);
-  if(courseLock(k)){x.fillStyle='rgba(20,18,14,.55)';x.fillRect(0,0,256,128);x.fillStyle='#f2e8d0';x.font='700 56px sans-serif';x.fillText('🔒',128,84)}
-  const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;return t}
-function buildPortals(lv){portals=[];if(!lv.courses||!lv.courses.length)return;
-  for(const k of lv.courses){const g=new THREE.Group(),p=k.start.p,tn=k.start.tan,s=new V3(tn.z,0,-tn.x),col=DIFFCOL[k.diff];
-    const tops=[];
-    for(const sd of[-1,1]){const x=p.x+s.x*sd*1.7,z=p.z+s.z*sd*1.7,y=H(x,z);const pole=new THREE.Mesh(boxGeo,postMat);pole.scale.set(.08,2.1,.08);pole.position.set(x,y+1.05,z);pole.castShadow=true;g.add(pole);
-      const fm=new THREE.MeshStandardMaterial({color:LIN(col),side:THREE.DoubleSide,roughness:.6}),fl=new THREE.Mesh(flagGeo,fm);fl.scale.setScalar(1.6);fl.position.set(x,y+2.05,z);fl.rotation.y=Math.atan2(tn.x,tn.z)+Math.PI/2*sd;g.add(fl);tops.push({x,y:y+2.0,z});
-      for(let i=0;i<3;i++){const tx=x+s.x*sd*(.45+i*.42),tz=z+s.z*sd*(.45+i*.42);const ty=new THREE.Mesh(cylGeo,M.tire);ty.scale.set(.24,.17,.24);ty.position.set(tx,H(tx,tz)+.085,tz);ty.castShadow=true;g.add(ty)}}
-    // lights between the pole tops
-    for(let i=1;i<10;i++){const u=i/10,sp=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:LIN(['#ffd36a','#ff6a2a','#8bbb4a','#5ab4ff'][i%4]),transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,fog:false}));
-      sp.position.set(tops[0].x+(tops[1].x-tops[0].x)*u,tops[0].y+(tops[1].y-tops[0].y)*u-.35*4*u*(1-u),tops[0].z+(tops[1].z-tops[0].z)*u);sp.scale.set(.32,.32,1);g.add(sp)}
-    const wire=new THREE.Mesh(cylGeo,postMat);wire.scale.set(.012,3.4,.012);wire.position.set(p.x,tops[0].y-.1,p.z);wire.quaternion.setFromUnitVectors(YAX,new V3(s.x,0,s.z));g.add(wire);
-    // a chalk start line and the sign beside it, facing the approaching car
-    const line=new THREE.Mesh(new THREE.PlaneGeometry(3.2,.18),new THREE.MeshBasicMaterial({color:0xf2e8d0,transparent:true,opacity:.8,polygonOffset:true,polygonOffsetFactor:-2}));line.rotation.x=-Math.PI/2;line.rotation.z=Math.atan2(tn.x,tn.z);line.position.set(p.x,H(p.x,p.z)+.02,p.z);g.add(line);
-    const sx=p.x+s.x*2.6-tn.x*1.2,sz=p.z+s.z*2.6-tn.z*1.2,sy=H(sx,sz);const post=new THREE.Mesh(boxGeo,postMat);post.scale.set(.06,1.2,.06);post.position.set(sx,sy+.6,sz);g.add(post);
-    const b=new THREE.Mesh(new THREE.PlaneGeometry(1.2,.6),new THREE.MeshBasicMaterial({map:portalSign(k),side:THREE.DoubleSide}));b.position.set(sx,sy+1.25,sz);b.rotation.y=Math.atan2(-tn.x,-tn.z);g.add(b);
-    levelGroup.add(g);portals.push({k,g,x:p.x,z:p.z,lights:g.children.filter(o=>o.isSprite)})}}
-function nearestPortal(){let b=null;for(const p of portals){const d=Math.hypot(p.x-car.pos.x,p.z-car.pos.z);if(!b||d<b.d)b={k:p.k,d}}return b}
-function openAsk(k){state.mode='ask';state.askK=k;$('aList').hidden=true;$('aYes').hidden=false;
-  if(k==='ferry'){const here=LEVELS[state.levelIdx];$('aName').textContent='Fergen';$('aKind').textContent='Kaia på '+here.name;$('aDesc').textContent='Hvor vil du reise? Overfarten koster 5 muttere. Du har '+fmtN(prof.nuts)+'.';$('aBest').textContent='';$('aQ').textContent='';
-    const dests=ROUTES.filter(r=>r.includes(here.id)).map(r=>r[0]===here.id?r[1]:r[0]).map(id=>LEVELS.find(l=>l.id===id)).filter(Boolean);
-    $('aList').innerHTML=dests.map(l=>`<button data-dest="${l.id}"><span><span class="nm">${l.name}</span><span class="sub">${l.desc}</span></span><span class="pr">5 ⚙</span></button>`).join('');$('aList').hidden=false;$('aYes').hidden=true;$('aNo').textContent='Bli her';$('ask').hidden=false;return}
-  $('aQ').textContent='Vil du starte denne utfordringen?';$('aNo').textContent='NEI, kjør videre';
-  if(k==='garage'){$('aName').textContent='Verkstedet';$('aKind').textContent='Basen';$('aDesc').textContent='Mekanikerne står klare. Her bruker du mutterne på dekk, fjæring, motor, vekt, utstyr og lakk.';$('aBest').textContent='Du har '+fmtN(prof.nuts)+' muttere.';$('ask').hidden=false;$('aYes').focus();return}
-  const key=courseKey(LEVELS[state.levelIdx],k),b=best[key],lock=courseLock(k);
-  $('aName').textContent=k.name;$('aDesc').textContent=k.desc;$('aKind').textContent=['','Lett løype','Middels løype','Vanskelig løype'][k.diff]+' · '+k.gates.length+' porter';
-  $('aBest').textContent=b?'Din beste: '+fmtTime(b.t)+' med '+b.p+' straffepoeng, '+b.s+' av 3 stjerner.':'Ikke kjørt ennå. Første gang i mål gir banebonus.';
-  if(lock){$('aKind').textContent='🔒 Låst løype';$('aBest').textContent=lock.text+(lock.nuts?(lock.text?', eller lås opp for ':'Lås opp for ')+lock.nuts+' ⚙ (du har '+fmtN(prof.nuts)+').':'.');
-    if(lock.nuts&&prof.nuts>=lock.nuts){$('aQ').textContent='Vil du låse opp løypa for '+lock.nuts+' muttere?';state.askUnlock=lock.nuts}else{$('aQ').textContent='';$('aYes').hidden=true;state.askUnlock=0}}else state.askUnlock=0;
-  $('ask').hidden=false;$('aYes').focus()}
-function answerAsk(yes){if(state.mode!=='ask')return;$('ask').hidden=true;const k=state.askK;state.askK=null;
-  if(k==='garage'){state.askCool='garage';if(yes){state.mode='play';toGarage()}else{state.mode='play';toast('Kjør videre når du vil')}return}
-  if(k==='ferry'){state.askCool='ferry';state.mode='play';if(yes&&yes.dest)startFerry(yes.dest);return}
-  if(yes&&state.askUnlock){prof.nuts-=state.askUnlock;prof.unlocked.push(courseKey(LEVELS[state.levelIdx],k));saveProf();state.askUnlock=0;state.mode='play';state.askCool=k.id;rebuildPortalSign(k);toast(k.name+' er låst opp · −'+(k.def.needs.nuts)+' ⚙');return}
-  if(yes)startCourse(k);else{state.mode='play';state.askCool=k.id;toast('Kjør videre når du vil')}}
-// after an unlock or a finished course the signs may change
-function rebuildPortalSign(k){for(const p of portals){if(k&&p.k!==k)continue;const b=p.g.children.find(o=>o.isMesh&&o.material.map&&o.geometry.parameters&&o.geometry.parameters.width===1.2);if(b){b.material.map.dispose();b.material.map=portalSign(p.k);b.material.needsUpdate=true}}}
-function startCourse(k){state.course=k;state.free=false;resetRunState();LV.gates=k.gates;LV.crates=k.crates;buildGates(LV);buildCrates(LV);resetCrates();
-  gateVis.forEach((g,i)=>{g.touched=false;setGateState(i,'pending')});gateWake={i:0,t:0};buildCourseArrows(k);
-  if(k.def.night)setNight(true);
-  state.checkpoint={x:k.start.p.x,z:k.start.p.z,h:Math.atan2(k.start.tan.x,k.start.tan.z)};
-  $('hud').classList.remove('free');$('hLevel').textContent=k.name;$('hGate').textContent='0/'+k.gates.length;$('hTime').textContent='0:00.0';$('hPen').textContent='0';$('hCrate').textContent='0/'+k.crates.length;toastT=0;$('toast').classList.remove('on');state.mode='count';countT=1.4;car.throttle=0;car.vel.set(0,0,0)}
-function endCourse(silent){const k=state.course;state.course=null;state.free=true;LV.gates=[];LV.crates=[];buildGates(LV);buildCrates(LV);
-  if(courseArrows){levelGroup.remove(courseArrows);courseArrows.geometry.dispose();courseArrows=null}gateWake=null;setNight(false);
-  $('hud').classList.add('free');$('hLevel').textContent=LEVELS[state.levelIdx].name;$('count').hidden=true;if(k)state.askCool=k.id;resetRunState();
-  state.checkpoint={x:car.pos.x,z:car.pos.z,h:Math.atan2(car.fw.x,car.fw.z)}}
-// the gates light up one after another, then the countdown runs
-function updateCountdown(dt){countT-=dt;const el=$('count');
-  if(gateWake){gateWake.t-=dt;if(gateWake.t<=0&&gateWake.i<gateVis.length){const i=gateWake.i++;gateVis[i].mats.forEach(m=>m.color.set(FLAG.next).convertSRGBToLinear());setTimeout(()=>{if(gateVis[i]&&gateVis[i].state==='pending')gateVis[i].mats.forEach(m=>m.color.set(FLAG.pending).convertSRGBToLinear())},260);gateWake.t=Math.min(.16,1.2/gateVis.length)}}
-  if(countT<=0){state.mode='play';gateWake=null;setGateState(0,'next');el.hidden=false;el.textContent='Kjør!';clearTimeout(el._t);el._t=setTimeout(()=>{el.hidden=true},1100)}}
-// chevrons on the ground along the course
-function buildCourseArrows(k){const L=[];for(let d=1.2;d<k.curve.getLength();d+=1.6){const t=d/k.curve.getLength(),p=k.P(t),tn=k.T(t);if(k.nearGate(p.x,p.z,1.0))continue;L.push({x:p.x,y:H(p.x,p.z)+.05,z:p.z,ry:Math.atan2(tn.x,tn.z)})}
-  const geo=new THREE.ConeGeometry(.16,.4,3);geo.rotateX(Math.PI/2);const im=new THREE.InstancedMesh(geo,new THREE.MeshBasicMaterial({color:LIN('#ff6a2a'),transparent:true,opacity:.75,depthWrite:false}),L.length),m4=new THREE.Matrix4(),q=new Q4(),p=new V3(),sc=new V3(1,.25,1);
-  L.forEach((o,i)=>{p.set(o.x,o.y,o.z);q.setFromAxisAngle(YAX,o.ry);m4.compose(p,q,sc);im.setMatrixAt(i,m4)});im.frustumCulled=false;im.renderOrder=1;levelGroup.add(im);courseArrows=im}
-// night: the lights go down and the car's lamps come on
-function setNight(on){if(on===nightOn)return;nightOn=on;const def=LEVELS[state.levelIdx];
-  skyDome.material.color.set(on?0x2a3350:0xffffff);sunGlow.visible=!on&&def.clouds!==false;if(on)setLights(true);
-  if(!on){scene.fog.color.set(LIN(def.fog));scene.fog.near=def.fogNear;scene.fog.far=def.fogFar;sun.intensity=def.sunI*1.55;hemi.intensity=def.hemi[2]*1.15;hemi.color.set(def.hemi[0]).convertSRGBToLinear();sun.color.set(def.sun).convertSRGBToLinear()}}
-function nightTint(){if(!nightOn)return;scene.fog.color.multiplyScalar(.22);scene.fog.near=Math.min(scene.fog.near,8);scene.fog.far=Math.min(scene.fog.far,38);sun.intensity*=.12;sun.color.set(0x8fa6ff).convertSRGBToLinear();hemi.intensity*=.3;hemi.color.set(0x7a8ab0).convertSRGBToLinear()}
-function updateWorld(dt){
-  // free driving: a rolling checkpoint for the winch, and the start portals
-  if(!state.course){cpT-=dt;if(cpT<=0&&car.up.y>.9&&car.wheels.every(w=>w.contact)&&car.depth<0){cpT=1.5;state.checkpoint={x:car.pos.x,z:car.pos.z,h:Math.atan2(car.fw.x,car.fw.z)}}
-    for(const p of portals){const d=Math.hypot(p.x-car.pos.x,p.z-car.pos.z);if(d<2.2&&state.askCool!==p.k.id){openAsk(p.k);return}if(d>4&&state.askCool===p.k.id)state.askCool=null}
-    if(LV.ferry&&onFerryDeck()&&state.askCool!=='ferry'){openAsk('ferry');return}if(LV.ferry&&!onFerryDeck()&&state.askCool==='ferry')state.askCool=null;
-    const ga=LEVELS[state.levelIdx].garageAt;if(ga){const d=Math.hypot(ga[0]-car.pos.x,ga[1]-car.pos.z);if(d<2.4&&state.askCool!=='garage'){openAsk('garage');return}if(d>4.5&&state.askCool==='garage')state.askCool=null}}
-  else{const ng=LV.gates[state.next];if(ng&&Math.hypot(ng.c.x-car.pos.x,ng.c.z-car.pos.z)>30){endCourse();toast('For langt fra løypa: løpet er avbrutt',true)}}
-  const tm=performance.now()*.001;for(const p of portals){if(Math.abs(p.x-car.pos.x)+Math.abs(p.z-car.pos.z)>40)continue;p.lights.forEach((l,i)=>l.material.opacity=.6+.4*Math.sin(tm*5+i*1.3))}
-  updateBreakables(dt)}
-// cacti and the like: hit one and it tips over away from the car, then you drive on
-const falling=[],_bm=new THREE.Matrix4(),_bq=new Q4(),_bp=new V3(),_bs=new V3(),_bt=new THREE.Matrix4();
-function updateBreakables(dt){if(!LV.breakables||!LV.propCyls)return;
-  for(const b of LV.breakables){if(b.broken)continue;const dx=car.pos.x-b.x,dz=car.pos.z-b.z,d=Math.hypot(dx,dz);if(d>b.r+.7||car.vel.lengthSq()<.2)continue;
-    b.broken=true;const i=G.colliders.indexOf(b.col);if(i>=0)G.colliders.splice(i,1);const vx=car.vel.x,vz=car.vel.z,vl=Math.hypot(vx,vz)||1;falling.push({b,t:0,ax:vz/vl,az:-vx/vl,y0:H(b.x,b.z)});toast('Knekk!');for(let k=0;k<8;k++)spawnDust(_bp.set(b.x,b.y0,b.z),3,true)}
-  for(let i=falling.length-1;i>=0;i--){const f=falling[i];f.t+=dt;const a=Math.min(1.5,f.t*f.t*5);
-    for(const id of f.b.ids){const o=LV.cylList[id];_bp.set(o.x,o.y,o.z);_bq.setFromEuler(new THREE.Euler(o.rx||0,o.ry||0,o.rz||0));_bs.set(o.sx,o.sy??o.sx,o.sz??o.sx);_bm.compose(_bp,_bq,_bs);
-      _bq.setFromAxisAngle(_bs.set(f.ax,0,f.az).normalize(),a);_bt.makeRotationFromQuaternion(_bq);_bt.setPosition(f.b.x,f.y0,f.b.z);_bt.multiply(new THREE.Matrix4().makeTranslation(-f.b.x,-f.y0,-f.b.z));_bm.premultiply(_bt);LV.propCyls.setMatrixAt(id,_bm)}
-    LV.propCyls.instanceMatrix.needsUpdate=true;if(a>=1.5)falling.splice(i,1)}}
-
-/* ---------- roaming the archipelago ---------- */
-// «Kjør!» in the menu: free driving, starting on Sandglow-øya or wherever you last were
-let roamSaveT=0;
-function startRoam(){state.roam=true;const sv=store.get('roam',null);let i=LEVELS.findIndex(l=>l.id===(sv&&sv.id));if(i<0||!isIsland(LEVELS[i]))i=LEVELS.findIndex(l=>l.world);if(i<0)i=0;
-  if(i!==state.levelIdx||!state.world)loadLevel(i);startFree();
-  if(sv&&sv.id===LEVELS[i].id&&isFinite(sv.x)){placeCar(car,sv.x,sv.z,sv.h||0);camSnap=true;state.checkpoint={x:sv.x,z:sv.z,h:sv.h||0}}}
-function saveRoam(dt){if(!state.roam||!state.free||state.course)return;roamSaveT-=dt;if(roamSaveT>0)return;roamSaveT=3;if(car.up.y>.9&&car.depth<0)store.set('roam',{id:LEVELS[state.levelIdx].id,x:+car.pos.x.toFixed(2),z:+car.pos.z.toFixed(2),h:+Math.atan2(car.fw.x,car.fw.z).toFixed(3)})}
-// the ferry: hull, bulwarks, wheelhouse and funnel around the drivable deck the level made
-let ferryVis=null,ferryDeckMesh=null;
-function buildFerry(lv){ferryVis=null;const f=lv.ferry;if(!f){ferryDeckMesh=null;return}const g=new THREE.Group(),yaw=Math.atan2(f.dx,f.dz);g.position.set(f.x,f.y,f.z);g.rotation.y=yaw;
-  if(ferryDeckMesh){g.attach(ferryDeckMesh);ferryDeckMesh=null}   // the plank deck built with the level comes along
-  const hull=new THREE.MeshStandardMaterial({color:LIN('#3f5f78'),roughness:.6}),white=new THREE.MeshStandardMaterial({color:LIN('#eef0ea'),roughness:.5}),red=new THREE.MeshStandardMaterial({color:LIN('#c8463a'),roughness:.6});
-  const B=(w,h,d,mat,x,y,z)=>{const m=new THREE.Mesh(boxGeo,mat);m.scale.set(w,h,d);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;g.add(m);return m};
-  B(4.6,.9,f.len+.9,hull,0,-.5,0);B(4.8,.06,f.len+1.1,white,0,-.08,0);                                   // hull and gunwale line
-  for(const sd of[-1,1])B(.5,.42,f.len-.2,white,sd*2.05,.17,0);                                           // bulwarks beside the deck
-  B(.5,.42,3.4,white,0,.17,f.len/2+.2);                                                                  // stern wall (sea end)
-  B(1.3,1.25,1.5,white,1.65,.8,f.len/2-1.5);B(1.1,.45,1.1,new THREE.MeshStandardMaterial({color:LIN('#1a262d'),roughness:.1,metalness:.6}),1.65,1.1,f.len/2-1.5);   // wheelhouse
-  const fun=new THREE.Mesh(cylGeo,red);fun.scale.set(.22,.9,.22);fun.position.set(1.65,1.85,f.len/2-.6);g.add(fun);const fb=new THREE.Mesh(cylGeo,white);fb.scale.set(.24,.12,.24);fb.position.set(1.65,2.3,f.len/2-.6);g.add(fb);
-  const mast=new THREE.Mesh(cylGeo,white);mast.scale.set(.05,2.2,.05);mast.position.set(-1.9,1.1,f.len/2-1.2);g.add(mast);
-  for(const z of[-1.5,1.5]){const ring=new THREE.Mesh(new THREE.TorusGeometry(.2,.06,6,14),red);ring.position.set(2.32,.5,z);ring.rotation.y=Math.PI/2;g.add(ring)}
-  B(3.2,.05,1.4,new THREE.MeshStandardMaterial({color:LIN('#5a5a58'),roughness:.9}),0,.01,-f.len/2-.3);      // ramp onto the pier (land end)
-  levelGroup.add(g);ferryVis={g,f,yaw}}
-
-/* ---------- the ferry trip ---------- */
-// drive onto the deck, pick an island, and the ferry sails: out from this quay, a dark moment while the next island loads, in to its quay
-let FT=null;
-function onFerryDeck(){const f=LV.ferry;if(!f)return false;const rx=car.pos.x-f.x,rz=car.pos.z-f.z,along=rx*f.dx+rz*f.dz,lat=Math.abs(rx*f.dz-rz*f.dx);return Math.abs(along)<f.len/2-.3&&lat<f.hw-.15&&car.pos.y>f.y-.3}
-function startFerry(destId){const di=LEVELS.findIndex(l=>l.id===destId);if(di<0||!ferryVis)return;if(prof.nuts<5){toast('Du trenger 5 muttere til fergen',true);return}
-  prof.nuts-=5;saveProf();const g=ferryVis.g,f=LV.ferry;
-  FT={t:0,dest:di,phase:'out',from:g.position.clone(),dx:f.dx,dz:f.dz,off:car.pos.clone().sub(g.position),q:car.q.clone(),faded:false,loaded:false,base:g.position.clone()};
-  state.mode='ferry';car.vel.set(0,0,0);car.w.set(0,0,0);car.throttle=0;ambHorn(f.x,f.z);toast('Fergen går til '+LEVELS[di].name+' · −5 ⚙')}
-function ferryPlace(g){const tm=performance.now()*.001;g.position.y=FT.base.y+.04*Math.sin(tm*1.3);g.rotation.z=.012*Math.sin(tm*.9);car.pos.copy(g.position).add(FT.off);car.q.copy(FT.q);
-  // the physics is paused, so the wheels and axles must be carried along with the body by hand
-  const up=_c1.set(0,1,0).applyQuaternion(car.q),trv=car.tune.travel;for(const w of car.wheels)w.center.copy(w.mount).applyQuaternion(car.q).add(car.pos).addScaledVector(up,-(trv-Math.min(w.comp,trv)))}
-function updateFerry(dt){if(!FT)return;FT.t+=dt;const g=ferryVis&&ferryVis.g;
-  if(FT.phase==='out'){const s=Math.min(1,FT.t/4.2),d=14*s*s;g.position.set(FT.from.x+FT.dx*d,FT.from.y,FT.from.z+FT.dz*d);FT.base.copy(g.position);ferryPlace(g);
-    if(FT.t>3.0&&!FT.faded){FT.faded=true;$('fade').classList.add('on')}
-    if(FT.t>4.2)ferryArrive()}
-  else{const s=Math.min(1,FT.t/4.2),d=16*(1-s)*(1-s);g.position.set(FT.dock.x+FT.dx*d,FT.dock.y,FT.dock.z+FT.dz*d);FT.base.copy(g.position);ferryPlace(g);
-    if(FT.t>.6&&FT.faded){FT.faded=false;$('fade').classList.remove('on')}
-    if(FT.t>4.2){g.position.copy(FT.dock);g.rotation.z=0;car.pos.copy(FT.dock).add(FT.off);car.pos.y=LV.ferry.y+.5;car.q.copy(FT.q);car.vel.set(0,0,0);
-      const f=LV.ferry;state.mode='play';state.free=true;state.askCool='ferry';state.checkpoint={x:f.pad.x,z:f.pad.z,h:Math.atan2(-f.dx,-f.dz)};FT=null;camSnap=true;roamSaveT=0;toast('Velkommen til '+LEVELS[state.levelIdx].name)}}}
-// the dark moment: load the destination island and put the ferry (with the car on it) out at sea off its quay, pointing in
-function ferryArrive(){const di=FT.dest;loadLevel(di);const f=LV.ferry,g=ferryVis.g;
-  // the car keeps its place on the deck: same along/lateral offset, now in the new ferry's frame, heading towards land
-  const along=FT.off.x*FT.dx+FT.off.z*FT.dz,lat=FT.off.x*FT.dz-FT.off.z*FT.dx;
-  FT.dx=f.dx;FT.dz=f.dz;FT.off.set(f.dx*along+f.dz*lat,.5,f.dz*along-f.dx*lat);FT.q.setFromAxisAngle(YAX,Math.atan2(-f.dx,-f.dz));
-  FT.dock=g.position.clone();FT.phase='in';FT.t=0;FT.loaded=true;g.position.set(FT.dock.x+f.dx*16,FT.dock.y,FT.dock.z+f.dz*16);FT.base=g.position.clone();ferryPlace(g);camSnap=true;
-  $('hud').classList.add('free');$('hLevel').textContent=LEVELS[di].name;ambHorn(f.x,f.z)}
-function skipFerry(){if(!FT)return;if(FT.phase==='out'){$('fade').classList.add('on');FT.faded=true;FT.t=4.21}else FT.t=4.21}
-
-/* ---------- golden nuts: five hidden on every island ---------- */
-// a level places them with c.secret(x,z,'label'). Found ones are remembered in prof.secrets[level/i]; all of them unlock the gold paint.
-const SECRET_PER=5;
-let secretVis=[],secretPingT=0;
-const secretKey=(l,i)=>l.id+'/'+i;
-const totalSecrets=()=>LEVELS.reduce((n,l)=>n+(l.village||l.world?SECRET_PER:0),0);
-const foundSecrets=()=>Object.keys(prof.secrets).length;
-const foundOn=l=>{let n=0;for(let i=0;i<SECRET_PER;i++)if(prof.secrets[secretKey(l,i)])n++;return n};
-const nutGeo=new THREE.TorusGeometry(.26,.11,6,6),nutMat=new THREE.MeshStandardMaterial({color:LIN('#e6b43a'),emissive:LIN('#8a5a10'),roughness:.25,metalness:.8});
-function buildSecrets(lv){secretVis=[];const l=LEVELS[state.levelIdx];if(!lv.secrets)return;
-  lv.secrets.forEach((sc,i)=>{if(prof.secrets[secretKey(l,i)])return;const g=new THREE.Group();const m=new THREE.Mesh(nutGeo,nutMat);m.castShadow=true;g.add(m);
-    const gl=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:LIN('#ffd36a'),transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,opacity:.55}));gl.scale.set(1.8,1.8,1);g.add(gl);
-    const beam=new THREE.Mesh(new THREE.CylinderGeometry(.05,.09,5,8,1,true),new THREE.MeshBasicMaterial({color:LIN('#ffd36a'),transparent:true,opacity:.18,depthWrite:false,blending:THREE.AdditiveBlending,fog:false}));beam.position.y=2.4;g.add(beam);   // a faint shaft of light, visible from afar
-    const y=Math.max(H(sc.x,sc.z),WL(sc.x,sc.z))+.45;g.position.set(sc.x,y,sc.z);levelGroup.add(g);secretVis.push({g,sc,i,y,taken:false})})}
-function updateSecrets(dt){if(!secretVis.length||!car)return;const tm=performance.now()*.001,l=LEVELS[state.levelIdx];let nearest=1e9;
-  for(const s of secretVis){if(s.taken)continue;const g=s.g;g.rotation.y=tm*1.6;g.position.y=s.y+.08*Math.sin(tm*2.4+s.i);const d=Math.hypot(s.sc.x-car.pos.x,s.sc.z-car.pos.z);nearest=Math.min(nearest,d);
-    if(d<1.0&&Math.abs(g.position.y-car.pos.y)<1.3&&state.mode==='play'){s.taken=true;g.visible=false;prof.secrets[secretKey(l,s.i)]=1;prof.nuts+=25;
-      const all=foundSecrets()>=totalSecrets();if(all){const gi=PAINTS.findIndex(p=>p.locked);if(gi>=0&&!prof.paints.includes(gi)){prof.paints.push(gi);prof.nuts+=100}}saveProf();
-      for(let k=0;k<10;k++)spawnDust(g.position,99,true);ambChime(s.sc.x,s.sc.z);toast('Gullmutter '+foundOn(l)+'/'+SECRET_PER+' · '+s.sc.label+' · +25 ⚙'+(all?' · Alle funnet! Gull-lakk og +100 ⚙':''))}}
-  // a faint chime when one is near: faster and louder the closer you are
-  if(nearest<12&&state.mode==='play'){secretPingT-=dt;if(secretPingT<=0){secretPingT=.5+nearest*.12;ambPing(car.pos.x,car.pos.z,1-nearest/12)}}}
-
-/* ---------- the real winch ---------- */
-// Hold R: a line is shown from the front hook to the best anchor (tree, big rock, house, lamp, bridge post) within reach and roughly ahead.
-// Release R: the rope tightens and pulls with a steady force until the car is next to the anchor, or you press R again.
-const WINCH_REACH=7,WINCH_F=.55;   // reach in units, pull as a fraction of the car's weight
-let WN={aim:false,target:null,active:false,line:null,hookRing:null,t:0,snd:null},winchBtnDown=false;
-const hasWinch=()=>!!(car&&(car.cfg.winch||car.tune.realWinch));
-function winchAnchors(){const L=[];for(const c of G.colliders)if(c.anchor)L.push(c);for(const a of(G.anchors||[]))L.push(a);for(const d of G.decks){if(d.ferry)continue;const y=Math.max(d.y0,d.y1)+.6;L.push({x:d.ax,z:d.az,y},{x:d.bx,z:d.bz,y})}return L}
-function winchHook(out){return out.set(0,.1,car.cfg.L/2).applyQuaternion(car.q).add(car.pos)}
-function bestAnchor(){const hk=winchHook(_c1),fw=_c2.set(car.fw.x,0,car.fw.z).normalize();let best=null,bs=-1;
-  for(const a of winchAnchors()){const dx=a.x-hk.x,dz=a.z-hk.z,d=Math.hypot(dx,dz);if(d<1.0||d>WINCH_REACH)continue;const cs=(dx*fw.x+dz*fw.z)/d;if(cs<.34)continue;   // within ~70° of straight ahead
-    const sc=cs*2-d/WINCH_REACH;if(sc>bs){bs=sc;best=a}}return best}
-function winchKey(down){if(state.mode!=='play'||!hasWinch())return;
-  if(down){if(WN.active){stopWinch('Tauet er løsnet');return}WN.aim=true;winchBtnDown=true;return}
-  if(!WN.aim)return;WN.aim=false;winchBtnDown=false;const a=WN.target;if(!a){toast('Ingen festepunkt innen rekkevidde',true);return}startWinch(a)}
-function startWinch(a){WN.active=true;WN.target=a;WN.t=0;car.rope={x:a.x,y:a.y??H(a.x,a.z)+.4,z:a.z,F:WINCH_F*car.m*9.8};car.low=true;updateGearUI();toast('Vinsjen drar');ambWinch(true)}
-function stopWinch(msg){WN.active=false;WN.target=null;car.rope=null;if(WN.line)WN.line.visible=false;if(WN.hookRing)WN.hookRing.visible=false;ambWinch(false);if(msg)toast(msg)}
-function updateWinch(dt){if(!WN.line){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(6),3));WN.line=new THREE.Line(g,new THREE.LineBasicMaterial({color:0xd8c597,linewidth:2}));WN.line.frustumCulled=false;WN.line.visible=false;scene.add(WN.line);
-    WN.hookRing=new THREE.Mesh(new THREE.RingGeometry(.22,.3,24),new THREE.MeshBasicMaterial({color:LIN('#ff6a2a'),transparent:true,opacity:.8,side:THREE.DoubleSide,depthWrite:false}));WN.hookRing.rotation.x=-Math.PI/2;WN.hookRing.visible=false;scene.add(WN.hookRing)}
-  if(!hasWinch()||state.mode!=='play'){if(WN.active)stopWinch();WN.aim=false;WN.line.visible=false;WN.hookRing.visible=false;return}
-  if(WN.aim){WN.target=bestAnchor();const a=WN.target;WN.line.visible=!!a;WN.hookRing.visible=!!a;if(a){const hk=winchHook(_c1),ay=a.y??H(a.x,a.z)+.4;setLine(hk,_c2.set(a.x,ay,a.z));WN.line.material.color.set(0xffd36a);WN.hookRing.position.set(a.x,H(a.x,a.z)+.04,a.z);WN.hookRing.scale.setScalar(1+.1*Math.sin(performance.now()*.008))}return}
-  if(WN.active){const a=WN.target,hk=winchHook(_c1),ay=car.rope.y;const d=Math.hypot(a.x-hk.x,a.z-hk.z);WN.t+=dt;
-    setLine(hk,_c2.set(a.x,ay,a.z));WN.line.visible=true;WN.line.material.color.set(0xd8c597);WN.hookRing.visible=true;WN.hookRing.position.set(a.x,H(a.x,a.z)+.04,a.z);
-    if(Math.random()<dt*10)spawnDust(hk,10,false);
-    if(d<1.8||WN.t>25){stopWinch(d<1.8?'Framme ved festet':'Tauet slapp')}}}
-function setLine(a,b){const p=WN.line.geometry.attributes.position;p.setXYZ(0,a.x,a.y,a.z);p.setXYZ(1,b.x,b.y,b.z);p.needsUpdate=true}
-
 function boot(){
   state.roam=false;initMaps();decalMat=new THREE.MeshStandardMaterial({map:decalTexture(),transparent:true,roughness:.5});
   if(state.carIdx>=CARS.length||!ownsCar(CARS[state.carIdx]))state.carIdx=0;if(state.levelIdx>=LEVELS.length)state.levelIdx=0;
@@ -1029,5 +756,6 @@ function boot(){
   for(let i=0;i<240;i++)stepCar(car,FIXED);
   requestAnimationFrame(frame);
 }
-const fontsReady=document.fonts?Promise.all([document.fonts.load('40px "Saira Stencil One"'),document.fonts.load('600 17px "Barlow Condensed"')]).catch(()=>{}):Promise.resolve();
-Promise.race([fontsReady,new Promise(r=>setTimeout(r,1500))]).then(boot);
+// index.html calls startGame() after every script has loaded
+function startGame(){const fontsReady=document.fonts?Promise.all([document.fonts.load('40px "Saira Stencil One"'),document.fonts.load('600 17px "Barlow Condensed"')]).catch(()=>{}):Promise.resolve();
+  Promise.race([fontsReady,new Promise(r=>setTimeout(r,1500))]).then(boot)}
