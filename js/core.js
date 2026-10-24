@@ -5,10 +5,14 @@
    ================================================================= */
 const V3=THREE.Vector3, Q4=THREE.Quaternion, YAX=new V3(0,1,0);
 const UNIT_CM=8.5;
-const WORLD=70, N=241, CELL=WORLD/(N-1), HALF=WORLD/2;
-const TH=new Float32Array(N*N), TB=new Float32Array(N*N), TS=new Uint8Array(N*N), TC=new Float32Array(N*N*3), TCF=new Uint8Array(N*N);
-const S={SAND:0,ROCK:1,DIRT:2,GRASS:3,WOOD:4,MUD:5,BOOK:6,BARK:7,PENCIL:8,KEY:9,GRAVEL:10,PAPER:11,FLOOR:12,BOG:13,ASH:14,LAVA:15,SNOW:16,ICE:17};
-const GRIP=[0.85,1.25,1.0,0.95,0.92,0.62,1.05,1.1,0.95,1.0,1.0,0.88,0.9,0.7,0.88,0.6,0.7,0.42];
+// the world is a square grid. 70 units (241 cells) is the default; a level can ask for more with  size:120  (the island). Cells stay ~0.29 units.
+let WORLD=70, N=241, CELL=WORLD/(N-1), HALF=WORLD/2;
+let TH,TB,TS,TC,TCF;
+function setWorld(size){size=size||70;const n=Math.round(size/(70/240))+1;if(TH&&n===N&&size===WORLD)return false;WORLD=size;N=n;CELL=WORLD/(N-1);HALF=WORLD/2;
+  TH=new Float32Array(N*N);TB=new Float32Array(N*N);TS=new Uint8Array(N*N);TC=new Float32Array(N*N*3);TCF=new Uint8Array(N*N);return true}
+setWorld(70);
+const S={SAND:0,ROCK:1,DIRT:2,GRASS:3,WOOD:4,MUD:5,BOOK:6,BARK:7,PENCIL:8,KEY:9,GRAVEL:10,PAPER:11,FLOOR:12,BOG:13,ASH:14,LAVA:15,SNOW:16,ICE:17,REDROCK:18,ASPHALT:19};
+const GRIP=[0.85,1.25,1.0,0.95,0.92,0.62,1.05,1.1,0.95,1.0,1.0,0.88,0.9,0.7,0.88,0.6,0.7,0.42,1.2,1.15];
 // mud drag per wheel: [constant, viscous] as fractions of m·g. Low gear pushes through; high gear bogs down.
 const MUDDRAG={5:[.05,.012],13:[.12,.025]};
 const G={noise:null,def:null,outside:null,colliders:[],waterAt:null,decks:[],lavas:[]};
@@ -118,6 +122,8 @@ function surfColor(s,x,z,n,def){
     case S.FLOOR:return mix('#241c16','#2f251d',w);
     case S.SNOW:return mix('#dbe3ea','#fbfdff',v*.5+w*.5);
     case S.ICE:return mix('#9fc6dc','#d6ecf8',v*.4+w*.6);
+    case S.REDROCK:{const b=mix('#a24f2c','#d08a56',v*.6+w*.4),f=.8+w*.3;return[b[0]*f,b[1]*f,b[2]*f]}
+    case S.ASPHALT:return mix('#4a4a48','#5e5c58',v*.5+w*.5);
     default:return mix('#8a8a8a','#9a9a9a',w);
   }
 }
@@ -137,7 +143,27 @@ function carveLava(s){
     if(d<=0)nh=floor;else{const f=d/.6,sf=f*f*(3-2*f);nh=floor+(TH[k]-floor)*sf}
     if(nh<TH[k]){TH[k]=nh;TCF[k]=0;TS[k]=d<=.12?S.LAVA:S.ASH}}}
 
+// points along a polyline [[x,z],...] every `step` units
+function polyPts(poly,step=.5){const d=[];for(let i=0;i<poly.length-1;i++){const a=poly[i],b=poly[i+1],L=Math.hypot(b[0]-a[0],b[1]-a[1]),m=Math.max(1,Math.ceil(L/step));for(let k=0;k<m;k++){const u=k/m;d.push({x:a[0]+(b[0]-a[0])*u,z:a[1]+(b[1]-a[1])*u})}}const e=poly[poly.length-1];d.push({x:e[0],z:e[1]});return d}
+// a line with gates: the main line of a level, or one course inside an open world
+function makeLine(path){const curve=new THREE.CatmullRomCurve3(path.map(p=>new V3(p[0],0,p[1])),false,'centripetal'),pts=curve.getSpacedPoints(500);
+  const k={curve,pts,P:t=>curve.getPointAt(t),T:t=>{const v=curve.getTangentAt(t);v.y=0;return v.normalize()}};
+  k.side=t=>{const v=k.T(t);return new V3(v.z,0,-v.x)};k.ang=t=>{const v=k.T(t);return Math.atan2(v.x,v.z)};
+  k.tOf=(x,z)=>{let m=1e9,bi=0;for(let i=0;i<pts.length;i++){const dx=pts[i].x-x,dz=pts[i].z-z,d=dx*dx+dz*dz;if(d<m){m=d;bi=i}}return bi/(pts.length-1)};
+  k.dist=(x,z)=>{let m=1e9;for(let i=0;i<pts.length;i+=2){const dx=pts[i].x-x,dz=pts[i].z-z,d=dx*dx+dz*dz;if(d<m)m=d}return Math.sqrt(m)};
+  k.gates=[];k.makeGates=(gl,NG)=>{NG=gl?gl.length:NG;for(let g=1;g<=NG;g++){const t=gl?gl[g-1]:.03+.95*g/NG,p=k.P(t),tn=k.T(t),s=k.side(t);
+    k.gates.push({t,c:p,tan:tn,side:s,a:{x:p.x+s.x*1.25,z:p.z+s.z*1.25},b:{x:p.x-s.x*1.25,z:p.z-s.z*1.25},finish:g===NG})}};
+  return k}
+function genCourse(c,ch,rng){const k=makeLine(ch.path);Object.assign(k,{id:ch.id,name:ch.name,desc:ch.desc,diff:ch.diff||1,def:ch,extra:[],crate:(x,z)=>k.extra.push({x,z})});
+  k.makeGates(ch.gateT?ch.gateT(k):null,ch.gates||8);k.start={p:k.P(0),tan:k.T(.004)};k.nearGate=(x,z,m)=>k.gates.some(g=>Math.hypot(g.c.x-x,g.c.z-z)<m);return k}
+// supply crates beside a line, never in water or lava
+function placeCrates(k,c,rng){const out=[];for(let i=0;i<6;i++){const t=.09+.8*i/5+(rng()-.5)*.04,p=k.P(t),s=k.side(t);let placed=false;
+    for(const sg of(i%2?[1,-1]:[-1,1])){const off=sg*(1.3+rng()*.7),x=p.x+s.x*off,z=p.z+s.z*off,y=H(x,z);if(WL(x,z)>y-.05||lavaAt(x,z,1.1)>-1e8||c.nearGate(x,z,1.1)||Math.abs(y-H(p.x,p.z))>.9)continue;out.push({x,z,y:y+.16,t});placed=true;break}
+    for(const o of[0,.012,-.012,.024,-.024,.036,-.036]){if(placed)break;const q=k.P(Math.min(1,Math.max(0,t+o))),y=H(q.x,q.z);if(WL(q.x,q.z)>y-.05||lavaAt(q.x,q.z,1.1)>-1e8||c.nearGate(q.x,q.z,1.1))continue;out.push({x:q.x,z:q.z,y:y+.16,t:t+o});placed=true}
+    if(!placed)out.push({x:p.x,z:p.z,y:H(p.x,p.z)+.16,t})}return out}
+
 function genLevel(def){
+  setWorld(def.size||70);
   const rng=mulberry32(def.seed),n=makeNoise(def.seed*7+3);
   G.noise=n;G.def=def;G.outside=def.outside??null;G.decks=[];G.lavas=[];TCF.fill(0);
   for(let j=0;j<N;j++)for(let i=0;i<N;i++){const k=j*N+i,x=-HALF+i*CELL,z=-HALF+j*CELL;TH[k]=def.base(x,z,n);TS[k]=def.surf(x,z,n)}
@@ -148,8 +174,20 @@ function genLevel(def){
   const c={rng,noise:n,curve,pts,colliders:[],decor:new THREE.Group(),gates:[],
     P:t=>curve.getPointAt(t), T:t=>{const v=curve.getTangentAt(t);v.y=0;return v.normalize()},
     side:t=>{const v=c.T(t);return new V3(v.z,0,-v.x)}, ang:t=>{const v=c.T(t);return Math.atan2(v.x,v.z)},
-    dist:(x,z)=>{let m=1e9;for(let i=0;i<pts.length;i+=2){const dx=pts[i].x-x,dz=pts[i].z-z,d=dx*dx+dz*dz;if(d<m)m=d}return Math.sqrt(m)},
-    nearGate:(x,z,m)=>c.gates.some(g=>Math.hypot(g.c.x-x,g.c.z-z)<m),
+    // distance to the main line, and to every road and course registered so far (so rocks and trees keep clear of them too)
+    xpts:[],dist:(x,z)=>{let m=1e9;for(let i=0;i<pts.length;i+=2){const dx=pts[i].x-x,dz=pts[i].z-z,d=dx*dx+dz*dz;if(d<m)m=d}const X=c.xpts;for(let i=0;i<X.length;i++){const dx=X[i].x-x,dz=X[i].z-z,d=dx*dx+dz*dz;if(d<m)m=d}return Math.sqrt(m)},
+    nearGate:(x,z,m)=>c.gates.some(g=>Math.hypot(g.c.x-x,g.c.z-z)<m)||c.courses.some(k=>k.gates.some(g=>Math.hypot(g.c.x-x,g.c.z-z)<m)),
+    courses:[],roads:[],boxes:[],cyls:[],
+    // a road: levelled, painted, and kept clear of decor. poly=[[x,z],...]
+    road(poly,o={}){const d=polyPts(poly,.5);c.xpts.push(...d);c.roads.push(poly);benchPts(polyPts(poly,.33),o.hw??1.3,o.blend??1.6);if(o.surf!=null)for(const p of d)paint(p.x,p.z,o.hw??1.3,o.surf,o.skip);return poly},
+    // a course (an event inside an open world): its own line, gates and crates. Levelled like a road unless bench:false.
+    course(ch){const k=genCourse(c,ch,rng);c.courses.push(k);for(let i=0;i<k.pts.length;i+=2)c.xpts.push(k.pts[i]);if(ch.bench!==false){benchPts(k.pts,ch.hw??1.2,ch.blend??1.7);const sp=k.P(0);c.flat(sp.x,sp.z,2.2,Hterr(sp.x,sp.z),2.4)}if(ch.surf!=null)for(let i=0;i<k.pts.length;i+=2)paint(k.pts[i].x,k.pts[i].z,1.3,ch.surf,ch.skip);return k},
+    // a flat pad (the base, a camp): the terrain is pulled to height h inside r, blended outside
+    flat(x,z,r,h,blend=3){cellsIn(x-r-blend,z-r-blend,x+r+blend,z+r+blend,(k,px,pz)=>{const d=Math.hypot(px-x,pz-z);if(d>r+blend)return;const f=d<=r?1:1-(d-r)/blend,w=f*f*(3-2*f);TH[k]+=(h-TH[k])*w})},
+    // props: boxes and cylinders drawn as instances at c.props() (buildings, barriers, posts). y is the bottom.
+    box(x,y,z,w,h,d,col,ry=0){c.boxes.push({x,y:y+h/2,z,sx:w,sy:h,sz:d,ry,c:col})},
+    cyl(x,y,z,r,h,col,o={}){c.cyls.push({x,y:y+h/2,z,sx:r,sy:h,sz:r,rx:o.rx||0,rz:o.rz||0,c:col})},
+    props(){instanced(DG.root,DM.white,c.boxes,c.decor);instanced(DG.trunk,DM.white,c.cyls,c.decor);c.boxes=[];c.cyls=[]},
     nearStart:(x,z,m)=>Math.hypot(pts[0].x-x,pts[0].z-z)<m,
     block:(x,z,r)=>blocks.push({x,z,r}), free:(x,z,r)=>!blocks.some(b=>Math.hypot(b.x-x,b.z-z)<b.r+r),
     pools:[],fx:[],vents:[],extra:[],bonuses:[],
@@ -209,9 +247,9 @@ function genLevel(def){
       const dk={ax,az,bx,bz,ux,uz,len,hw,y0,y1,sag:o.sag??.22,x0:Math.min(...xs)-.02,x1:Math.max(...xs)+.02,z0:Math.min(...zs)-.02,z1:Math.max(...zs)+.02};
       G.decks.push(dk);c.fx.push(Object.assign({type:'deck'},dk));c.block((ax+bx)/2,(az+bz)/2,len/2+1);return dk},
     finish(){for(let j=0;j<N;j++)for(let i=0;i<N;i++){const k=j*N+i;if(TCF[k])continue;const cc=surfColor(TS[k],-HALF+i*CELL,-HALF+j*CELL,n,def);TC[k*3]=cc[0];TC[k*3+1]=cc[1];TC[k*3+2]=cc[2]}c._done=true},
-    pebbles(cnt,cols,smin,smax){const L=[];for(let i=0;i<cnt;i++){const x=(rng()-.5)*66,z=(rng()-.5)*66;if(def.water!=null&&H(x,z)<def.water+.02)continue;const s=smin+rng()*(smax-smin);
+    pebbles(cnt,cols,smin,smax){const L=[];for(let i=0;i<cnt;i++){const x=(rng()-.5)*(WORLD-4),z=(rng()-.5)*(WORLD-4);if(def.water!=null&&H(x,z)<def.water+.02)continue;const s=smin+rng()*(smax-smin);
       L.push({x,y:H(x,z)+s*.2,z,sx:s,sy:s*.6,sz:s*(.8+rng()*.5),rx:rng()*3,ry:rng()*3,c:cols[i%cols.length]})}instanced(DG.peb,DM.white,L,c.decor,false)},
-    tufts(cnt,cols){const L=[];for(let i=0;i<cnt;i++){const x=(rng()-.5)*66,z=(rng()-.5)*66;if(c.dist(x,z)<1.8)continue;for(let k=0;k<5;k++){const s=.05+rng()*.05;
+    tufts(cnt,cols){const L=[];for(let i=0;i<cnt;i++){const x=(rng()-.5)*(WORLD-4),z=(rng()-.5)*(WORLD-4);if(c.dist(x,z)<1.8)continue;for(let k=0;k<5;k++){const s=.05+rng()*.05;
       L.push({x:x+(rng()-.5)*.5,y:H(x,z)-.02,z:z+(rng()-.5)*.5,sx:s,sy:.35+rng()*.45,sz:s,rx:(rng()-.5)*.6,rz:(rng()-.5)*.6,c:cols[k%cols.length]})}}instanced(DG.tuft,DM.tuft,L,c.decor,false)}
   };
   const gl=def.gateT?def.gateT(c):null,NG=gl?gl.length:def.gates;
@@ -220,14 +258,10 @@ function genLevel(def){
   G.waterAt=(x,z)=>{let w=-1e9;if(def.water!=null&&(!def.waterBand||def.waterBand(x,z)))w=def.water;for(const p of c.pools){if((x-p.x)*(x-p.x)+(z-p.z)*(z-p.z)<p.r*p.r&&p.level>w)w=p.level}return w};
   def.build(c);
   if(!c._done)c.finish();
-  c.start={p:c.P(0),tan:c.T(.004)};
-  // supply crates: beside the line, never in water
-  c.crates=[];for(let k=0;k<6;k++){const t=.09+.8*k/5+(rng()-.5)*.04,p=c.P(t),s=c.side(t);let placed=false;
-    for(const sg of(k%2?[1,-1]:[-1,1])){const off=sg*(1.3+rng()*.7),x=p.x+s.x*off,z=p.z+s.z*off,y=H(x,z);if(WL(x,z)>y-.05||lavaAt(x,z,1.1)>-1e8||c.nearGate(x,z,1.1)||Math.abs(y-H(p.x,p.z))>.9)continue;c.crates.push({x,z,y:y+.16,t});placed=true;break}
-    // fallback: on the line, a little before or after, still dry
-    for(const o of[0,.012,-.012,.024,-.024,.036,-.036]){if(placed)break;const q=c.P(Math.min(1,Math.max(0,t+o))),y=H(q.x,q.z);if(WL(q.x,q.z)>y-.05||lavaAt(q.x,q.z,1.1)>-1e8||c.nearGate(q.x,q.z,1.1))continue;c.crates.push({x:q.x,z:q.z,y:y+.16,t:t+o});placed=true}
-    if(!placed)c.crates.push({x:p.x,z:p.z,y:H(p.x,p.z)+.16,t})}
+  c.start=def.start?{p:new V3(def.start[0],0,def.start[1]),tan:new V3(Math.sin(def.start[2]||0),0,Math.cos(def.start[2]||0))}:{p:c.P(0),tan:c.T(.004)};
+  c.crates=def.world?[]:placeCrates(c,c,rng);
   for(const e of c.extra)c.crates.push({x:e.x,z:e.z,y:H(e.x,e.z)+.16,t:c.tOf(e.x,e.z)});
+  for(const k of c.courses){k.crates=placeCrates(k,c,rng);for(const e of k.extra)k.crates.push({x:e.x,z:e.z,y:H(e.x,e.z)+.16,t:k.tOf(e.x,e.z)})}
   G.colliders=c.colliders;
   return c;
 }

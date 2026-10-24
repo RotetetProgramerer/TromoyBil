@@ -21,10 +21,13 @@
 <div id="hud" hidden>
   <div class="hud-run" aria-live="polite">
     <div class="ln" id="hLevel">Sandklitten</div>
-    <div class="r"><span>Port</span><b id="hGate">0/10</b></div>
-    <div class="r"><span>Tid</span><b id="hTime">0:00.0</b></div>
-    <div class="r"><span>Straff</span><b id="hPen" class="pen">0</b></div>
-    <div class="r"><span>Kasser</span><b id="hCrate">0/6</b></div>
+    <div class="r rc"><span>Port</span><b id="hGate">0/10</b></div>
+    <div class="r rc"><span>Tid</span><b id="hTime">0:00.0</b></div>
+    <div class="r rc"><span>Straff</span><b id="hPen" class="pen">0</b></div>
+    <div class="r rc"><span>Kasser</span><b id="hCrate">0/6</b></div>
+    <div class="r fr"><span>Muttere</span><b id="hNuts">0</b></div>
+    <div class="r fr"><span>Løyper</span><b id="hDone">0/7</b></div>
+    <div class="r fr"><span>Basen</span><b id="hBase">0 m</b></div>
   </div>
   <div class="hud-btns">
     <button class="ib" id="bZoomOut" aria-label="Zoom ut (X)" title="Zoom ut (X)"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21M7.5 10.5h6"/></svg></button>
@@ -55,6 +58,7 @@
     </div>
   </div>
   <div class="toast" id="toast"></div>
+  <div class="count" id="count" hidden></div>
   <div class="hint" id="hint" hidden></div>
 
   <div class="touch">
@@ -144,6 +148,7 @@
       <button class="ghost" id="pRestart">Start på nytt</button>
       <button class="ghost" id="pMenu">Til menyen</button>
     </div>
+    <div class="row"><button class="ghost" id="pAbort" hidden>Avbryt løpet</button></div>
     <div class="row"><button class="ghost" id="pSound" aria-pressed="true">Lyd: på</button></div>
     <div class="slider"><span class="lbl">Bil</span><input type="range" id="pVolCar" min="0" max="100" step="5" value="70" aria-label="Lydstyrke bil"><output id="pVolCarOut">70 %</output></div>
     <div class="slider"><span class="lbl">Omgivelser</span><input type="range" id="pVolAmb" min="0" max="100" step="5" value="70" aria-label="Lydstyrke omgivelser"><output id="pVolAmbOut">70 %</output></div>
@@ -157,6 +162,21 @@
       <li><b>Muttere:</b> 10 per port, 100 for feilfri runde, 20 for store hopp, opptil 200 i banebonus (full bonus krever alle portene)</li>
       <li><b>Dagens dobbel:</b> første tur hver dag der du tar alle portene</li>
     </ul>
+  </div>
+</section>
+
+<!-- START A COURSE? (open world) -->
+<section class="overlay dialog" id="ask" hidden>
+  <div class="sheet ask">
+    <p class="eyebrow" id="aKind">Løype</p>
+    <h2 id="aName">Jungelstien</h2>
+    <p class="note" id="aDesc"></p>
+    <p class="note" id="aBest"></p>
+    <p class="lede" style="font-size:1.05rem;margin:0">Vil du starte denne utfordringen?</p>
+    <div class="row">
+      <button class="go" id="aYes">JA</button>
+      <button class="ghost" id="aNo">NEI, kjør videre</button>
+    </div>
   </div>
 </section>
 
@@ -197,6 +217,7 @@
 <script src="data/levels/05-elv.js"></script>
 <script src="data/levels/06-vulkan.js"></script>
 <script src="data/levels/07-oya.js"></script>
+<script src="data/levels/10-verden.js"></script>
 
 <!-- Spillet -->
 <script src="js/game.js"></script>

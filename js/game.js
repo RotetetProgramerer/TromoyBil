@@ -17,7 +17,9 @@ const prof=Object.assign({nuts:0,parts:{},paint:0,paints:[0],first:{},runs:0,las
 if(!PAINTS[prof.paint])prof.paint=0;
 const saveProf=()=>store.set('prof',prof);
 const fmtN=n=>String(n).replace(/\B(?=(\d{3})+(?!\d))/g,' ');
-const totalStars=()=>LEVELS.reduce((s,l)=>s+((best[l.id]&&best[l.id].s)||0),0);
+const starKeys=l=>l.world?l.challenges.map(c=>l.id+'/'+c.id):[l.id];
+const totalStars=()=>LEVELS.reduce((s,l)=>s+starKeys(l).reduce((a,k)=>a+((best[k]&&best[k].s)||0),0),0);
+const maxStars=()=>LEVELS.reduce((s,l)=>s+starKeys(l).length*3,0);
 
 /* ---------- renderer & scene ---------- */
 const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
@@ -44,12 +46,14 @@ const sunGlow=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:0xfff
 sunGlow.scale.set(60,60,1);scene.add(sunGlow);
 
 // terrain mesh
-const tGeo=new THREE.BufferGeometry();
-const tPos=new Float32Array(N*N*3),tCol=new Float32Array(N*N*3),tIdx=new Uint32Array((N-1)*(N-1)*6);
-{let p=0;for(let j=0;j<N-1;j++)for(let i=0;i<N-1;i++){const a=j*N+i,b=a+1,c=a+N,d=c+1;tIdx[p++]=a;tIdx[p++]=c;tIdx[p++]=b;tIdx[p++]=b;tIdx[p++]=c;tIdx[p++]=d}}
-tGeo.setAttribute('position',new THREE.BufferAttribute(tPos,3));tGeo.setAttribute('color',new THREE.BufferAttribute(tCol,3));tGeo.setIndex(new THREE.BufferAttribute(tIdx,1));
-const terrain=new THREE.Mesh(tGeo,new THREE.MeshStandardMaterial({vertexColors:true,roughness:.93,metalness:0}));
-terrain.receiveShadow=true;terrain.castShadow=true;scene.add(terrain);
+// rebuilt whenever a level asks for another world size (see setWorld in core.js)
+let tGeo,tPos,tCol,tIdx,terrain=null;const terrainMat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.93,metalness:0});
+function buildTerrainGeo(){if(terrain){scene.remove(terrain);tGeo.dispose()}
+  tGeo=new THREE.BufferGeometry();tPos=new Float32Array(N*N*3);tCol=new Float32Array(N*N*3);tIdx=new Uint32Array((N-1)*(N-1)*6);
+  let p=0;for(let j=0;j<N-1;j++)for(let i=0;i<N-1;i++){const a=j*N+i,b=a+1,c=a+N,d=c+1;tIdx[p++]=a;tIdx[p++]=c;tIdx[p++]=b;tIdx[p++]=b;tIdx[p++]=c;tIdx[p++]=d}
+  tGeo.setAttribute('position',new THREE.BufferAttribute(tPos,3));tGeo.setAttribute('color',new THREE.BufferAttribute(tCol,3));tGeo.setIndex(new THREE.BufferAttribute(tIdx,1));
+  terrain=new THREE.Mesh(tGeo,terrainMat);terrain.receiveShadow=true;terrain.castShadow=true;scene.add(terrain)}
+buildTerrainGeo();
 // water: one shared material with a scrolling, tiling normal map; a big plane for rivers plus discs for ponds
 function waterNormalTex(){const s=256,P=8,c=document.createElement('canvas');c.width=c.height=s;const x=c.getContext('2d'),img=x.createImageData(s,s),r=mulberry32(77),grid=[];
   for(let o=0;o<3;o++){const g=new Float32Array(P*P*4);for(let i=0;i<g.length;i++)g[i]=r();grid.push(g)}
@@ -432,7 +436,8 @@ function loadLevel(i){
   levelGroup.traverse(o=>{if((o.isInstancedMesh||o.isMesh)&&o.geometry&&!keepGeo.has(o.geometry))o.geometry.dispose();
     if(o.material&&!keepMat.has(o.material)){if(o.material.map)o.material.map.dispose();o.material.dispose()}});
   scene.remove(levelGroup);levelGroup=new THREE.Group();scene.add(levelGroup);gateVis=[];
-  LV=genLevel(def);
+  LV=genLevel(def);if(tPos.length!==N*N*3)buildTerrainGeo();water.scale.set(WORLD/70,WORLD/70,1);
+  state.world=!!def.world;state.course=null;state.free=false;
   for(let k=0;k<N*N;k++){const i2=k%N,j=(k/N)|0;tPos[k*3]=-HALF+i2*CELL;tPos[k*3+1]=TH[k];tPos[k*3+2]=-HALF+j*CELL;tCol[k*3]=TC[k*3];tCol[k*3+1]=TC[k*3+1];tCol[k*3+2]=TC[k*3+2]}
   shadeTerrain();
   tGeo.attributes.position.needsUpdate=true;tGeo.attributes.color.needsUpdate=true;tGeo.computeVertexNormals();tGeo.computeBoundingSphere();tGeo.computeBoundingBox();
@@ -446,7 +451,7 @@ function loadLevel(i){
   hemi.color.set(def.hemi[0]).convertSRGBToLinear();hemi.groundColor.set(def.hemi[1]).convertSRGBToLinear();hemi.intensity=def.hemi[2]*1.15;
   sun.color.set(def.sun).convertSRGBToLinear();sun.intensity=def.sunI*1.55;
   sunGlow.material.color.set(def.sun).convertSRGBToLinear();sunGlow.visible=def.clouds!==false;
-  clearTracks();buildGates(LV);LV.hasLava=G.lavas.length>0;buildFx(LV);resetEruption(def);lavaLight.visible=LV.hasLava&&state.gfx==='hi';setupZone(def);buildAnimals(LV,def);buildBoulder(def);if(car)applyZone(car.pos.x,car.pos.z);
+  clearTracks();buildGates(LV);LV.hasLava=G.lavas.length>0;buildFx(LV);resetEruption(def);lavaLight.visible=LV.hasLava&&state.gfx==='hi';setupZone(def);buildAnimals(LV,def);buildBoulder(def);buildPortals(LV);if(car)applyZone(car.pos.x,car.pos.z);
   if(car)resetToStart();
   $('hLevel').textContent=def.name;
 }
@@ -456,16 +461,18 @@ function applyPaint(){const p=PAINTS[prof.paint]||PAINTS[0];M.yel.color.set(p.c)
 function resetToStart(){const s=LV.start;placeCar(car,s.p.x,s.p.z,Math.atan2(s.tan.x,s.tan.z));state.checkpoint={x:s.p.x,z:s.p.z,h:Math.atan2(s.tan.x,s.tan.z)};camSnap=true}
 
 /* ---------- game flow ---------- */
+function resetRunState(){Object.assign(state,{time:0,started:false,penalty:0,next:0,flipT:0,missed:0,touched:0,winches:0,winchPen:0,rescues:0,log:[],crates:0,jumps:0,longJumps:0,bestAir:0,air:0,flood:0,drowned:0,deepWarn:false,lavaFalls:0,bonusNuts:0,bonusDone:{}})}
+function showHud(){$('menu').hidden=true;$('result').hidden=true;$('pause').hidden=true;$('hud').hidden=false;$('hint').hidden=true;$('ask').hidden=true;$('hud').classList.toggle('free',!!state.free)}
 function startRun(){
   initAudio();if(AC&&AC.state==='suspended')AC.resume();
-  Object.assign(state,{mode:'play',time:0,started:false,penalty:0,next:0,flipT:0,missed:0,touched:0,winches:0,winchPen:0,rescues:0,log:[],crates:0,jumps:0,longJumps:0,bestAir:0,air:0,flood:0,drowned:0,deepWarn:false,lavaFalls:0,bonusNuts:0,bonusDone:{}});
+  if(state.world){if(state.course){const k=state.course;endCourse(true);placeCar(car,k.start.p.x,k.start.p.z,Math.atan2(k.start.tan.x,k.start.tan.z));camSnap=true;startCourse(k);return}return startFree()}
+  state.mode='play';state.free=false;resetRunState();
   gateVis.forEach((g,i)=>{g.touched=false;setGateState(i,i===0?'next':'pending')});
   resetCrates();resetToStart();car.low=true;clearTracks();resetBoulder();
-  $('menu').hidden=true;$('result').hidden=true;$('pause').hidden=true;$('hud').hidden=false;$('hint').hidden=true;
-  updateGearUI();toast('Kjør til port 1');
+  showHud();updateGearUI();toast('Kjør til port 1');
 }
-function toMenu(){state.mode='menu';$('hud').hidden=true;$('pause').hidden=true;$('result').hidden=true;$('garage').hidden=true;$('menu').hidden=false;renderMenu();resetToStart()}
-function toGarage(){state.mode='garage';$('hud').hidden=true;$('pause').hidden=true;$('result').hidden=true;$('menu').hidden=true;$('garage').hidden=false;resetToStart();renderGarage();$('gDrive').focus()}
+function toMenu(){if(state.course)endCourse();state.free=false;state.mode='menu';$('hud').hidden=true;$('pause').hidden=true;$('result').hidden=true;$('garage').hidden=true;$('menu').hidden=false;renderMenu();resetToStart()}
+function toGarage(){if(state.course)endCourse();state.mode='garage';$('hud').hidden=true;$('pause').hidden=true;$('result').hidden=true;$('menu').hidden=true;$('garage').hidden=false;resetToStart();renderGarage();$('gDrive').focus()}
 function renderGarage(){
   $('gCar').textContent=CARS[state.carIdx].name;$('gNuts').textContent=fmtN(prof.nuts);
   $('partList').innerHTML=PARTS.map(p=>{const lv=prof.parts[p.id]||0,max=lv>=3,price=max?0:p.price[lv+1],can=!max&&prof.nuts>=price;
@@ -480,7 +487,7 @@ function pickPaint(i){const p=PAINTS[i];if(!prof.paints.includes(i)){if(prof.nut
 $('partList').addEventListener('click',e=>{const b=e.target.closest('[data-buy]');if(b)buyPart(b.dataset.buy)});
 $('paintList').addEventListener('click',e=>{const b=e.target.closest('[data-paint]');if(b)pickPaint(+b.dataset.paint)});
 $('mGarage').onclick=toGarage;$('rGarage').onclick=toGarage;$('gBack').onclick=toMenu;$('gDrive').onclick=startRun;
-function pause(on){if(state.mode!=='play'&&state.mode!=='pause')return;state.mode=on?'pause':'play';$('pause').hidden=!on;if(on)$('pResume').focus()}
+function pause(on){if(state.mode!=='play'&&state.mode!=='pause')return;state.mode=on?'pause':'play';$('pause').hidden=!on;$('pAbort').hidden=!state.course;$('pRestart').textContent=state.course?'Start løpet på nytt':state.world?'Tilbake til basen':'Start på nytt';if(on)$('pResume').focus()}
 function addPenalty(n,why){state.penalty+=n;state.log.push(why);toast('+'+n+' '+why.split(':')[0],true)}
 // auto: the flip assist in easy mode puts the car back for free; everything else costs a winch penalty
 function winch(auto){
@@ -490,9 +497,9 @@ function winch(auto){
   state.flipT=0;state.flood=0;state.deepWarn=false;state.air=0;$('hint').hidden=true;camSnap=true;
 }
 function finishRun(){
-  state.mode='done';const def=LEVELS[state.levelIdx],t=Math.max(0,state.time-state.crates*2),p=state.penalty;const stars=p===0?3:p<=6?2:1;
-  const prev=best[def.id];let isBest=false;if(!prev||p<prev.p||(p===prev.p&&t<prev.t)){best[def.id]={p,t,s:stars};store.set('best',best);isBest=true}
-  $('rLevel').textContent=def.name;$('rTitle').textContent=p===0?'Feilfri tur!':'I mål!';$('rTime').textContent=fmtTime(t);$('rPen').textContent=p;
+  state.mode='done';const lvl=LEVELS[state.levelIdx],def=state.course?Object.assign({},state.course,{gates:state.course.gates.length}):lvl,key=state.course?lvl.id+'/'+state.course.id:lvl.id,t=Math.max(0,state.time-state.crates*2),p=state.penalty;const stars=p===0?3:p<=6?2:1;
+  const prev=best[key];let isBest=false;if(!prev||p<prev.p||(p===prev.p&&t<prev.t)){best[key]={p,t,s:stars};store.set('best',best);isBest=true}
+  $('rLevel').textContent=state.course?lvl.name+' · '+def.name:def.name;$('rTitle').textContent=p===0?'Feilfri tur!':'I mål!';$('rTime').textContent=fmtTime(t);$('rPen').textContent=p;
   $('rGates').textContent=(LV.gates.length-state.missed)+'/'+LV.gates.length;
   $('rStars').innerHTML=[0,1,2].map(i=>`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7-6.2-3.7-6.2 3.7 1.6-7L2 9.2l7.1-.6z" fill="${i<stars?'#E5A92B':'rgba(242,232,208,.15)'}"/></svg>`).join('');
   $('rStars').setAttribute('aria-label',stars+' av 3 stjerner');
@@ -515,8 +522,8 @@ function finishRun(){
   if(state.bonusNuts){e+=state.bonusNuts;el.push(`snarvei +${state.bonusNuts}`)}
   if(p===0){e+=100;el.push('feilfri +100')}
   // first-completion bonus is earned per gate: 200 for all gates, the rest can be picked up on a later run
-  const frac=gatesOK/def.gates,prevF=+prof.first[def.id]||0;
-  if(frac>prevF){const add=Math.round(200*frac)-Math.round(200*prevF);prof.first[def.id]=frac;e+=add;
+  const frac=gatesOK/def.gates,prevF=+prof.first[key]||0;
+  if(frac>prevF){const add=Math.round(200*frac)-Math.round(200*prevF);prof.first[key]=frac;e+=add;
     el.push(frac<1?`${gatesOK}/${def.gates} porter tatt, banebonus +${add}`:prevF?`alle porter tatt, resten av banebonusen +${add}`:'første gang i mål +200')}
   // the daily double needs a full run (no missed gates) and is saved for later otherwise
   const today=new Date().toDateString();let dbl=false,dblNote='';
@@ -524,7 +531,7 @@ function finishRun(){
   prof.nuts+=e;prof.runs++;saveProf();
   $('rNuts').textContent='+'+fmtN(e);$('rNutsNote').textContent=(dbl?'Dagens første tur: dobbelt! ':dblNote)+el.join(' · ');
   $('rLog').innerHTML=items.join('');
-  $('rNext').textContent=state.levelIdx<LEVELS.length-1?'Neste bane':'Første bane';
+  $('rNext').textContent=state.world?'Kjør videre':state.levelIdx<LEVELS.length-1?'Neste bane':'Første bane';
   setTimeout(()=>{$('result').hidden=false;$('rNext').focus()},900);toast('Mål!');
 }
 function fmtTime(t){t=Math.round(t*10)/10;const m=Math.floor(t/60),s=t-m*60;return m+':'+(s<10?'0':'')+s.toFixed(1)}
@@ -553,7 +560,8 @@ addEventListener('keydown',e=>{
   if(state.mode==='menu'||state.mode==='garage'){if(k==='enter'&&document.activeElement===document.body)startRun();if(k==='escape'&&state.mode==='garage')toMenu();return}
   if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k))e.preventDefault();
   if(e.repeat)return;keys.add(k);
-  if(k==='escape'||k==='p'){if(state.mode==='play')pause(true);else if(state.mode==='pause')pause(false)}
+  if(k==='escape'||k==='p'){if(state.mode==='play')pause(true);else if(state.mode==='pause')pause(false);else if(state.mode==='ask')answerAsk(false)}
+  if(state.mode==='ask'&&(k==='enter'||k==='j'))answerAsk(true);
   if(state.mode!=='play')return;
   if(k==='g'||k===' ')toggleGear();if(k==='l')setLights(!state.lights);if(k==='c')cycleCam();if(k==='r')winch();if(k==='m')setSound(!state.sound);
   if(k==='+'||k==='=')setSpeed(state.speed+10);if(k==='-'||k==='_')setSpeed(state.speed-10);
@@ -587,8 +595,9 @@ $('bSlow').onclick=()=>setSpeed(state.speed-10);$('bFast').onclick=()=>setSpeed(
 $('bZoomIn').onclick=()=>zoom(-1);$('bZoomOut').onclick=()=>zoom(1);
 $('spdRange').addEventListener('input',e=>setSpeed(+e.target.value,true));
 $('gfxHi').onclick=()=>setGfx('hi');$('gfxLo').onclick=()=>setGfx('lo');$('bCam').onclick=cycleCam;$('bWinch').onclick=()=>winch();$('bPause').onclick=()=>pause(true);
-$('pResume').onclick=()=>pause(false);$('pRestart').onclick=startRun;$('pMenu').onclick=toMenu;$('pSound').onclick=()=>setSound(!state.sound);
-$('rRetry').onclick=startRun;$('rMenu').onclick=toMenu;$('rNext').onclick=()=>{loadLevel((state.levelIdx+1)%LEVELS.length);startRun()};
+$('pResume').onclick=()=>pause(false);$('pRestart').onclick=()=>{if(state.world&&!state.course){pause(false);resetToStart();return}startRun()};$('pMenu').onclick=toMenu;$('pSound').onclick=()=>setSound(!state.sound);
+$('rRetry').onclick=startRun;$('rMenu').onclick=toMenu;$('rNext').onclick=()=>{if(state.world){endCourse();showHud();state.mode='play';return}loadLevel((state.levelIdx+1)%LEVELS.length);startRun()};
+$('aYes').onclick=()=>answerAsk(true);$('aNo').onclick=()=>answerAsk(false);$('pAbort').onclick=()=>{pause(false);endCourse();toast('Løpet avbrutt')};
 $('startBtn').onclick=startRun;
 document.querySelectorAll('.tb').forEach(b=>{const t=b.dataset.t;const on=e=>{e.preventDefault();state.input[t]=1;b.classList.add('on');try{b.setPointerCapture(e.pointerId)}catch(_){}};
   const off=e=>{state.input[t]=0;b.classList.remove('on')};b.addEventListener('pointerdown',on);b.addEventListener('pointerup',off);b.addEventListener('pointercancel',off);b.addEventListener('lostpointercapture',off)});
@@ -669,7 +678,7 @@ function syncVisuals(dt){
   if(ng&&state.mode==='play'){beacon.visible=true;beacon.position.set(ng.c.x,H(ng.c.x,ng.c.z),ng.c.z);beacon.userData.ring.scale.setScalar(1+.08*Math.sin(performance.now()*.005));
     arrow.visible=car.assist;if(arrow.visible){arrow.position.copy(car.pos).add(_c2.set(0,1.25,0));_c1.set(ng.c.x-car.pos.x,0,ng.c.z-car.pos.z).normalize();arrow.quaternion.setFromUnitVectors(YAX,_c1)}}
   else{beacon.visible=false;arrow.visible=false}
-  updateDust(dt);updateRain(dt);updateFx(dt);applyZone(car.pos.x,car.pos.z);updateAnimals(dt);updateBoulder(dt);
+  updateDust(dt);updateRain(dt);updateFx(dt);applyZone(car.pos.x,car.pos.z);nightTint();updateAnimals(dt);updateBoulder(dt);
   waterMat.normalMap.offset.x+=dt*.025;waterMat.normalMap.offset.y+=dt*.018;
   const tm=performance.now()*.001;for(const c of crateVis){if(c.taken)continue;c.g.rotation.y=tm*1.2;c.g.position.y=c.cr.y+Math.sin(tm*2.2+c.cr.x)*.03}
 }
@@ -677,11 +686,11 @@ function syncVisuals(dt){
 /* ---------- HUD ---------- */
 let hudT=0;
 function updateHUD(dt){
-  hudT-=dt;if(toastT>0){toastT-=dt;if(toastT<=0)$('toast').classList.remove('on')}
-  if(hudT>0)return;hudT=.1;
-  $('hGate').textContent=(Math.min(state.next,LV.gates.length)-state.missed)+'/'+LV.gates.length;$('hTime').textContent=fmtTime(state.time);$('hPen').textContent=state.penalty;$('hCrate').textContent=state.crates+'/'+LV.crates.length;
+  hudT-=dt;if(hudT>0)return;hudT=.1;
+  if(state.free){$('hNuts').textContent=fmtN(prof.nuts);const b=LEVELS[state.levelIdx].basePos||[0,0];const dm=Math.hypot(b[0]-car.pos.x,b[1]-car.pos.z)*UNIT_CM/100;$('hBase').textContent=dm.toFixed(1).replace('.',',')+' m';$('hDone').textContent=coursesDone()+'/'+LV.courses.length}
+  else{$('hGate').textContent=(Math.min(state.next,LV.gates.length)-state.missed)+'/'+LV.gates.length;$('hTime').textContent=fmtTime(state.time);$('hPen').textContent=state.penalty;$('hCrate').textContent=state.crates+'/'+LV.crates.length}
   const sp=car.vel.dot(car.fw)*UNIT_CM;$('hSpeed').textContent=Math.round(Math.abs(sp));
-  const ng=LV.gates[state.next];if(ng){const dcm=Math.hypot(ng.c.x-car.pos.x,ng.c.z-car.pos.z)*UNIT_CM;if(dcm>=100){$('hNext').textContent=(dcm/100).toFixed(1).replace('.',',');$('hNextU').textContent='m'}else{$('hNext').textContent=Math.round(dcm);$('hNextU').textContent='cm'}}
+  const ng=LV.gates[state.next];if(ng){const dcm=Math.hypot(ng.c.x-car.pos.x,ng.c.z-car.pos.z)*UNIT_CM;if(dcm>=100){$('hNext').textContent=(dcm/100).toFixed(1).replace('.',',');$('hNextU').textContent='m'}else{$('hNext').textContent=Math.round(dcm);$('hNextU').textContent='cm'}}else if(state.free){const n=nearestPortal();if(n){$('hNext').textContent=(n.d*UNIT_CM/100).toFixed(1).replace('.',',');$('hNextU').textContent='m til '+n.k.name}else{$('hNext').textContent='–';$('hNextU').textContent=''}}
   const roll=Math.asin(Math.max(-1,Math.min(1,car.lf.y)))*57.3,pitch=Math.asin(Math.max(-1,Math.min(1,car.fw.y)))*57.3;
   $('hRoll').textContent=Math.round(Math.abs(roll))+'°';$('hPitch').textContent=Math.round(pitch)+'°';
   $('inclRoll').setAttribute('transform','rotate('+(-roll).toFixed(1)+')');$('gIncl').classList.toggle('warn',Math.abs(roll)>35||Math.abs(pitch)>40);
@@ -693,9 +702,10 @@ function frame(now){
   requestAnimationFrame(frame);
   const dt=Math.min(.05,(now-last)/1000);last=now;
   if(!car||!LV){return}
-  readInput(dt);
+  readInput(dt);if(toastT>0){toastT-=dt;if(toastT<=0)$('toast').classList.remove('on')}
   prevPos.copy(car.pos);
-  if(state.mode!=='pause'){acc+=dt;let n=0;while(acc>=FIXED&&n<20){stepCar(car,FIXED);acc-=FIXED;n++}if(n>=20)acc=0}
+  if(state.mode!=='pause'&&state.mode!=='ask'){acc+=dt;let n=0;while(acc>=FIXED&&n<20){stepCar(car,FIXED);acc-=FIXED;n++}if(n>=20)acc=0}
+  if(state.mode==='count')updateCountdown(dt);
   if(!isFinite(car.pos.x)||!isFinite(car.q.w)){car.q.set(0,0,0,1);resetToStart()}
   if(state.mode==='play'){
     if(state.started)state.time+=dt;
@@ -716,6 +726,7 @@ function frame(now){
     // crates
     for(const c of crateVis){if(c.taken)continue;const dx=c.cr.x-car.pos.x,dz=c.cr.z-car.pos.z;if(dx*dx+dz*dz<.42&&Math.abs(c.cr.y-car.pos.y)<.9){c.taken=true;c.g.visible=false;state.crates++;toast('Kasse '+state.crates+'/'+LV.crates.length+' · +15 ⚙');for(let i=0;i<6;i++)spawnDust(c.g.position,0,true)}}
     if(car.pos.y<-3||Math.abs(car.pos.x)>HALF-.5||Math.abs(car.pos.z)>HALF-.5){winch();toast('Utenfor banen: vinsj',true)}
+    if(state.world)updateWorld(dt);
     updateHUD(dt);
   }
   if(state.mode==='done'&&toastT>0)updateHUD(dt);
@@ -734,10 +745,13 @@ function renderMenu(){
   $('carList').innerHTML=CARS.map((c,i)=>`<button class="card" data-car="${i}" aria-pressed="${i===state.carIdx}"><span class="nm">${c.name}</span><span class="kd">${c.kind}</span>
     <span class="stat">Klatring ${pips(c.stats[0])}</span><span class="stat">Sving ${pips(c.stats[1])}</span><span class="stat">Stabilitet ${pips(c.stats[2])}</span></button>`).join('');
   $('carDesc').textContent=CARS[state.carIdx].desc;
-  $('levelList').innerHTML=LEVELS.map((l,i)=>{const b=best[l.id];return`<button class="lvl" data-lvl="${i}" aria-pressed="${i===state.levelIdx}"><span class="no">${i+1}</span>
+  const lvlBtn=(l,i,no)=>{if(l.world){const done=l.challenges.filter(c=>best[l.id+'/'+c.id]).length;return`<button class="lvl world" data-lvl="${i}" aria-pressed="${i===state.levelIdx}"><span class="no">★</span>
+    <span><span class="t">${l.name}</span><br><span class="d">${l.desc}</span></span><span class="best">Løyper<b>${done}/${l.challenges.length}</b></span></button>`}const b=best[l.id];return`<button class="lvl" data-lvl="${i}" aria-pressed="${i===state.levelIdx}"><span class="no">${no}</span>
     <span><span class="t">${l.name}<span class="diff" aria-label="Vanskelighet ${l.diff} av 3">${[1,2,3].map(k=>`<i class="${k<=l.diff?'on':''}"></i>`).join('')}</span></span><br><span class="d">${l.desc}</span></span>
-    <span class="best">${b?`Beste<b>${fmtTime(b.t)}</b>${b.p} straff`:'Ikke kjørt'}</span></button>`}).join('');
-  $('mNuts').textContent=fmtN(prof.nuts);$('mStars').textContent='★ '+totalStars()+' av '+LEVELS.length*3;
+    <span class="best">${b?`Beste<b>${fmtTime(b.t)}</b>${b.p} straff`:'Ikke kjørt'}</span></button>`};
+  const worlds=LEVELS.map((l,i)=>[l,i]).filter(([l])=>l.world),races=LEVELS.map((l,i)=>[l,i]).filter(([l])=>!l.world);
+  $('levelList').innerHTML=(worlds.length?'<p class="sect">Åpen verden</p>'+worlds.map(([l,i])=>lvlBtn(l,i,0)).join('')+'<p class="sect">Løp</p>':'')+races.map(([l,i],n)=>lvlBtn(l,i,n+1)).join('');
+  $('mNuts').textContent=fmtN(prof.nuts);$('mStars').textContent='★ '+totalStars()+' av '+maxStars();
   $('modeEasy').setAttribute('aria-pressed',state.assist);$('modeReal').setAttribute('aria-pressed',!state.assist);
   $('modeNote').textContent=state.assist?'Litt mer grep, veltehjelp, automatisk vinsj og en pil som peker mot neste port. Fint for barn og nybegynnere.':'Ingen hjelp. Bilen oppfører seg som en ekte crawler, og du må vinsje selv.';
 }
@@ -745,6 +759,69 @@ $('carList').addEventListener('click',e=>{const b=e.target.closest('[data-car]')
 $('levelList').addEventListener('click',e=>{const b=e.target.closest('[data-lvl]');if(!b)return;loadLevel(+b.dataset.lvl);renderMenu()});
 $('modeEasy').onclick=()=>{state.assist=true;store.set('assist',true);if(car)car.assist=true;renderMenu()};
 $('modeReal').onclick=()=>{state.assist=false;store.set('assist',false);if(car)car.assist=false;renderMenu()};
+
+/* ---------- open world: free driving, start portals, courses ---------- */
+// a world (def.world) has no gates of its own: LV.gates/LV.crates are swapped in when a course starts, so all the race code works unchanged
+let portals=[],courseArrows=null,countT=0,gateWake=null,nightOn=false,cpT=0;
+const coursesDone=()=>LV.courses.filter(k=>best[LEVELS[state.levelIdx].id+'/'+k.id]).length;
+const DIFFCOL=['#8bbb4a','#8bbb4a','#f2c230','#d9432f'];
+function startFree(){state.mode='play';state.free=true;state.course=null;resetRunState();LV.gates=[];LV.crates=[];buildGates(LV);buildCrates(LV);
+  resetToStart();car.low=true;clearTracks();showHud();updateGearUI();state.checkpoint={x:car.pos.x,z:car.pos.z,h:Math.atan2(car.fw.x,car.fw.z)};toast('Fri kjøring: kjør bort til en startstrek')}
+// the start of every course: two flag poles, tyre barriers, a string of festival lights and a sign
+function portalSign(k){const c=document.createElement('canvas');c.width=256;c.height=128;const x=c.getContext('2d');x.fillStyle='#f2e8d0';x.fillRect(0,0,256,128);x.fillStyle=DIFFCOL[k.diff];x.fillRect(0,0,256,22);
+  x.strokeStyle='#14120E';x.lineWidth=6;x.strokeRect(3,3,250,122);x.fillStyle='#14120E';x.textAlign='center';x.font='700 40px "Barlow Condensed",sans-serif';x.fillText(k.name,128,72);
+  x.font='600 22px "Barlow Condensed",sans-serif';x.fillText(['','Lett','Middels','Vanskelig'][k.diff]+' · '+k.gates.length+' porter',128,106);const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;return t}
+function buildPortals(lv){portals=[];if(!lv.courses||!lv.courses.length)return;
+  for(const k of lv.courses){const g=new THREE.Group(),p=k.start.p,tn=k.start.tan,s=new V3(tn.z,0,-tn.x),col=DIFFCOL[k.diff];
+    const tops=[];
+    for(const sd of[-1,1]){const x=p.x+s.x*sd*1.7,z=p.z+s.z*sd*1.7,y=H(x,z);const pole=new THREE.Mesh(boxGeo,postMat);pole.scale.set(.08,2.1,.08);pole.position.set(x,y+1.05,z);pole.castShadow=true;g.add(pole);
+      const fm=new THREE.MeshStandardMaterial({color:LIN(col),side:THREE.DoubleSide,roughness:.6}),fl=new THREE.Mesh(flagGeo,fm);fl.scale.setScalar(1.6);fl.position.set(x,y+2.05,z);fl.rotation.y=Math.atan2(tn.x,tn.z)+Math.PI/2*sd;g.add(fl);tops.push({x,y:y+2.0,z});
+      for(let i=0;i<3;i++){const tx=x+s.x*sd*(.45+i*.42),tz=z+s.z*sd*(.45+i*.42);const ty=new THREE.Mesh(cylGeo,M.tire);ty.scale.set(.24,.17,.24);ty.position.set(tx,H(tx,tz)+.085,tz);ty.castShadow=true;g.add(ty)}}
+    // lights between the pole tops
+    for(let i=1;i<10;i++){const u=i/10,sp=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:LIN(['#ffd36a','#ff6a2a','#8bbb4a','#5ab4ff'][i%4]),transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,fog:false}));
+      sp.position.set(tops[0].x+(tops[1].x-tops[0].x)*u,tops[0].y+(tops[1].y-tops[0].y)*u-.35*4*u*(1-u),tops[0].z+(tops[1].z-tops[0].z)*u);sp.scale.set(.32,.32,1);g.add(sp)}
+    const wire=new THREE.Mesh(cylGeo,postMat);wire.scale.set(.012,3.4,.012);wire.position.set(p.x,tops[0].y-.1,p.z);wire.quaternion.setFromUnitVectors(YAX,new V3(s.x,0,s.z));g.add(wire);
+    // a chalk start line and the sign beside it, facing the approaching car
+    const line=new THREE.Mesh(new THREE.PlaneGeometry(3.2,.18),new THREE.MeshBasicMaterial({color:0xf2e8d0,transparent:true,opacity:.8,polygonOffset:true,polygonOffsetFactor:-2}));line.rotation.x=-Math.PI/2;line.rotation.z=Math.atan2(tn.x,tn.z);line.position.set(p.x,H(p.x,p.z)+.02,p.z);g.add(line);
+    const sx=p.x+s.x*2.6-tn.x*1.2,sz=p.z+s.z*2.6-tn.z*1.2,sy=H(sx,sz);const post=new THREE.Mesh(boxGeo,postMat);post.scale.set(.06,1.2,.06);post.position.set(sx,sy+.6,sz);g.add(post);
+    const b=new THREE.Mesh(new THREE.PlaneGeometry(1.2,.6),new THREE.MeshBasicMaterial({map:portalSign(k),side:THREE.DoubleSide}));b.position.set(sx,sy+1.25,sz);b.rotation.y=Math.atan2(-tn.x,-tn.z);g.add(b);
+    levelGroup.add(g);portals.push({k,g,x:p.x,z:p.z,lights:g.children.filter(o=>o.isSprite)})}}
+function nearestPortal(){let b=null;for(const p of portals){const d=Math.hypot(p.x-car.pos.x,p.z-car.pos.z);if(!b||d<b.d)b={k:p.k,d}}return b}
+function openAsk(k){state.mode='ask';state.askK=k;const key=LEVELS[state.levelIdx].id+'/'+k.id,b=best[key];
+  $('aName').textContent=k.name;$('aDesc').textContent=k.desc;$('aKind').textContent=['','Lett løype','Middels løype','Vanskelig løype'][k.diff]+' · '+k.gates.length+' porter';
+  $('aBest').textContent=b?'Din beste: '+fmtTime(b.t)+' med '+b.p+' straffepoeng, '+b.s+' av 3 stjerner.':'Ikke kjørt ennå. Første gang i mål gir banebonus.';
+  $('ask').hidden=false;$('aYes').focus()}
+function answerAsk(yes){if(state.mode!=='ask')return;$('ask').hidden=true;const k=state.askK;state.askK=null;if(yes)startCourse(k);else{state.mode='play';state.askCool=k.id;toast('Kjør videre når du vil')}}
+function startCourse(k){state.course=k;state.free=false;resetRunState();LV.gates=k.gates;LV.crates=k.crates;buildGates(LV);buildCrates(LV);resetCrates();
+  gateVis.forEach((g,i)=>{g.touched=false;setGateState(i,'pending')});gateWake={i:0,t:0};buildCourseArrows(k);
+  if(k.def.night)setNight(true);
+  state.checkpoint={x:k.start.p.x,z:k.start.p.z,h:Math.atan2(k.start.tan.x,k.start.tan.z)};
+  $('hud').classList.remove('free');$('hLevel').textContent=k.name;$('hGate').textContent='0/'+k.gates.length;$('hTime').textContent='0:00.0';$('hPen').textContent='0';$('hCrate').textContent='0/'+k.crates.length;toastT=0;$('toast').classList.remove('on');state.mode='count';countT=3.6;car.throttle=0;car.vel.set(0,0,0)}
+function endCourse(silent){const k=state.course;state.course=null;state.free=true;LV.gates=[];LV.crates=[];buildGates(LV);buildCrates(LV);
+  if(courseArrows){levelGroup.remove(courseArrows);courseArrows.geometry.dispose();courseArrows=null}gateWake=null;setNight(false);
+  $('hud').classList.add('free');$('hLevel').textContent=LEVELS[state.levelIdx].name;$('count').hidden=true;if(k)state.askCool=k.id;resetRunState();
+  state.checkpoint={x:car.pos.x,z:car.pos.z,h:Math.atan2(car.fw.x,car.fw.z)}}
+// the gates light up one after another, then the countdown runs
+function updateCountdown(dt){countT-=dt;const n=Math.ceil(countT-.6);const el=$('count');
+  if(gateWake){gateWake.t-=dt;if(gateWake.t<=0&&gateWake.i<gateVis.length){const i=gateWake.i++;gateVis[i].mats.forEach(m=>m.color.set(FLAG.next).convertSRGBToLinear());setTimeout(()=>{if(gateVis[i]&&gateVis[i].state==='pending')gateVis[i].mats.forEach(m=>m.color.set(FLAG.pending).convertSRGBToLinear())},260);gateWake.t=Math.min(.16,2.4/gateVis.length)}}
+  if(countT>.6){el.hidden=false;el.textContent=n>0?String(n):'';el.classList.toggle('go',false)}
+  else if(countT>0){el.hidden=false;el.textContent='KJØR!';el.classList.add('go')}
+  else{el.hidden=true;el.classList.remove('go');state.mode='play';gateWake=null;setGateState(0,'next');toast('Kjør til port 1')}}
+// chevrons on the ground along the course
+function buildCourseArrows(k){const L=[];for(let d=1.2;d<k.curve.getLength();d+=1.6){const t=d/k.curve.getLength(),p=k.P(t),tn=k.T(t);if(k.nearGate(p.x,p.z,1.0))continue;L.push({x:p.x,y:H(p.x,p.z)+.05,z:p.z,ry:Math.atan2(tn.x,tn.z)})}
+  const geo=new THREE.ConeGeometry(.16,.4,3);geo.rotateX(Math.PI/2);const im=new THREE.InstancedMesh(geo,new THREE.MeshBasicMaterial({color:LIN('#ff6a2a'),transparent:true,opacity:.75,depthWrite:false}),L.length),m4=new THREE.Matrix4(),q=new Q4(),p=new V3(),sc=new V3(1,.25,1);
+  L.forEach((o,i)=>{p.set(o.x,o.y,o.z);q.setFromAxisAngle(YAX,o.ry);m4.compose(p,q,sc);im.setMatrixAt(i,m4)});im.frustumCulled=false;im.renderOrder=1;levelGroup.add(im);courseArrows=im}
+// night: the lights go down and the car's lamps come on
+function setNight(on){if(on===nightOn)return;nightOn=on;const def=LEVELS[state.levelIdx];
+  skyDome.material.color.set(on?0x2a3350:0xffffff);sunGlow.visible=!on&&def.clouds!==false;if(on)setLights(true);
+  if(!on){scene.fog.color.set(LIN(def.fog));scene.fog.near=def.fogNear;scene.fog.far=def.fogFar;sun.intensity=def.sunI*1.55;hemi.intensity=def.hemi[2]*1.15;hemi.color.set(def.hemi[0]).convertSRGBToLinear();sun.color.set(def.sun).convertSRGBToLinear()}}
+function nightTint(){if(!nightOn)return;scene.fog.color.multiplyScalar(.22);scene.fog.near=Math.min(scene.fog.near,8);scene.fog.far=Math.min(scene.fog.far,38);sun.intensity*=.12;sun.color.set(0x8fa6ff).convertSRGBToLinear();hemi.intensity*=.3;hemi.color.set(0x7a8ab0).convertSRGBToLinear()}
+function updateWorld(dt){
+  // free driving: a rolling checkpoint for the winch, and the start portals
+  if(!state.course){cpT-=dt;if(cpT<=0&&car.up.y>.9&&car.wheels.every(w=>w.contact)&&car.depth<0){cpT=1.5;state.checkpoint={x:car.pos.x,z:car.pos.z,h:Math.atan2(car.fw.x,car.fw.z)}}
+    for(const p of portals){const d=Math.hypot(p.x-car.pos.x,p.z-car.pos.z);if(d<2.2&&state.askCool!==p.k.id){openAsk(p.k);return}if(d>4&&state.askCool===p.k.id)state.askCool=null}}
+  else{const ng=LV.gates[state.next];if(ng&&Math.hypot(ng.c.x-car.pos.x,ng.c.z-car.pos.z)>30){endCourse();toast('For langt fra løypa: løpet er avbrutt',true)}}
+  const tm=performance.now()*.001;for(const p of portals){if(Math.abs(p.x-car.pos.x)+Math.abs(p.z-car.pos.z)>40)continue;p.lights.forEach((l,i)=>l.material.opacity=.6+.4*Math.sin(tm*5+i*1.3))}}
 
 /* ---------- boot ---------- */
 function boot(){
