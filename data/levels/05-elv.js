@@ -1,6 +1,6 @@
 // Bane: se README for hva feltene betyr. Rekkefølgen i menyen følger rekkefølgen i index.html.
 LEVELS.push(
-{ id:'elv', name:'Elvedalen', diff:3, seed:97, gates:10, water:.74, waterCol:'#4d7064',
+{ id:'elv', name:'Elvedalen', diff:3, seed:97, gates:10, water:.74, waterCol:'#4d7064', size:120, coast:42, village:{at:[-26.2,26.2]},
   desc:'Tre vadesteder, to gjørmehull og et hopp. Hold deg på grunnene, ellers drukner motoren.',
   sky:['#5c9ad1','#dce9ea'], fog:0xcfdad6, fogNear:26, fogFar:84, sun:0xfff0d0, sunI:1.1, hemi:[0xd8e6f0,0x6a6a4a,.62], sunDir:[-18,26,-12], rockCol:'#8d8a7e',
   path:[[-27,-24],[-21,-14],[-16,-3],[-10,8],[-3,12],[2,3],[6,-8],[14,-7],[15,7],[20,16],[26,24]],
@@ -19,7 +19,7 @@ LEVELS.push(
     // river stones poking out of the fords
     for(const fd of def.fords)for(let i=0;i<7;i++){const a=R()*6.28,d=1.2+R()*2.2;rock(fd[0]+Math.cos(a)*d,fd[1]+Math.sin(a)*d,.3+R()*.3,.35+R()*.3,{sharp:.5,nz:.2})}
     const trunks=[];
-    for(let i=0;i<500&&trunks.length<34;i++){const x=(R()-.5)*66,z=(R()-.5)*66,r=.5+R()*.7;if(Math.abs(z-def.stream(x))<r+4.5||c.dist(x,z)<r+2.4||c.nearGate(x,z,r+2.5)||c.nearStart(x,z,r+3))continue;
+    for(let i=0;i<500&&trunks.length<34;i++){const x=(R()-.5)*66,z=(R()-.5)*66,r=.5+R()*.7;if(Math.abs(z-def.stream(x))<r+4.5||c.dist(x,z)<r+2.4||c.nearGate(x,z,r+2.5)||c.nearStart(x,z,r+3)||!c.onLand(x,z))continue;
       if(trunks.some(t=>Math.hypot(t.x-x,t.z-z)<t.r+r+1.6))continue;trunks.push({x,z,r});c.colliders.push({x,z,r:r*1.05});rock(x,z,r*1.9,.3,{surf:S.BARK,sharp:1.8,nz:.2})}
     c.finish();
     instanced(DG.trunk,DM.bark,trunks.map(t=>({x:t.x,y:H(t.x,t.z)+11.6,z:t.z,sx:t.r,sy:24,sz:t.r,ry:R()*6,c:mix('#5a4331','#6e5440',R())})),c.decor);

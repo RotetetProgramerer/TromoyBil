@@ -78,7 +78,8 @@ function updateMinimap(){const cv=MAP.mini;if(!MAP.base||!car||$('hud').hidden||
   // icons stay upright
   const toMini=(wx,wz)=>{const dx=mapX(wx)-mapX(car.pos.x),dy=mapY(wz)-mapY(car.pos.z),c=Math.cos(-ang),s=Math.sin(-ang);return[R+(dx*c-dy*s)*px,R+(dx*s+dy*c)*px]};
   const lvl=LEVELS[state.levelIdx];
-  for(const k of LV.courses){const[u,v]=toMini(k.start.p.x,k.start.p.z);if(Math.hypot(u-R,v-R)>R-9)continue;drawCourseIcon(x,u,v,k,!!best[lvl.id+'/'+k.id],7,false)}
+  for(const k of LV.courses){const[u,v]=toMini(k.start.p.x,k.start.p.z);if(Math.hypot(u-R,v-R)>R-9)continue;drawCourseIcon(x,u,v,k,!!best[courseKey(lvl,k)],7,false)}
+  if(LV.ferry){const[u,v]=toMini(LV.ferry.quay.x,LV.ferry.quay.z);if(Math.hypot(u-R,v-R)<R-9)drawFerryIcon(x,u,v,7)}
   if(lvl.basePos){const[u,v]=toMini(lvl.basePos[0],lvl.basePos[1]);const d=Math.hypot(u-R,v-R);if(d<R-9)drawBase(x,u,v,7);else{const a=Math.atan2(v-R,u-R);x.save();x.translate(R+Math.cos(a)*(R-8),R+Math.sin(a)*(R-8));x.rotate(a);x.fillStyle='#e5a92b';x.beginPath();x.moveTo(5,0);x.lineTo(-4,-4);x.lineTo(-4,4);x.closePath();x.fill();x.restore()}}
   drawCar(x,R,R,0,7);
   // north
@@ -87,17 +88,32 @@ function updateMinimap(){const cv=MAP.mini;if(!MAP.base||!car||$('hud').hidden||
 
 /* ---------- the island map ---------- */
 function openMap(on){if(!state.world||!MAP.base)return;if(on===undefined)on=!MAP.open;MAP.open=on;$('map').hidden=!on;
-  if(on){if(state.mode==='play')state.mode='pause';$('mapInfo').textContent='Trykk på en løype for å se beste tid. '+(coursesDone()+' av '+LV.courses.length+' løyper fullført.');drawBigMap();$('mClose').focus()}
+  if(on){if(state.mode==='play')state.mode='pause';const lvl=LEVELS[state.levelIdx];$('mIsland').textContent=lvl.name;$('mTow').textContent=lvl.basePos?'Tau hjem til basen (20 ⚙)':'Tau til kaia (20 ⚙)';setMapTab(MAP.tab||'island');$('mClose').focus()}
   else if(state.mode==='pause'&&$('pause').hidden)state.mode='play'}
 function bigLayout(){const cv=MAP.big,fr=cv.parentElement.parentElement,sz=Math.max(200,Math.min(fr.clientWidth-32,innerHeight*.58));cv.parentElement.style.width=cv.parentElement.style.height=sz+'px';if(cv.width!==sz){cv.width=cv.height=sz}MAP.scale=sz/MAP.W;return sz}
-function drawBigMap(){if(!MAP.open)return;const sz=bigLayout(),x=MAP.bigCtx,sc=MAP.scale,lvl=LEVELS[state.levelIdx];
+function setMapTab(t){MAP.tab=t;$('mTabIsland').setAttribute('aria-pressed',t==='island');$('mTabArch').setAttribute('aria-pressed',t==='arch');
+  if(t==='island')$('mapInfo').textContent='Trykk på en løype for å se beste tid. '+(coursesDone()+' av '+LV.courses.length+' løyper fullført.');else $('mapInfo').textContent='Skjærgården: fergen går mellom kaiene langs de stiplede rutene. Du er på '+LEVELS[state.levelIdx].name+'.';drawBigMap()}
+function drawBigMap(){if(!MAP.open)return;if(MAP.tab==='arch')return drawArchipelago();const sz=bigLayout(),x=MAP.bigCtx,sc=MAP.scale,lvl=LEVELS[state.levelIdx];
   x.clearRect(0,0,sz,sz);x.save();x.scale(sc,sc);x.drawImage(MAP.base,0,0);drawFog(x,MAP.W,.74);x.restore();
   // dashed line home
   if(lvl.basePos){x.save();x.setLineDash([6,6]);x.strokeStyle='rgba(229,169,43,.9)';x.lineWidth=2;x.beginPath();x.moveTo(mapX(car.pos.x)*sc,mapY(car.pos.z)*sc);x.lineTo(mapX(lvl.basePos[0])*sc,mapY(lvl.basePos[1])*sc);x.stroke();x.restore();drawBase(x,mapX(lvl.basePos[0])*sc,mapY(lvl.basePos[1])*sc,10)}
-  for(const k of LV.courses)drawCourseIcon(x,mapX(k.start.p.x)*sc,mapY(k.start.p.z)*sc,k,!!best[lvl.id+'/'+k.id],9,MAP.hover===k);
+  for(const k of LV.courses)drawCourseIcon(x,mapX(k.start.p.x)*sc,mapY(k.start.p.z)*sc,k,!!best[courseKey(lvl,k)],9,MAP.hover===k);
+  if(LV.ferry)drawFerryIcon(x,mapX(LV.ferry.quay.x)*sc,mapY(LV.ferry.quay.z)*sc,10);
   drawCar(x,mapX(car.pos.x)*sc,mapY(car.pos.z)*sc,Math.atan2(car.fw.x,car.fw.z),9);
   // compass
   x.save();x.translate(sz-36,sz-36);x.fillStyle='rgba(233,220,185,.85)';x.beginPath();x.arc(0,0,24,0,6.283);x.fill();x.strokeStyle=MAPCOL.ink;x.lineWidth=1.5;x.stroke();x.fillStyle='#d9432f';x.beginPath();x.moveTo(0,-20);x.lineTo(5,0);x.lineTo(-5,0);x.closePath();x.fill();x.fillStyle=MAPCOL.ink;x.beginPath();x.moveTo(0,20);x.lineTo(5,0);x.lineTo(-5,0);x.closePath();x.fill();x.font='700 11px "Barlow Condensed",sans-serif';x.textAlign='center';x.fillText('N',0,-26);x.restore()}
-function mapHover(e){const r=MAP.big.getBoundingClientRect(),u=(e.clientX-r.left)/MAP.scale,v=(e.clientY-r.top)/MAP.scale;let h=null;for(const k of LV.courses){if(Math.hypot(mapX(k.start.p.x)-u,mapY(k.start.p.z)-v)<14/MAP.scale)h=k}if(h!==MAP.hover){MAP.hover=h;drawBigMap();MAP.big.style.cursor=h?'pointer':'default'}}
+// a little ferry: hull and wheelhouse
+function drawFerryIcon(x,u,v,s){x.save();x.translate(u,v);x.fillStyle='#3f5f78';x.strokeStyle='#14120E';x.lineWidth=1.2;x.beginPath();x.moveTo(-s,-s*.1);x.lineTo(s,-s*.1);x.lineTo(s*.7,s*.5);x.lineTo(-s*.7,s*.5);x.closePath();x.fill();x.stroke();x.fillStyle='#eef0ea';x.fillRect(-s*.35,-s*.6,s*.7,s*.5);x.strokeRect(-s*.35,-s*.6,s*.7,s*.5);x.fillStyle='#c8463a';x.fillRect(s*.1,-s*.95,s*.18,s*.35);x.restore()}
+// the archipelago: every island as a blob with its name, the ferry routes between them, and where you are
+function drawArchipelago(){const sz=bigLayout(),x=MAP.bigCtx,here=LEVELS[state.levelIdx].id;x.clearRect(0,0,sz,sz);
+  x.fillStyle='#6fa3c4';x.fillRect(0,0,sz,sz);x.strokeStyle='rgba(255,255,255,.12)';x.lineWidth=1;for(let i=1;i<8;i++){x.beginPath();x.moveTo(i*sz/8,0);x.lineTo(i*sz/8,sz);x.stroke();x.beginPath();x.moveTo(0,i*sz/8);x.lineTo(sz,i*sz/8);x.stroke()}
+  const P=id=>{const k=ISLANDS.find(i=>i.id===id);return k?[k.pos[0]*sz,k.pos[1]*sz]:null};
+  x.setLineDash([7,6]);x.strokeStyle='rgba(20,18,14,.55)';x.lineWidth=2;for(const[a,b]of ROUTES){const A=P(a),B=P(b);if(!A||!B)continue;x.beginPath();x.moveTo(A[0],A[1]);x.lineTo(B[0],B[1]);x.stroke()}x.setLineDash([]);
+  for(const isl of ISLANDS){const l=LEVELS.find(v=>v.id===isl.id);if(!l)continue;const[u,v]=P(isl.id),r=(l.world?sz*.085:sz*.055);const done=starKeys(l).filter(k=>best[k]).length,tot=starKeys(l).length;
+    x.save();x.translate(u,v);x.fillStyle='#e9dcb9';x.strokeStyle=isl.id===here?'#ff6a2a':'#5a3a1a';x.lineWidth=isl.id===here?4:2;x.beginPath();for(let i=0;i<=24;i++){const a=i/24*6.283,rr=r*(1+.14*Math.sin(a*3+u)+.08*Math.cos(a*5+v));x.lineTo(Math.cos(a)*rr,Math.sin(a)*rr)}x.closePath();x.fill();x.stroke();
+    x.fillStyle='#8aa65a';x.beginPath();x.arc(0,0,r*.55,0,6.283);x.fill();if(l.world||l.id==='vulkan'){x.fillStyle=l.id==='vulkan'?'#6b5a52':'#e8eef2';x.beginPath();x.moveTo(-r*.3,r*.2);x.lineTo(0,-r*.35);x.lineTo(r*.3,r*.2);x.closePath();x.fill()}
+    x.fillStyle='#2a241c';x.textAlign='center';x.font='700 '+Math.round(sz*.028)+'px "Barlow Condensed",sans-serif';x.fillText(l.name,0,r+sz*.03);x.font='600 '+Math.round(sz*.022)+'px "Barlow Condensed",sans-serif';x.fillStyle='#4a3a28';x.fillText(done+'/'+tot+(tot>1?' løyper':' løype'),0,r+sz*.055);
+    drawFerryIcon(x,r*.75,-r*.75,sz*.014);if(isl.id===here)drawCar(x,0,0,0,sz*.016);x.restore()}}
+function mapHover(e){if(MAP.tab==='arch')return;const r=MAP.big.getBoundingClientRect(),u=(e.clientX-r.left)/MAP.scale,v=(e.clientY-r.top)/MAP.scale;let h=null;for(const k of LV.courses){if(Math.hypot(mapX(k.start.p.x)-u,mapY(k.start.p.z)-v)<14/MAP.scale)h=k}if(h!==MAP.hover){MAP.hover=h;drawBigMap();MAP.big.style.cursor=h?'pointer':'default'}}
 function mapInfoText(k){const b=best[LEVELS[state.levelIdx].id+'/'+k.id];const d=Math.hypot(k.start.p.x-car.pos.x,k.start.p.z-car.pos.z)*UNIT_CM/100;
   return k.name+' · '+['','lett','middels','vanskelig'][k.diff]+' · '+k.gates.length+' porter · '+d.toFixed(1).replace('.',',')+' m unna. '+(b?'Beste: '+fmtTime(b.t)+', '+b.p+' straff, '+b.s+' stjerner.':'Ikke kjørt ennå.')}

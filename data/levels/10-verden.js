@@ -64,7 +64,7 @@ LEVELS.push(
   waterBand:(x,z)=>Math.hypot(x,z)>isl(x,z)-4||dSw(x,z)<SW_R+3||lineD(STREAM,x,z)<2.8||Math.hypot(x-TARN[0],z-TARN[1])<3.2,
   snow:true, precip:(x,z)=>Math.max(smt((12.5-rM(x,z))/5),GLACIER(x,z)), wind:true, ambience:'jungle',
   biome:(x,z)=>{const r=rM(x,z);return{snow:smt((15-r)/5),jungle:inJungle(x,z)?1:0,swamp:smt((SW_R+4-dSw(x,z))/6),beach:smt((Math.hypot(x,z)-(isl(x,z)-12))/5),desert:inDesert(x,z)?1:0}},
-  path:[[0,-10],[4,-7],[0,-3],[-4,-7],[0,-10]], challenges:CH, roads:ROADS, basePos:BASE, garageAt:[BASE[0],BASE[1]-.2],
+  path:[[0,-10],[4,-7],[0,-3],[-4,-7],[0,-10]], challenges:CH, roads:ROADS, basePos:BASE, garageAt:[BASE[0],BASE[1]-.2], village:{at:[32.9,19]},
   mapLabels:[[-30,-2,'Jungelen'],[-24,-30,'Sumpen'],[8,-45,'Stranden'],[36,-14,'Canyonen'],[-4,24,'Snøfjellet'],[0,-6,'Basen'],[33,14,'Oasen'],[-1,46,'Isbreen']],
   animals:{parrots:14,circling:3,monkeys:9,butterflies:40,crabs:10,crabsAt:[-4,-41],eagle:M,bear:[polM(19,150),polM(21,120)],gulls:{at:[12,-41],n:7}},
   base(x,z,n){const r=rM(x,z),ri=isl(x,z),R=Math.hypot(x,z),ds=lineD(STREAM,x,z),sw=dSw(x,z);

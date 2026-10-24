@@ -52,7 +52,7 @@ const dShort=(x,z)=>lineD(shortcut,x,z);
 const FOREST_BOX=(x,z)=>x>-12&&x<25&&z>-31&&z<-12.5;
 
 LEVELS.push(
-{ id:'vulkan', name:'Vulkanen', diff:3, seed:211, gates:18,
+{ id:'vulkan', name:'Vulkanen', diff:3, seed:211, gates:18, size:120, coast:42, village:{at:[-26.2,26.2]},
   desc:'Regnskog, gjørme, en foss du kjører bak, og opp en vulkan med lavaelver og hengebroer. Papegøyer, apekatter og en snarvei for de modige.',
   // lys ved vulkanen (brukes nær krateret) …
   sky:['#3b4a86','#f2b37a'], fog:0xd99f78, fogNear:22, fogFar:80, sun:0xffc690, sunI:1.0, hemi:[0xffdcb4,0x3a2418,.62], sunDir:[-20,15,-14], rockCol:'#3b3733',
@@ -117,7 +117,7 @@ LEVELS.push(
     for(let x=-23;x<-9;x+=.5+R()*.5)if(R()<.7)rock(x,-9.35+R()*.3,.12+R()*.16,.08+R()*.1,{ang:R()*6.3});   // småstein langs ytterkanten av hyllen
     for(let i=0;i<9;i++){const a=R()*6.28,d=2.2+R()*2.2;const x=FORD[0]+Math.cos(a)*d,z=FORD[1]+Math.sin(a)*d;if(c.dist(x,z)<1.4)continue;rock(x,z,.3+R()*.3,.3+R()*.3,{sharp:.5,nz:.2})}   // elvesteiner ved vadestedet
     // --- trær (plasseres før finish så røttene står på riktig høyde etterpå) ---
-    const trunkOK=(x,z,r,minPath)=>!(c.dist(x,z)<minPath||dShort(x,z)<2.2||c.nearGate(x,z,2.2)||c.nearStart(x,z,3)||rOf(x,z)<18.5||seaD(x,z)<13.5||lineD(RIVER,x,z)<3.2||onLedge(x,z)||c.pools.some(p=>Math.hypot(p.x-x,p.z-z)<p.r+1.2)||c.trees.some(t=>Math.hypot(t.x-x,t.z-z)<r+t.r+1.6)||Math.abs(H(x+.5,z)-H(x-.5,z))+Math.abs(H(x,z+.5)-H(x,z-.5))>.35);
+    const trunkOK=(x,z,r,minPath)=>!(c.dist(x,z)<minPath||!c.onLand(x,z)||dShort(x,z)<2.2||c.nearGate(x,z,2.2)||c.nearStart(x,z,3)||rOf(x,z)<18.5||seaD(x,z)<13.5||lineD(RIVER,x,z)<3.2||onLedge(x,z)||c.pools.some(p=>Math.hypot(p.x-x,p.z-z)<p.r+1.2)||c.trees.some(t=>Math.hypot(t.x-x,t.z-z)<r+t.r+1.6)||Math.abs(H(x+.5,z)-H(x-.5,z))+Math.abs(H(x,z+.5)-H(x,z-.5))>.35);
     for(let i=0;i<4000&&c.trees.length<64;i++){const x=-10+R()*34,z=-31+R()*18;if(!FOREST_BOX(x,z)||!trunkOK(x,z,.3,1.75))continue;c.tree(x,z,{h:4.5+R()*3.5,r:.2+R()*.18})}       // den lille skogen: tett
     for(let i=0;i<4000&&c.trees.length<64+70;i++){const x=(R()-.5)*66,z=(R()-.5)*66;if(FOREST_BOX(x,z)||!trunkOK(x,z,.3,2.6))continue;c.tree(x,z,{h:5+R()*4.5,r:.22+R()*.2})}   // resten av regnskogen
     c.finish();
@@ -133,7 +133,7 @@ LEVELS.push(
     // --- palmer ---
     const palms=[];
     for(let i=0;i<1400&&palms.length<55;i++){const x=(R()-.5)*62,z=(R()-.5)*62,rr=rOf(x,z);
-      if(rr<17.5||c.dist(x,z)<2.5||dShort(x,z)<2.5||c.nearGate(x,z,2.5)||c.nearStart(x,z,2.6)||c.lavaNear(x,z,3)||!c.free(x,z,1.2)||c.pools.some(p=>Math.hypot(p.x-x,p.z-z)<p.r+1.6)||lineD(RIVER,x,z)<3||seaD(x,z)<12.5)continue;
+      if(rr<17.5||!c.onLand(x,z)||c.dist(x,z)<2.5||dShort(x,z)<2.5||c.nearGate(x,z,2.5)||c.nearStart(x,z,2.6)||c.lavaNear(x,z,3)||!c.free(x,z,1.2)||c.pools.some(p=>Math.hypot(p.x-x,p.z-z)<p.r+1.6)||lineD(RIVER,x,z)<3||seaD(x,z)<12.5)continue;
       if(Math.abs(H(x+.5,z)-H(x-.5,z))+Math.abs(H(x,z+.5)-H(x,z-.5))>.3||H(x,z)<.6)continue;
       if(palms.some(q=>Math.hypot(q.x-x,q.z-z)<2.4)||c.trees.some(t=>Math.hypot(t.x-x,t.z-z)<1.6))continue;palms.push({x,z,h:2.8+R()*1.8,lean:(R()-.5)*.35})}
     const trunks=[],fronds=[];

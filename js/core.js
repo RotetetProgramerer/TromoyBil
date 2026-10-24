@@ -162,11 +162,17 @@ function placeCrates(k,c,rng){const out=[];for(let i=0;i<6;i++){const t=.09+.8*i
     for(const o of[0,.012,-.012,.024,-.024,.036,-.036]){if(placed)break;const q=k.P(Math.min(1,Math.max(0,t+o))),y=H(q.x,q.z);if(WL(q.x,q.z)>y-.05||lavaAt(q.x,q.z,1.1)>-1e8||c.nearGate(q.x,q.z,1.1))continue;out.push({x:q.x,z:q.z,y:y+.16,t:t+o});placed=true}
     if(!placed)out.push({x:p.x,z:p.z,y:H(p.x,p.z)+.16,t})}return out}
 
+const smt01=x=>{x=x<0?0:x>1?1:x;return x*x*(3-2*x)};
 function genLevel(def){
   setWorld(def.size||70);
   const rng=mulberry32(def.seed),n=makeNoise(def.seed*7+3);
   G.noise=n;G.def=def;G.outside=def.outside??null;G.decks=[];G.lavas=[];TCF.fill(0);
-  for(let j=0;j<N;j++)for(let i=0;i<N;i++){const k=j*N+i,x=-HALF+i*CELL,z=-HALF+j*CELL;TH[k]=def.base(x,z,n);TS[k]=def.surf(x,z,n)}
+  // coast: the level becomes an island. Beyond def.coast the ground sinks under the sea; the last ring before it is beach.
+  const coast=def.coast||0;if(coast&&!def._coastBand){const ob=def.waterBand,had=def.water!=null;def._coastBand=true;if(!had)def.water=.3;def.waterBand=(x,z)=>Math.hypot(x,z)>coast-5||(ob?ob(x,z):had)}   // a level without water of its own only gets the sea ring
+  const wsea=def.water;
+  for(let j=0;j<N;j++)for(let i=0;i<N;i++){const k=j*N+i,x=-HALF+i*CELL,z=-HALF+j*CELL;let h=def.base(x,z,n),sf=def.surf(x,z,n);
+    if(coast){const R=Math.hypot(x,z),kk=smt01((R-coast+3)/6);if(kk>0)h+=((wsea-1.8)-h)*kk;if(R>coast-7&&h>wsea-.05)sf=S.SAND}
+    TH[k]=h;TS[k]=sf}
   TB.set(TH);
   const curve=new THREE.CatmullRomCurve3(def.path.map(p=>new V3(p[0],0,p[1])),false,'centripetal');
   const pts=curve.getSpacedPoints(500);
@@ -185,7 +191,8 @@ function genLevel(def){
     // a flat pad (the base, a camp): the terrain is pulled to height h inside r, blended outside
     flat(x,z,r,h,blend=3){cellsIn(x-r-blend,z-r-blend,x+r+blend,z+r+blend,(k,px,pz)=>{const d=Math.hypot(px-x,pz-z);if(d>r+blend)return;const f=d<=r?1:1-(d-r)/blend,w=f*f*(3-2*f);TH[k]+=(h-TH[k])*w})},
     // props: boxes and cylinders drawn as instances at c.props() (buildings, barriers, posts). y is the bottom.
-    box(x,y,z,w,h,d,col,ry=0){c.boxes.push({x,y:y+h/2,z,sx:w,sy:h,sz:d,ry,c:col})},
+    box(x,y,z,w,h,d,col,ry=0,o={}){c.boxes.push({x,y:y+h/2,z,sx:w,sy:h,sz:d,ry,rx:o.rx||0,rz:o.rz||0,c:col})},
+    onLand:(x,z)=>H(x,z)>(def.water??-1e9)+.25&&(!def.coast||Math.hypot(x,z)<def.coast-6),
     cyl(x,y,z,r,h,col,o={}){c.cyls.push({x,y:y+h/2,z,sx:r,sy:h,sz:r,rx:o.rx||0,rz:o.rz||0,c:col});return c.cyls.length-1},
     props(){c.propBoxes=instanced(DG.root,DM.white,c.boxes,c.decor);c.propCyls=instanced(DG.trunk,DM.white,c.cyls,c.decor);c.cylList=c.cyls;c.boxes=[];c.cyls=[]},
     // something the car can knock over (a cactus): a collider that disappears on impact, and the cylinder instances that tip over
@@ -245,21 +252,55 @@ function genLevel(def){
       s.forEach(p=>p.y=p.ny);carveLava(s);G.lavas.push({s});c.fx.push({type:'lava',s});return s},
     lavaPool(x,z,r,level){const s=[{x,z,y:level,hw:r}];carveLava(s);G.lavas.push({s});c.fx.push({type:'lavadisc',x,z,r,y:level})},
     // a suspension bridge from A to B (hw = half width). Both ends must lie on solid ground.
-    bridge(ax,az,bx,bz,hw,o={}){const len=Math.hypot(bx-ax,bz-az),ux=(bx-ax)/len,uz=(bz-az)/len,y0=H(ax,az),y1=H(bx,bz),px=-uz*hw,pz=ux*hw,xs=[ax+px,ax-px,bx+px,bx-px],zs=[az+pz,az-pz,bz+pz,bz-pz];
+    bridge(ax,az,bx,bz,hw,o={}){const len=Math.hypot(bx-ax,bz-az),ux=(bx-ax)/len,uz=(bz-az)/len,y0=o.y0??H(ax,az),y1=o.y1??H(bx,bz),px=-uz*hw,pz=ux*hw,xs=[ax+px,ax-px,bx+px,bx-px],zs=[az+pz,az-pz,bz+pz,bz-pz];
       const dk={ax,az,bx,bz,ux,uz,len,hw,y0,y1,sag:o.sag??.22,x0:Math.min(...xs)-.02,x1:Math.max(...xs)+.02,z0:Math.min(...zs)-.02,z1:Math.max(...zs)+.02};
-      G.decks.push(dk);c.fx.push(Object.assign({type:'deck'},dk));c.block((ax+bx)/2,(az+bz)/2,len/2+1);return dk},
+      if(o.pier)dk.pier=true;G.decks.push(dk);c.fx.push(Object.assign({type:'deck'},dk));c.block((ax+bx)/2,(az+bz)/2,len/2+1);return dk},
+    // a village with a ferry quay: houses on a flat pad by the shore, a plank pier out over the water and the ferry's deck at its end.
+    // o.at=[x,z] on the beach; o.dir (degrees) points out to sea, default straight away from the island's centre.
+    village(o){const vx=o.at[0],vz=o.at[1],a=(o.dir??Math.atan2(vz,vx)/Math.PI*180)*Math.PI/180,dx=Math.cos(a),dz=Math.sin(a),px=-dz,pz=dx,w=def.water??0;
+      const padH=w+.9;c.flat(vx,vz,6.2,padH,7);c.block(vx,vz,7.5);for(let k=-6;k<=6;k+=2)for(let m=-6;m<=6;m+=2)if(Math.hypot(k,m)<6.5)c.xpts.push({x:vx+k,z:vz+m});
+      paint(vx,vz,5.4,S.GRAVEL);
+      const at=(f,s)=>[vx+dx*f+px*s,vz+dz*f+pz*s];
+      // houses around the square, facing it
+      const cols=['#c8463a','#e5a92b','#4f7bb5','#e9dcb9','#5e8a4a','#b06a3a'],roofs=['#4a3a32','#2f2a28','#5a3a2a'];
+      const house=(f,s,ry,i,big)=>{const [hx,hz]=at(f,s),W=big?2.4:1.7,D=big?1.9:1.4,Hh=big?1.2:1.0,col=cols[i%cols.length],rc=roofs[i%roofs.length];
+        c.box(hx,padH,hz,W,Hh,D,col,ry);c.box(hx,padH,hz,W+.1,.08,D+.1,'#3a3a3a',ry);
+        for(const sd of[-1,1]){const ox=sd*W*.25;c.box(hx+Math.cos(ry)*ox,padH+Hh+.2,hz-Math.sin(ry)*ox,W*.64,.07,D+.3,rc,ry,{rz:-sd*.62})}   // two roof slabs, ridge along the house
+        c.box(hx+Math.cos(ry)*W*.3,padH+Hh+.2,hz-Math.sin(ry)*W*.3,.22,.55,.22,'#6b5a52',ry);   // chimney
+        c.box(hx+Math.sin(ry)*D/2,padH,hz+Math.cos(ry)*D/2,.42,.72,.04,'#3a2a22',ry);           // door
+        for(const sx of[-.45,.45])c.box(hx+Math.sin(ry)*D/2+Math.cos(ry)*sx*W,padH+.45,hz+Math.cos(ry)*D/2-Math.sin(ry)*sx*W,.32,.3,.03,'#1a262d',ry);   // windows
+        c.colliders.push({x:hx,z:hz,r:Math.max(W,D)*.62})};
+      const yaw=Math.atan2(dx,dz);           // facing the sea
+      house(-2.4,-3.9,yaw+.4,0);house(-3.2,-1.3,yaw,1);house(-3.3,1.4,yaw,2);house(-2.4,3.9,yaw-.4,3);house(1.3,3.9,yaw-1.5,4,true);   // the big one by the pier is the ferry office
+      // lamps, barrels, nets and a sign
+      for(const[f,s]of[[1,-3.2],[4.6,-2],[-.5,0]]){const[lx,lz]=at(f,s);c.cyl(lx,padH,lz,.05,1.5,'#3a3a3a');c.box(lx,padH+1.45,lz,.22,.16,.22,'#fff0c0');c.colliders.push({x:lx,z:lz,r:.1})}
+      for(const[f,s,col]of[[.6,-4.6,'#5a7a8a'],[.9,-4.3,'#c8463a'],[-4.6,-.2,'#8a6a3a']]){const[bx2,bz2]=at(f,s);c.cyl(bx2,padH,bz2,.17,.42,col);c.colliders.push({x:bx2,z:bz2,r:.2})}
+      {const[sx,sz]=at(3.6,2.3);c.fx.push({type:'sign',x:sx,z:sz,ang:Math.atan2(-dx,-dz),text:'FERGE',sub:'kjør om bord'})}
+      // the pier: a flat plank deck from the pad out over the water, on piles
+      const A=at(5.6,0),B=at(11.4,0);c.bridge(A[0],A[1],B[0],B[1],1.4,{sag:0,y0:padH+.02,y1:padH+.02,pier:true});
+      for(let f=6.4;f<11.4;f+=1.6)for(const sd of[-1.25,1.25]){const[qx,qz]=at(f,sd);const bottom=Math.min(Hterr(qx,qz),w-.2);c.cyl(qx,bottom,qz,.09,padH-bottom+.1,'#4a3a2a')}
+      // two rowing boats moored beside the pier
+      for(const[f,s,col]of[[8.2,2.6,'#c8463a'],[9.9,-2.7,'#4f7bb5']]){const[qx,qz]=at(f,s);c.box(qx,w-.08,qz,1.5,.34,.6,col,yaw+.2);c.box(qx,w+.22,qz,1.1,.04,.4,'#8a6a3a',yaw+.2)}
+      // the ferry's car deck: drivable, flush with the pier. The hull itself is drawn by the game so it can sail.
+      const F0=at(12.4,0),F1=at(19.2,0);const fd=c.bridge(F0[0],F0[1],F1[0],F1[1],1.55,{sag:0,y0:padH+.04,y1:padH+.04,pier:true});
+      const fc=at(15.8,0);c.ferry={x:fc[0],z:fc[1],dir:a,dx,dz,y:padH+.04,len:6.8,hw:1.55,quay:{x:A[0],z:A[1]},pad:{x:vx,z:vz,h:padH},deck:fd};
+      c.village_=o;return c.ferry},
     finish(){for(let j=0;j<N;j++)for(let i=0;i<N;i++){const k=j*N+i;if(TCF[k])continue;const cc=surfColor(TS[k],-HALF+i*CELL,-HALF+j*CELL,n,def);TC[k*3]=cc[0];TC[k*3+1]=cc[1];TC[k*3+2]=cc[2]}c._done=true},
     pebbles(cnt,cols,smin,smax){const L=[];for(let i=0;i<cnt;i++){const x=(rng()-.5)*(WORLD-4),z=(rng()-.5)*(WORLD-4);if(def.water!=null&&H(x,z)<def.water+.02)continue;const s=smin+rng()*(smax-smin);
       L.push({x,y:H(x,z)+s*.2,z,sx:s,sy:s*.6,sz:s*(.8+rng()*.5),rx:rng()*3,ry:rng()*3,c:cols[i%cols.length]})}instanced(DG.peb,DM.white,L,c.decor,false)},
-    tufts(cnt,cols){const L=[];for(let i=0;i<cnt;i++){const x=(rng()-.5)*(WORLD-4),z=(rng()-.5)*(WORLD-4);if(c.dist(x,z)<1.8)continue;for(let k=0;k<5;k++){const s=.05+rng()*.05;
+    tufts(cnt,cols){const L=[];for(let i=0;i<cnt;i++){const x=(rng()-.5)*(WORLD-4),z=(rng()-.5)*(WORLD-4);if(c.dist(x,z)<1.8||(def.water!=null&&H(x,z)<def.water+.05))continue;for(let k=0;k<5;k++){const s=.05+rng()*.05;
       L.push({x:x+(rng()-.5)*.5,y:H(x,z)-.02,z:z+(rng()-.5)*.5,sx:s,sy:.35+rng()*.45,sz:s,rx:(rng()-.5)*.6,rz:(rng()-.5)*.6,c:cols[k%cols.length]})}}instanced(DG.tuft,DM.tuft,L,c.decor,false)}
   };
   const gl=def.gateT?def.gateT(c):null,NG=gl?gl.length:def.gates;
   for(let k=1;k<=NG;k++){const t=gl?gl[k-1]:.03+.95*k/NG,p=c.P(t),tn=c.T(t),s=c.side(t);
     c.gates.push({t,c:p,tan:tn,side:s,a:{x:p.x+s.x*1.25,z:p.z+s.z*1.25},b:{x:p.x-s.x*1.25,z:p.z-s.z*1.25},finish:k===NG})}
   G.waterAt=(x,z)=>{let w=-1e9;if(def.water!=null&&(!def.waterBand||def.waterBand(x,z)))w=def.water;for(const p of c.pools){if((x-p.x)*(x-p.x)+(z-p.z)*(z-p.z)<p.r*p.r&&p.level>w)w=p.level}return w};
+  if(def.village)c.village(def.village);
   def.build(c);
   if(!c._done)c.finish();
+  if(c.boxes.length||c.cyls.length)c.props();
+  // an island that is a race: the race line is also a course you can start from its portal while roaming
+  if(def.village&&!def.world){const k=c.course({id:def.id,name:def.name,desc:def.desc,diff:def.diff,path:def.path,gates:def.gates,gateT:def.gateT,bench:false});k.main=true}
   c.start=def.start?{p:new V3(def.start[0],0,def.start[1]),tan:new V3(Math.sin(def.start[2]||0),0,Math.cos(def.start[2]||0))}:{p:c.P(0),tan:c.T(.004)};
   c.crates=def.world?[]:placeCrates(c,c,rng);
   for(const e of c.extra)c.crates.push({x:e.x,z:e.z,y:H(e.x,e.z)+.16,t:c.tOf(e.x,e.z)});

@@ -73,3 +73,8 @@ function ambGull(x,z){initAmbience();const v=ambVoice(x,z,26);if(!v)return;const
   for(let i=0;i<n;i++){const t0=t+i*.3;o.frequency.setValueAtTime(1500,t0);o.frequency.linearRampToValueAtTime(1100,t0+.08);o.frequency.linearRampToValueAtTime(800,t0+.24);v.g.gain.setValueAtTime(0,t0);v.g.gain.linearRampToValueAtTime(.06*v.vol,t0+.03);v.g.gain.linearRampToValueAtTime(0,t0+.25)}o.start(t);o.stop(t+n*.3+.05)}
 function ambEagle(x,z){initAmbience();const v=ambVoice(x,z,40);if(!v)return;const ac=AMB.ac,o=ac.createOscillator();o.type='sine';o.connect(v.g);const t=v.t;
   o.frequency.setValueAtTime(2600,t);o.frequency.exponentialRampToValueAtTime(1900,t+.5);o.frequency.exponentialRampToValueAtTime(2300,t+.8);v.g.gain.setValueAtTime(0,t);v.g.gain.linearRampToValueAtTime(.05*v.vol,t+.08);v.g.gain.linearRampToValueAtTime(0,t+.85);o.start(t);o.stop(t+.9)}
+
+// the ferry's horn: two deep tones
+function ambHorn(x,z){initAmbience();if(!AMB||!state.sound)return;const ac=AMB.ac,g=ac.createGain(),t=ac.currentTime,vol=.18*(state.volAmb/70);g.gain.value=0;g.connect(ac.destination);
+  for(const[f,t0,d]of[[110,0,.9],[165,0,.9],[110,1.2,1.4],[165,1.2,1.4]]){const o=ac.createOscillator();o.type='sawtooth';const fl=ac.createBiquadFilter();fl.type='lowpass';fl.frequency.value=420;o.frequency.value=f;o.connect(fl);fl.connect(g);o.start(t+t0);o.stop(t+t0+d+.1)}
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+.08);g.gain.setValueAtTime(vol,t+.8);g.gain.linearRampToValueAtTime(0,t+.95);g.gain.setValueAtTime(0,t+1.2);g.gain.linearRampToValueAtTime(vol,t+1.3);g.gain.setValueAtTime(vol,t+2.4);g.gain.linearRampToValueAtTime(0,t+2.65)}

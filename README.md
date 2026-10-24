@@ -148,6 +148,21 @@ node tools/test-levels.js minbane
 
 Testen kjører banene som står i `index.html`, i samme rekkefølge, og varsler om banefiler som mangler der. I en åpen verden kjøres hver løype for seg. Autopiloten kjører banen i begge gir. Du vil se `prog 0.99` (kom i mål), `drown 0` (ingen druknet motor på selve løypa), `lava 0` (ingen i lavaen) og helst under 5 velt. Har banen `shortcut`, kjører den også snarveien (`SNARVEI`) og viser hvor lang tid hovedruten tar mellom de samme portene. Står den fast («fast» høyt) eller drukner, er noe i veien plassert feil.
 
+## Skjærgården: øyer, landsbyer og fergen
+
+Alle banene er øyer i samme skjærgård. «Kjør!» i menyen starter fri kjøring på Sandglow-øya (eller der du sist var); «Hurtigløp» kjører ett bestemt løp som før. På hver øy ligger en liten landsby med fergekai. Kjør om bord på fergen, velg øy, og fergen seiler (ca. 8 sekunder, hopp over med Enter). Overfarten koster 5 muttere. På øyene uten base finnes garasjen i pausemenyen; «Tau til kaia» på kartet setter deg tilbake i landsbyen.
+
+Slik blir en bane til en øy, uten at løypa endres:
+
+| Felt | Betydning |
+|---|---|
+| `size:120, coast:42` | Verden blir 120 bred, og alt utenfor r = 42 synker under havet. Den siste ringen innenfor er strand. Løypene ligger innenfor ±28 og er uendret. Baner uten vann får hav på nivå 0,3. |
+| `village:{at:[x,z], dir}` | Landsbyen: hus rundt et torg, lyktestolper, tønner, båter, FERGE-skilt, en plankebrygge på pæler ut over vannet, og fergedekket ytterst. `dir` (grader) peker mot havet, standard rett ut fra øyas midtpunkt. Bygges automatisk før `build(c)`. |
+
+I fri kjøring blir banens egen løype en startstrek (`c.course` lages automatisk for øyer som er løp), så du kan starte løpet ute i terrenget som på Sandglow-øya. Beste tid deles mellom Hurtigløp og fri kjøring.
+
+Fergerutene og plasseringen på skjærgårdskartet ligger i `data/archipelago.js` (`ISLANDS`, `ROUTES`). Kartet (K) har to faner: øya du er på, og skjærgården. Hver øy er fortsatt sin egen fil og kan endres og testes for seg: `node tools/test-levels.js sand`.
+
 ## Åpen verden (Sandglow-øya)
 
 `data/levels/10-verden.js` er en **verden**, ikke et løp: fri kjøring med basen i midten og løyper spredt rundt. En verden er en vanlig banefil med noen ekstra felt:
