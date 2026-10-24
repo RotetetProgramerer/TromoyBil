@@ -100,6 +100,7 @@ function updateBreakables(dt){if(!LV.breakables||!LV.propCyls)return;
 let roamSaveT=0;
 function startRoam(){state.roam=true;const sv=store.get('roam',null);let i=LEVELS.findIndex(l=>l.id===(sv&&sv.id));if(i<0||!isIsland(LEVELS[i]))i=LEVELS.findIndex(l=>l.world);if(i<0)i=0;
   if(i!==state.levelIdx||!state.world)loadLevel(i);startFree();
+  if(!store.get('helpSeen',false)){state.mode='ask';$('help').hidden=false;$('helpOk').onclick=()=>{$('help').hidden=true;state.mode='play';store.set('helpSeen',true)};$('helpOk').focus()}
   if(sv&&sv.id===LEVELS[i].id&&isFinite(sv.x)){placeCar(car,sv.x,sv.z,sv.h||0);camSnap=true;state.checkpoint={x:sv.x,z:sv.z,h:sv.h||0}}}
 function saveRoam(dt){if(!state.roam||!state.free||state.course)return;roamSaveT-=dt;if(roamSaveT>0)return;roamSaveT=3;if(car.up.y>.9&&car.depth<0)store.set('roam',{id:LEVELS[state.levelIdx].id,x:+car.pos.x.toFixed(2),z:+car.pos.z.toFixed(2),h:+Math.atan2(car.fw.x,car.fw.z).toFixed(3)})}
 // the ferry: hull, bulwarks, wheelhouse and funnel around the drivable deck the level made

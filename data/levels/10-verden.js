@@ -66,7 +66,8 @@ LEVELS.push(
   biome:(x,z)=>{const r=rM(x,z);return{snow:smt((15-r)/5),jungle:inJungle(x,z)?1:0,swamp:smt((SW_R+4-dSw(x,z))/6),beach:smt((Math.hypot(x,z)-(isl(x,z)-12))/5),desert:inDesert(x,z)?1:0}},
   path:[[0,-10],[4,-7],[0,-3],[-4,-7],[0,-10]], challenges:CH, roads:ROADS, basePos:BASE, garageAt:[BASE[0],BASE[1]-.2], village:{at:[29.1,24.4],out:165},
   mapLabels:[[-30,-2,'Jungelen'],[-24,-30,'Sumpen'],[8,-45,'Stranden'],[36,-14,'Canyonen'],[-4,24,'Snøfjellet'],[0,-6,'Basen'],[33,12,'Oasen'],[31,30,'Landsbyen'],[-1,46,'Isbreen']],
-  animals:{parrots:14,circling:3,monkeys:9,butterflies:40,crabs:10,crabsAt:[-4,-41],eagle:M,bear:[polM(19,150),polM(21,120)],gulls:{at:[12,-41],n:7}},
+  animals:{parrots:14,circling:3,monkeys:9,butterflies:40,crabs:10,crabsAt:[-4,-41],eagle:M,bear:[polM(19,150),polM(21,120)],gulls:{at:[12,-41],n:7},
+    deer:[{at:[-18,10],r:7,n:3},{at:[14,20],r:6,n:2}],rabbits:[{at:[-10,-14],r:6,n:4},{at:[10,-30],r:5,n:3}],fish:[{at:[33,11],r:2.5,n:2},{at:[26,34],r:6,n:3},{at:[-8,-44],r:6,n:2}],lizards:[{at:[34,-12],r:8,n:6}]},
   base(x,z,n){const r=rM(x,z),ri=isl(x,z),R=Math.hypot(x,z),ds=lineD(STREAM,x,z),sw=dSw(x,z);
     let h=1.0+.5*fbm(n,x*.035,z*.035,3)+.08*fbm(n,x*.3,z*.3,2);
     h-=2.4*smt((R-ri+2)/4);                                                   // havet
@@ -196,6 +197,9 @@ LEVELS.push(
     c.props();
     c.pebbles(1400,['#6f6a63','#8a847a','#4f4a44'],.04,.11);
     c.tufts(160,['#4d7a2f','#6b9a3c']);
+    c.bushes(90,['#3e7a34','#4f8f3c','#2f6a2c','#6a9a40'],(x,z)=>{const r=rM(x,z);return r>16&&!inDesert(x,z)&&dSw(x,z)>SW_R+2&&Math.hypot(x,z)<isl(x,z)-9&&surfAt(x,z)===S.GRASS});
+    c.bushes(30,['#8a8a4a','#9a9a5a','#6a7a3a'],(x,z)=>inDesert(x,z)&&Math.hypot(x,z)<isl(x,z)-9);
+    c.mushrooms(60,(x,z)=>inJungle(x,z));c.shells(220);
   }}
 );
 })();

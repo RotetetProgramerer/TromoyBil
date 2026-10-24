@@ -296,6 +296,18 @@ function genLevel(def){
     finish(){for(let j=0;j<N;j++)for(let i=0;i<N;i++){const k=j*N+i;if(TCF[k])continue;const cc=surfColor(TS[k],-HALF+i*CELL,-HALF+j*CELL,n,def);TC[k*3]=cc[0];TC[k*3+1]=cc[1];TC[k*3+2]=cc[2]}c._done=true},
     pebbles(cnt,cols,smin,smax){const L=[];for(let i=0;i<cnt;i++){const x=(rng()-.5)*(WORLD-4),z=(rng()-.5)*(WORLD-4);if(def.water!=null&&H(x,z)<def.water+.02)continue;const s=smin+rng()*(smax-smin);
       L.push({x,y:H(x,z)+s*.2,z,sx:s,sy:s*.6,sz:s*(.8+rng()*.5),rx:rng()*3,ry:rng()*3,c:cols[i%cols.length]})}instanced(DG.peb,DM.white,L,c.decor,false)},
+    // bushes: low rounded clumps of two or three canopies, placed where ok(x,z) says yes
+    bushes(cnt,cols,ok){const L=[];for(let i=0;i<cnt*30&&L.length<cnt*3;i++){const x=(rng()-.5)*(WORLD-6),z=(rng()-.5)*(WORLD-6);if(c.dist(x,z)<2.2||(def.water!=null&&H(x,z)<def.water+.1)||(ok&&!ok(x,z)))continue;const s=.35+rng()*.35,n=2+(rng()<.5?1:0);
+        for(let k=0;k<n;k++){const a=rng()*6.28,d=k?s*.6:0;L.push({x:x+Math.cos(a)*d,y:H(x,z)+s*.45,z:z+Math.sin(a)*d,sx:s*(.9+rng()*.3),sy:s*.75,sz:s*(.9+rng()*.3),c:cols[(i+k)%cols.length]})}c.colliders.push({x,z,r:s*.7})}
+      instanced(DG.canopy,DM.leaf,L,c.decor)},
+    // mushrooms: a stalk and a cap, in the shade of trees
+    mushrooms(cnt,ok){const st=[],cp=[];for(let i=0;i<cnt*40&&st.length<cnt;i++){const x=(rng()-.5)*(WORLD-6),z=(rng()-.5)*(WORLD-6);if(c.dist(x,z)<1.5||(def.water!=null&&H(x,z)<def.water+.1)||(ok&&!ok(x,z)))continue;const h=.08+rng()*.1,y=H(x,z);
+        st.push({x,y:y+h/2,z,sx:.025,sy:h,sz:.025,c:'#e9dcb9'});cp.push({x,y:y+h,z,sx:.07+rng()*.05,sy:.04,sz:.07+rng()*.05,c:['#c43b2f','#d9a93a','#8a6a3a','#e9dcb9'][i%4]})}
+      instanced(DG.trunk,DM.white,st,c.decor,false);instanced(DG.canopy,DM.white,cp,c.decor,false)},
+    // shells and seaweed along the beach
+    shells(cnt){const L=[],W2=[];for(let i=0;i<cnt*30&&L.length<cnt;i++){const x=(rng()-.5)*(WORLD-4),z=(rng()-.5)*(WORLD-4);if(surfAt(x,z)!==S.SAND||(def.water!=null&&(H(x,z)<def.water+.02||H(x,z)>def.water+.9)))continue;const y=H(x,z);
+        if(rng()<.6)L.push({x,y:y+.015,z,sx:.05+rng()*.04,sy:.025,sz:.045+rng()*.03,ry:rng()*6.28,c:['#f2e8d0','#e9c9a8','#d9a0a0','#f7f3e8'][i%4]});else W2.push({x,y:y+.01,z,sx:.3+rng()*.4,sy:.02,sz:.06,ry:rng()*6.28,c:'#3f5a2a'})}
+      instanced(DG.peb,DM.white,L,c.decor,false);instanced(DG.root,DM.white,W2,c.decor,false)},
     tufts(cnt,cols){const L=[];for(let i=0;i<cnt;i++){const x=(rng()-.5)*(WORLD-4),z=(rng()-.5)*(WORLD-4);if(c.dist(x,z)<1.8||(def.water!=null&&H(x,z)<def.water+.05))continue;for(let k=0;k<5;k++){const s=.05+rng()*.05;
       L.push({x:x+(rng()-.5)*.5,y:H(x,z)-.02,z:z+(rng()-.5)*.5,sx:s,sy:.35+rng()*.45,sz:s,rx:(rng()-.5)*.6,rz:(rng()-.5)*.6,c:cols[k%cols.length]})}}instanced(DG.tuft,DM.tuft,L,c.decor,false)}
   };

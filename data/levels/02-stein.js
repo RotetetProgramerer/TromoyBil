@@ -1,6 +1,6 @@
 // Bane: se README for hva feltene betyr. Rekkefølgen i menyen følger rekkefølgen i index.html.
 LEVELS.push(
-{ id:'stein', name:'Steinhagen', diff:3, seed:27, gates:10, size:120, coast:42, village:{at:[26.2,-26.2]},
+{ id:'stein', name:'Steinhagen', diff:3, seed:27, gates:10, size:120, coast:42, village:{at:[26.2,-26.2]}, animals:{lizards:[{at:[0,0],r:14,n:6}],gulls:{at:[0,37],n:5}},
   desc:'Tett med stein, en steintrapp og en trang passasje. Her trengs presisjon.',
   sky:['#6f9ec6','#e6e2d6'], fog:0xd6d6cf, fogNear:24, fogFar:82, sun:0xfff0d8, sunI:1.05, hemi:[0xdfe9f2,0x6c6458,.6], sunDir:[20,26,10], rockCol:'#958f84', waterCol:'#5a7a80',
   path:[[-26,-26],[-14,-27],[-4,-20],[-10,-10],[-20,-4],[-22,8],[-12,14],[0,10],[8,0],[18,-6],[26,2],[22,14],[12,22],[24,27]],
@@ -22,6 +22,6 @@ LEVELS.push(
     for(const t of[.36,.64,.9]){const p=c.P(t),tn=c.T(t),s=c.side(t);for(let i=0;i<8;i++){const a=(R()-.5)*4,b=(R()-.5)*3;rock(p.x+tn.x*a+s.x*b,p.z+tn.z*a+s.z*b,.45+R()*.5,.28+R()*.25,{ang:R()*6.3,ax:1+R()*.6})}}
     {const p=c.P(.17),s=c.side(.17);c.secret(p.x+s.x*4.5,p.z+s.z*4.5,'Ved steintrappa')}{const p=c.P(.55);c.secret(p.x,p.z+5,'Over den trange passasjen')}c.secret(0,36,'Nordspissen');c.secret(19,-33,'Bak kaia');c.secret(-2,2,'Midt på øya');
     c.finish();
-    c.pebbles(1500,['#6f685d','#8f887c','#a49d90','#5d574e'],.04,.14);
+    c.pebbles(1500,['#6f685d','#8f887c','#a49d90','#5d574e'],.04,.14);c.bushes(20,['#6a7a3a','#8a8a4a'],(x,z)=>c.onLand(x,z));c.shells(80);
   }}
 );

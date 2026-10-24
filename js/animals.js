@@ -17,7 +17,7 @@ const _amat={};
 function amat(h,o={}){const k=h+JSON.stringify(o);if(_amat[k])return _amat[k];return _amat[k]=new THREE.MeshStandardMaterial(Object.assign({color:new THREE.Color(h).convertSRGBToLinear(),roughness:.8,flatShading:true},o))}
 function apart(parent,geo,mat,x,y,z,sx,sy,sz,rx,ry,rz){const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.scale.set(sx,sy??sx,sz??sx);if(rx||ry||rz)m.rotation.set(rx||0,ry||0,rz||0);m.castShadow=true;parent.add(m);return m}
 const _ap=new V3(),_aq=new THREE.Quaternion(),_ae=new THREE.Euler(),_am=new THREE.Matrix4(),_as=new V3();
-const ANIMALS={parrots:[],monkeys:[],butterflies:null,crabs:[],hootT:6,eagle:null,bear:null,gulls:[]};
+const ANIMALS={parrots:[],monkeys:[],butterflies:null,crabs:[],hootT:6,eagle:null,bear:null,gulls:[],deer:[],rabbits:[],fish:[],lizards:[]};
 
 /* ---------- parrots ---------- */
 const PARROT_COLS=[['#e23a2e','#2d63d8','#f2c23a'],['#f2c23a','#2a5ad0','#2a5ad0'],['#3fae3a','#2f8f2e','#e2c33a'],['#e8542a','#d8b22a','#2f8f2e']];
@@ -127,8 +127,48 @@ function updateGulls(dt,tm){for(const b of ANIMALS.gulls){const g=b.g,d=Math.hyp
       g.rotation.y=Math.atan2(-Math.sin(b.a)*b.w,Math.cos(b.a)*b.w)+Math.PI/2;g.rotation.z=-.25;
       const glide=Math.sin(tm*.6+b.ph)>.3,fl=glide?Math.sin(tm*2)*.08:Math.sin(tm*18+b.ph)*.7;g.userData.wings[0].rotation.z=-fl;g.userData.wings[1].rotation.z=fl}}}
 
+/* ---------- grazers: deer and rabbits. They nibble, wander a little, and bolt when the car comes close ---------- */
+function makeDeer(){const g=new THREE.Group(),fur=amat('#9a6a3a'),lt=amat('#d9b98a');
+  apart(g,ANIMAL_GEO.sph,fur,0,.5,0,.16,.17,.32);apart(g,ANIMAL_GEO.sph,lt,0,.42,-.02,.12,.1,.26);
+  const neck=apart(g,ANIMAL_GEO.cylTop,fur,0,.82,.26,.05,.3,.05,-.6);const head=new THREE.Group();head.position.set(0,.86,.36);apart(head,ANIMAL_GEO.sph,fur,0,0,0,.07,.07,.12);apart(head,ANIMAL_GEO.sph,amat('#1a1410'),0,.01,.12,.02);
+  for(const sd of[-1,1]){apart(head,ANIMAL_GEO.cone,fur,sd*.06,.07,-.02,.02,.08,.02,0,0,sd*.5);apart(head,ANIMAL_GEO.cylTop,amat('#5a4030'),sd*.04,.08,-.04,.012,.2,.012,-.3,0,sd*.4)}g.add(head);
+  const legs=[];for(const sd of[-1,1])for(const fz of[.2,-.2]){const l=new THREE.Group();l.position.set(sd*.09,.4,fz);apart(l,ANIMAL_GEO.cylTop,fur,0,0,0,.03,.42,.03);g.add(l);legs.push(l)}
+  apart(g,ANIMAL_GEO.sph,lt,0,.52,-.32,.03,.05,.03);g.userData.legs=legs;g.userData.head=head;return g}
+function makeRabbit(){const g=new THREE.Group(),fur=amat('#8a7a68');apart(g,ANIMAL_GEO.sph,fur,0,.08,0,.07,.07,.1);apart(g,ANIMAL_GEO.sph,fur,0,.15,.08,.05);
+  for(const sd of[-1,1])apart(g,ANIMAL_GEO.cylTop,amat('#a89888'),sd*.02,.26,.07,.012,.1,.012);apart(g,ANIMAL_GEO.sph,amat('#f4f0e6'),0,.09,-.1,.025);return g}
+function buildDeer(o,R){for(let i=0;i<(o.n||3);i++){let x,z,k=0;do{x=o.at[0]+(R()-.5)*o.r*2;z=o.at[1]+(R()-.5)*o.r*2;k++}while((LV.dist(x,z)<3||WL(x,z)>H(x,z)||surfAt(x,z)===S.ROCK)&&k<40);
+    const g=makeDeer();g.position.set(x,H(x,z),z);g.rotation.y=R()*6.28;levelGroup.add(g);ANIMALS.deer.push({g,kind:'deer',hx:o.at[0],hz:o.at[1],hr:o.r,st:'graze',t:R()*4,ph:R()*6.28,sp:0,tx:x,tz:z,flee:5.5,speed:3.6})}}
+function buildRabbits(o,R){for(let i=0;i<(o.n||4);i++){let x,z,k=0;do{x=o.at[0]+(R()-.5)*o.r*2;z=o.at[1]+(R()-.5)*o.r*2;k++}while((LV.dist(x,z)<1.5||WL(x,z)>H(x,z))&&k<40);
+    const g=makeRabbit();g.position.set(x,H(x,z),z);g.rotation.y=R()*6.28;levelGroup.add(g);ANIMALS.rabbits.push({g,kind:'rabbit',hx:o.at[0],hz:o.at[1],hr:o.r,st:'graze',t:R()*3,ph:R()*6.28,sp:0,tx:x,tz:z,flee:3.5,speed:3})}}
+function updateGrazers(dt,tm){for(const a of[...ANIMALS.deer,...ANIMALS.rabbits]){const g=a.g,dx=g.position.x-car.pos.x,dz=g.position.z-car.pos.z,d=Math.hypot(dx,dz);
+    if(d<a.flee&&state.mode==='play'&&a.st!=='flee'){a.st='flee';a.t=2+Math.random()*2;const ang=Math.atan2(dx,dz)+(Math.random()-.5)*.8;a.tx=g.position.x+Math.sin(ang)*8;a.tz=g.position.z+Math.cos(ang)*8}
+    a.t-=dt;
+    if(a.st==='flee'){a.sp=a.speed;if(a.t<=0){a.st='graze';a.t=3+Math.random()*4;a.sp=0}}
+    else if(a.st==='graze'){a.sp=0;if(a.t<=0){a.st='walk';a.t=2+Math.random()*3;const ang=Math.random()*6.28,r=Math.random()*a.hr;a.tx=a.hx+Math.cos(ang)*r;a.tz=a.hz+Math.sin(ang)*r}}
+    else{a.sp=a.speed*.25;if(a.t<=0){a.st='graze';a.t=3+Math.random()*5}}
+    if(a.sp>0){const ex=a.tx-g.position.x,ez=a.tz-g.position.z,L=Math.hypot(ex,ez);if(L>.3){const want=Math.atan2(ex,ez);let dy=want-g.rotation.y;dy=Math.atan2(Math.sin(dy),Math.cos(dy));g.rotation.y+=dy*Math.min(1,dt*6);
+        const nx=g.position.x+Math.sin(g.rotation.y)*a.sp*dt,nz=g.position.z+Math.cos(g.rotation.y)*a.sp*dt;if(WL(nx,nz)<H(nx,nz)&&Math.abs(nx)<HALF-3&&Math.abs(nz)<HALF-3){g.position.x=nx;g.position.z=nz}}else a.sp=0}
+    const hop=a.kind==='rabbit'?Math.abs(Math.sin(tm*(a.sp>0?12:0)+a.ph))*.08*(a.sp>0?1:0):0;g.position.y=H(g.position.x,g.position.z)+hop;
+    if(a.kind==='deer'){g.userData.legs.forEach((l,i)=>l.rotation.x=a.sp>0?Math.sin(tm*(a.sp>2?14:7)+(i%2?Math.PI:0)+(i>1?Math.PI/2:0))*.5:0);g.userData.head.rotation.x=a.st==='graze'?.9+.1*Math.sin(tm*1.3+a.ph):0}}}
+
+/* ---------- fish: now and then one jumps out of the water with a splash ---------- */
+function buildFish(o,R){for(let i=0;i<(o.n||3);i++){const g=new THREE.Group();apart(g,ANIMAL_GEO.sph,amat('#7aa6c0',{roughness:.3,metalness:.3}),0,0,0,.05,.04,.14);apart(g,ANIMAL_GEO.cone,amat('#5a86a0'),0,0,-.16,.04,.07,.02,Math.PI/2);g.visible=false;levelGroup.add(g);
+    ANIMALS.fish.push({g,cx:o.at[0],cz:o.at[1],r:o.r||4,t:R()*6,jumping:false,u:0,x:0,z:0,ang:0})}}
+function updateFish(dt,tm){for(const f of ANIMALS.fish){f.t-=dt;
+    if(!f.jumping){if(f.t<=0){const a=Math.random()*6.28,d=Math.random()*f.r,x=f.cx+Math.cos(a)*d,z=f.cz+Math.sin(a)*d;if(WL(x,z)>H(x,z)+.3){f.jumping=true;f.u=0;f.x=x;f.z=z;f.ang=Math.random()*6.28;f.g.visible=true;f.wl=WL(x,z);if(typeof spawnDust==='function')for(let k=0;k<4;k++)spawnDust(new V3(x,f.wl,z),99,true)}else f.t=.5}continue}
+    f.u+=dt/1.1;const u=f.u,h=1.1*4*u*(1-u),along=u*1.4;f.g.position.set(f.x+Math.sin(f.ang)*along,f.wl-.05+h,f.z+Math.cos(f.ang)*along);f.g.rotation.y=f.ang;f.g.rotation.x=-(1-2*u)*1.1;
+    if(u>=1){f.jumping=false;f.g.visible=false;f.t=4+Math.random()*9;if(typeof spawnDust==='function')for(let k=0;k<6;k++)spawnDust(f.g.position,99,true)}}}
+
+/* ---------- lizards: sit still on the warm rock, dart away in a flash when the car comes ---------- */
+function buildLizards(o,R){for(let i=0;i<(o.n||5);i++){let x,z,k=0;do{x=o.at[0]+(R()-.5)*o.r*2;z=o.at[1]+(R()-.5)*o.r*2;k++}while((LV.dist(x,z)<1.2||WL(x,z)>H(x,z))&&k<40);
+    const g=new THREE.Group(),col=amat(['#8a7a3a','#6a7a4a','#a08040'][i%3]);apart(g,ANIMAL_GEO.sph,col,0,.02,0,.035,.025,.08);apart(g,ANIMAL_GEO.sph,col,0,.025,.08,.025,.02,.035);apart(g,ANIMAL_GEO.cone,col,0,.015,-.12,.015,.12,.015,Math.PI/2);
+    g.position.set(x,H(x,z),z);g.rotation.y=R()*6.28;levelGroup.add(g);ANIMALS.lizards.push({g,run:0,vx:0,vz:0,ph:R()*6.28})}}
+function updateLizards(dt,tm){for(const l of ANIMALS.lizards){const g=l.g,dx=g.position.x-car.pos.x,dz=g.position.z-car.pos.z,d=Math.hypot(dx,dz);
+    if(l.run<=0&&d<2.4&&state.mode==='play'){l.run=.6;const a=Math.atan2(dx,dz)+(Math.random()-.5);l.vx=Math.sin(a)*5;l.vz=Math.cos(a)*5;g.rotation.y=a}
+    if(l.run>0){l.run-=dt;g.position.x+=l.vx*dt;g.position.z+=l.vz*dt;g.position.y=H(g.position.x,g.position.z);g.rotation.z=Math.sin(tm*40)*.15}else g.rotation.z=0}}
+
 /* ---------- build / update ---------- */
-function clearAnimals(){ANIMALS.parrots=[];ANIMALS.monkeys=[];ANIMALS.butterflies=null;ANIMALS.crabs=[];ANIMALS.eagle=null;ANIMALS.bear=null;ANIMALS.gulls=[]}
+function clearAnimals(){ANIMALS.parrots=[];ANIMALS.monkeys=[];ANIMALS.butterflies=null;ANIMALS.crabs=[];ANIMALS.eagle=null;ANIMALS.bear=null;ANIMALS.gulls=[];ANIMALS.deer=[];ANIMALS.rabbits=[];ANIMALS.fish=[];ANIMALS.lizards=[]}
 function buildAnimals(lv,def){clearAnimals();const A=def.animals;if(!A||!lv.perches||!lv.perches.length)return;const R=mulberry32(def.seed+77);
   const pick=L=>L[Math.floor(R()*L.length)];
   // parrots on branches and tree tops
@@ -159,8 +199,9 @@ function buildAnimals(lv,def){clearAnimals();const A=def.animals;if(!A||!lv.perc
   // crabs on the beach near the start
   const s=A.crabsAt?{x:A.crabsAt[0],z:A.crabsAt[1]}:lv.start.p;for(let i=0;i<(A.crabs||0);i++){let x,z,k=0;do{x=s.x+(R()-.5)*8;z=s.z+(R()-.5)*8;k++}while((surfAt(x,z)!==S.SAND||lv.dist(x,z)<.9||WL(x,z)>H(x,z))&&k<40);
     const g=makeCrab();g.position.set(x,H(x,z)+.03,z);g.rotation.y=R()*6.28;levelGroup.add(g);ANIMALS.crabs.push({g,run:0,vx:0,vz:0,ph:R()*6.28})}
-  if(A.eagle)buildEagle(A.eagle,R);if(A.bear)buildBear(A.bear,R);if(A.gulls)buildGulls(A.gulls,R)}
-function updateAnimals(dt){if(!car)return;const tm=performance.now()*.001;updateParrots(dt,tm);updateMonkeys(dt,tm);updateButterflies(dt,tm);updateCrabs(dt,tm);updateEagle(dt,tm);updateBear(dt,tm);updateGulls(dt,tm)}
+  if(A.eagle)buildEagle(A.eagle,R);if(A.bear)buildBear(A.bear,R);if(A.gulls)buildGulls(A.gulls,R);
+  for(const d of(A.deer||[]))buildDeer(d,R);for(const r of(A.rabbits||[]))buildRabbits(r,R);for(const f of(A.fish||[]))buildFish(f,R);for(const l of(A.lizards||[]))buildLizards(l,R)}
+function updateAnimals(dt){if(!car)return;const tm=performance.now()*.001;updateParrots(dt,tm);updateMonkeys(dt,tm);updateButterflies(dt,tm);updateCrabs(dt,tm);updateEagle(dt,tm);updateBear(dt,tm);updateGulls(dt,tm);updateGrazers(dt,tm);updateFish(dt,tm);updateLizards(dt,tm)}
 
 /* ---------- the rolling boulder ---------- */
 const BLD={m:null,def:null,active:false,done:false,t:0,len:1,ax:new V3()};

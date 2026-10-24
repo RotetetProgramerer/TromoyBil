@@ -64,7 +64,7 @@ LEVELS.push(
   gateT:c=>[[-10,-30],[2,-29.5],[16,-24],[14,-16.5],[-4,-18],[-20.7,-21.4],[-25,-10],[-18,-7.9],[-11.5,-7.9],b1.pre,b1.post,b2.pre,A,B,pol(rS(555),555),b5.pre,b5.post,FIN].map(p=>c.tOf(p[0],p[1])),
   // rullende stein: når bilen passerer trigger, løsner en stein i from og ruller til to (over veien)
   boulder:{trigger:pol(rS(231),231),from:pol(10,250),to:pol(25,250),speed:5.2,r:.55},
-  animals:{parrots:12,circling:3,monkeys:9,butterflies:36,crabs:7,liana:[-9,-19],bridgeMonkeys:b1},
+  animals:{parrots:12,circling:3,monkeys:9,butterflies:36,crabs:7,liana:[-9,-19],bridgeMonkeys:b1,fish:[{at:[-18,-12.6],r:3,n:2},{at:FORD,r:3,n:2}],lizards:[{at:[8,6],r:12,n:4}]},
   base(x,z,n){const rr=rOf(x,z),ds=lineD(RIVER,x,z),sd=seaD(x,z);
     const s2=smt((ds-2.6)/5);                                          // flatt nær elva
     let h=1.0+(.5*fbm(n,x*.045,z*.045,3)+.1*fbm(n,x*.3,z*.3,2))*s2;

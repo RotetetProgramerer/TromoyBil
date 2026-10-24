@@ -2,7 +2,7 @@
 LEVELS.push(
 { id:'skog', name:'Skogsstien', diff:2, seed:53, gates:10, size:120, coast:42, village:{at:[18.5,-32]},
   desc:'Regn, stokker, to gjørmehull og en bekk du må vade over. Trestammene er enorme i denne skalaen.',
-  sky:['#7d94a3','#c9c6b4'], fog:0xa9b39c, fogNear:14, fogFar:58, sun:0xe8e0cc, sunI:.7, hemi:[0xb9c8c4,0x3e4428,.7], sunDir:[18,22,-10], rockCol:'#7d8270', water:.02, waterCol:'#3f5a4a', rain:true, clouds:false,
+  sky:['#7d94a3','#c9c6b4'], fog:0xa9b39c, fogNear:14, fogFar:58, sun:0xe8e0cc, sunI:.7, hemi:[0xb9c8c4,0x3e4428,.7], sunDir:[18,22,-10], rockCol:'#7d8270', water:.02, waterCol:'#3f5a4a', rain:true, clouds:false, animals:{deer:[{at:[-16,-12],r:7,n:3}],rabbits:[{at:[14,10],r:6,n:4}],fish:[{at:[0,6],r:5,n:2}]},
   path:[[-27,-24],[-18,-26],[-8,-20],[-6,-10],[-16,-4],[-20,6],[-12,14],[-2,10],[6,2],[14,-6],[24,-4],[26,8],[18,18],[6,24],[-4,27]],
   stream:x=>6+4*Math.sin(x*.12),
   base(x,z,n){const ds=Math.abs(z-(6+4*Math.sin(x*.12)));const sm=Math.min(1,Math.max(0,(ds-1.5)/6.5)),s2=sm*sm*(3-2*sm);
@@ -32,5 +32,6 @@ LEVELS.push(
     const cones=[];for(let i=0;i<180;i++){const x=(R()-.5)*66,z=(R()-.5)*66;if(Math.abs(z-def.stream(x))<1.6)continue;cones.push({x,y:H(x,z)+.05,z,sx:.07,sy:.11,sz:.07,rx:1.5,ry:R()*6,c:'#6b4a2c'})}
     instanced(DG.cone,DM.white,cones,c.decor);
     c.pebbles(400,['#6e6d60','#83806f'],.04,.1);
+    c.bushes(50,['#3e6b28','#58802f','#2f5a22'],(x,z)=>Math.abs(z-def.stream(x))>3&&c.onLand(x,z));c.mushrooms(70,(x,z)=>c.onLand(x,z));c.shells(60);
   }}
 );

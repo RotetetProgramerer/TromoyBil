@@ -1,6 +1,6 @@
 // Bane: se README for hva feltene betyr. Rekkefølgen i menyen følger rekkefølgen i index.html.
 LEVELS.push(
-{ id:'elv', name:'Elvedalen', diff:3, seed:97, gates:10, water:.74, waterCol:'#4d7064', size:120, coast:42, village:{at:[-26.2,26.2]},
+{ id:'elv', name:'Elvedalen', diff:3, seed:97, gates:10, water:.74, waterCol:'#4d7064', size:120, coast:42, village:{at:[-26.2,26.2]}, animals:{fish:[{at:[-16,-3],r:5,n:3},{at:[15,7],r:5,n:2}],deer:[{at:[20,-20],r:6,n:2}],rabbits:[{at:[-8,16],r:5,n:3}]},
   desc:'Tre vadesteder, to gjørmehull og et hopp. Hold deg på grunnene, ellers drukner motoren.',
   sky:['#5c9ad1','#dce9ea'], fog:0xcfdad6, fogNear:26, fogFar:84, sun:0xfff0d0, sunI:1.1, hemi:[0xd8e6f0,0x6a6a4a,.62], sunDir:[-18,26,-12], rockCol:'#8d8a7e',
   path:[[-27,-24],[-21,-14],[-16,-3],[-10,8],[-3,12],[2,3],[6,-8],[14,-7],[15,7],[20,16],[26,24]],
@@ -29,5 +29,6 @@ LEVELS.push(
       reeds.push({x,y:H(x,z)-.02,z,sx:.045,sy:.6+R()*.7,sz:.045,rx:(R()-.5)*.4,rz:(R()-.5)*.4,c:['#5d7f2f','#7a9a3c','#4b6b27'][i%3]})}
     instanced(DG.tuft,DM.tuft,reeds,c.decor,false);
     c.pebbles(700,['#7c7669','#9a9385','#5f5a50'],.04,.12);
+    c.bushes(45,['#4b6629','#7f9441','#5a7a2f'],(x,z)=>Math.abs(z-def.stream(x))>5&&c.onLand(x,z));c.shells(60);
   }}
 );
