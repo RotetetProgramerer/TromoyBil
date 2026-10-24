@@ -17,7 +17,8 @@ function initAmbience(){if(AMB||!AC)return;try{const ac=AC,buf=noiseBuf(ac);
   const wf=mk('lowpass',700,.7,0),wf2=mk('highpass',1800,.5,0);
   let wpan=null;try{wpan=ac.createStereoPanner();wf.g.disconnect();wf2.g.disconnect();wf.g.connect(wpan);wf2.g.connect(wpan);wpan.connect(master)}catch(e){}                                    // waterfall: a deep rush and a bright spray
   const rum=mk('lowpass',85,.8,0),hiss=mk('bandpass',2400,1.2,0);                                   // volcano: rumble and a hiss of steam
-  AMB={ac,master,ins,trem,wf,wf2,rum,hiss,wpan}}catch(e){AMB=null}}
+  const wind=mk('lowpass',380,.5,0);                                                                   // mountain: wind
+  AMB={ac,master,ins,trem,wf,wf2,rum,hiss,wind,wpan}}catch(e){AMB=null}}
 function ambPan(x,z){if(!camera)return 0;const dx=x-camera.position.x,dz=z-camera.position.z,d=Math.hypot(dx,dz)||1;const e=camera.matrixWorld.elements;return Math.max(-1,Math.min(1,(dx*e[0]+dz*e[2])/d))}
 function ambVoice(x,z,dist){if(!AMB)return null;const ac=AMB.ac,g=ac.createGain(),d=Math.hypot(x-camera.position.x,z-camera.position.z),vol=Math.max(0,1-d/dist);if(vol<=0||!(state.sound))return null;
   let out=g;try{const p=ac.createStereoPanner();p.pan.value=ambPan(x,z);g.connect(p);p.connect(AMB.master);out=g}catch(e){g.connect(AMB.master)}return{g,vol,t:ac.currentTime}}
@@ -49,5 +50,6 @@ function updateAmbience(dt){if(!AC||!LV)return;initAmbience();if(!AMB)return;con
   // waterfall: you hear it from far away, it swells as you come closer and roars when you drive behind it
   let wv=0,wf=null;for(const f of fxAnim.falls){const d=Math.hypot(f.x-car.pos.x,f.z-car.pos.z),v=Math.pow(Math.max(0,1-d/34),2.2);if(v>wv){wv=v;wf=f}}
   S_(AMB.wf.g,.55*wv);S_(AMB.wf2.g,.09*wv);if(AMB.wpan&&wf)AMB.wpan.pan.setTargetAtTime(ambPan(wf.x,wf.z)*(1-wv*.7),t,.3);
-  // volcano
-  S_(AMB.rum.g,.16*k+(ERU.phase?.1:0));S_(AMB.hiss.g,.02*k)}
+  // volcano (only where the level has eruptions) or wind (def.wind): both grow with zone k
+  const vol_=def.erupt?1:0;S_(AMB.rum.g,.16*k*vol_+(ERU.phase?.1:0));S_(AMB.hiss.g,.02*k*vol_);
+  S_(AMB.wind.g,def.wind?.09*k*(.65+.35*Math.sin(insT*.41)+.15*Math.sin(insT*1.7)):0)}

@@ -72,9 +72,11 @@ const RAIN_N=900,rainGeo=new THREE.BufferGeometry(),rainPos=new Float32Array(RAI
 for(let i=0;i<RAIN_N;i++){rainPos[i*3]=(Math.random()-.5)*26;rainPos[i*3+1]=Math.random()*14;rainPos[i*3+2]=(Math.random()-.5)*26}
 rainGeo.setAttribute('position',new THREE.BufferAttribute(rainPos,3));
 const rain=new THREE.Points(rainGeo,new THREE.PointsMaterial({color:0xdfe8ee,size:.045,transparent:true,opacity:.55,depthWrite:false}));rain.visible=false;rain.frustumCulled=false;scene.add(rain);
-let ashMode=false;
-function updateRain(dt){if(!rain.visible)return;const cx=camera.position.x,cz=camera.position.z,cy=camera.position.y;
-  for(let i=0;i<RAIN_N;i++){let y=rainPos[i*3+1]-dt*(ashMode?1.1:13);if(ashMode)rainPos[i*3]+=dt*.5;if(y<cy-6){y+=14;rainPos[i*3]=cx+(Math.random()-.5)*26;rainPos[i*3+2]=cz+(Math.random()-.5)*26}rainPos[i*3+1]=y}
+let ashMode=false,snowMode=false,precipK=1;
+// rain, drifting ash or snow. def.precip(x,z) (0–1) can limit it to part of the level, for example the summit.
+function updateRain(dt){if(!rain.visible)return;const cx=camera.position.x,cz=camera.position.z,cy=camera.position.y,def=LEVELS[state.levelIdx];
+  if(def.precip&&car){precipK+=(def.precip(car.pos.x,car.pos.z)-precipK)*.04;rain.material.opacity=.55*precipK}
+  for(let i=0;i<RAIN_N;i++){let y=rainPos[i*3+1]-dt*(ashMode?1.1:snowMode?1.9:13);if(ashMode)rainPos[i*3]+=dt*.5;if(snowMode){rainPos[i*3]+=dt*(.8+.6*Math.sin(y*1.3+i));rainPos[i*3+2]+=dt*.3*Math.cos(y+i)}if(y<cy-6){y+=14;rainPos[i*3]=cx+(Math.random()-.5)*26;rainPos[i*3+2]=cz+(Math.random()-.5)*26}rainPos[i*3+1]=y}
   rainGeo.attributes.position.needsUpdate=true}
 
 // supply crates
@@ -111,7 +113,7 @@ const TRK_N=600,trkGeo=new THREE.PlaneGeometry(.12,.22);trkGeo.rotateX(-Math.PI/
 const tracks=new THREE.InstancedMesh(trkGeo,new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.2,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-3}),TRK_N);
 tracks.count=0;tracks.frustumCulled=false;tracks.renderOrder=1;scene.add(tracks);
 let trkI=0;const _m4=new THREE.Matrix4(),_qN=new Q4(),_qY=new Q4(),_pT=new V3(),_sT=new V3(1,1,1),_nT=new V3();
-const TRACK_SURF=new Set([S.SAND,S.DIRT,S.MUD,S.GRAVEL,S.GRASS,S.ASH]);
+const TRACK_SURF=new Set([S.SAND,S.DIRT,S.MUD,S.GRAVEL,S.GRASS,S.ASH,S.SNOW]);
 function layTrack(w,dirx,dirz){
   if(!TRACK_SURF.has(w.surf)||!tracks.visible)return;
   if(!w.lastTrk)w.lastTrk=new V3(1e9,0,1e9);if(w.lastTrk.distanceTo(w.P)<.13)return;w.lastTrk.copy(w.P);
@@ -436,7 +438,7 @@ function loadLevel(i){
   tGeo.attributes.position.needsUpdate=true;tGeo.attributes.color.needsUpdate=true;tGeo.computeVertexNormals();tGeo.computeBoundingSphere();tGeo.computeBoundingBox();
   levelGroup.add(LV.decor);
   water.visible=def.water!=null;if(water.visible)water.position.y=def.water;waterMat.color.set(def.waterCol||'#3f5c4d').convertSRGBToLinear();waterMat.opacity=def.waterOpacity??.7;
-  buildPools(LV);buildCrates(LV);rain.visible=!!(def.rain||def.ash);ashMode=!!def.ash;rain.material.color.set(ashMode?'#ffb070':'#dfe8ee');rain.material.size=ashMode?.06:.045;
+  buildPools(LV);buildCrates(LV);rain.visible=!!(def.rain||def.ash||def.snow);ashMode=!!def.ash;snowMode=!!def.snow;rain.material.color.set(ashMode?'#ffb070':snowMode?'#ffffff':'#dfe8ee');rain.material.size=ashMode?.06:snowMode?.075:.045;rain.material.opacity=.55;precipK=1;
   if(skyDome.material.map)skyDome.material.map.dispose();if(scene.environment)scene.environment.dispose();
   const sky=skyTex(def);skyDome.material.map=sky;skyDome.material.needsUpdate=true;
   scene.environment=pmrem.fromEquirectangular(sky).texture;

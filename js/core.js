@@ -7,8 +7,8 @@ const V3=THREE.Vector3, Q4=THREE.Quaternion, YAX=new V3(0,1,0);
 const UNIT_CM=8.5;
 const WORLD=70, N=241, CELL=WORLD/(N-1), HALF=WORLD/2;
 const TH=new Float32Array(N*N), TB=new Float32Array(N*N), TS=new Uint8Array(N*N), TC=new Float32Array(N*N*3), TCF=new Uint8Array(N*N);
-const S={SAND:0,ROCK:1,DIRT:2,GRASS:3,WOOD:4,MUD:5,BOOK:6,BARK:7,PENCIL:8,KEY:9,GRAVEL:10,PAPER:11,FLOOR:12,BOG:13,ASH:14,LAVA:15};
-const GRIP=[0.85,1.25,1.0,0.95,0.92,0.62,1.05,1.1,0.95,1.0,1.0,0.88,0.9,0.7,0.88,0.6];
+const S={SAND:0,ROCK:1,DIRT:2,GRASS:3,WOOD:4,MUD:5,BOOK:6,BARK:7,PENCIL:8,KEY:9,GRAVEL:10,PAPER:11,FLOOR:12,BOG:13,ASH:14,LAVA:15,SNOW:16,ICE:17};
+const GRIP=[0.85,1.25,1.0,0.95,0.92,0.62,1.05,1.1,0.95,1.0,1.0,0.88,0.9,0.7,0.88,0.6,0.7,0.42];
 // mud drag per wheel: [constant, viscous] as fractions of m·g. Low gear pushes through; high gear bogs down.
 const MUDDRAG={5:[.05,.012],13:[.12,.025]};
 const G={noise:null,def:null,outside:null,colliders:[],waterAt:null,decks:[],lavas:[]};
@@ -116,6 +116,8 @@ function surfColor(s,x,z,n,def){
     case S.ASH:return mix('#26221f','#4a433d',v*.5+w*.5);
     case S.LAVA:return mix('#2a0d06','#5a1a08',w);
     case S.FLOOR:return mix('#241c16','#2f251d',w);
+    case S.SNOW:return mix('#dbe3ea','#fbfdff',v*.5+w*.5);
+    case S.ICE:return mix('#9fc6dc','#d6ecf8',v*.4+w*.6);
     default:return mix('#8a8a8a','#9a9a9a',w);
   }
 }
