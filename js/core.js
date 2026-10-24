@@ -7,11 +7,11 @@ const V3=THREE.Vector3, Q4=THREE.Quaternion, YAX=new V3(0,1,0);
 const UNIT_CM=8.5;
 const WORLD=70, N=241, CELL=WORLD/(N-1), HALF=WORLD/2;
 const TH=new Float32Array(N*N), TB=new Float32Array(N*N), TS=new Uint8Array(N*N), TC=new Float32Array(N*N*3), TCF=new Uint8Array(N*N);
-const S={SAND:0,ROCK:1,DIRT:2,GRASS:3,WOOD:4,MUD:5,BOOK:6,BARK:7,PENCIL:8,KEY:9,GRAVEL:10,PAPER:11,FLOOR:12,BOG:13};
-const GRIP=[0.85,1.25,1.0,0.95,0.92,0.62,1.05,1.1,0.95,1.0,1.0,0.88,0.9,0.7];
+const S={SAND:0,ROCK:1,DIRT:2,GRASS:3,WOOD:4,MUD:5,BOOK:6,BARK:7,PENCIL:8,KEY:9,GRAVEL:10,PAPER:11,FLOOR:12,BOG:13,ASH:14,LAVA:15};
+const GRIP=[0.85,1.25,1.0,0.95,0.92,0.62,1.05,1.1,0.95,1.0,1.0,0.88,0.9,0.7,0.88,0.6];
 // mud drag per wheel: [constant, viscous] as fractions of m·g. Low gear pushes through; high gear bogs down.
 const MUDDRAG={5:[.05,.012],13:[.12,.025]};
-const G={noise:null,def:null,outside:null,colliders:[],waterAt:null};
+const G={noise:null,def:null,outside:null,colliders:[],waterAt:null,decks:[],lavas:[]};
 function WL(x,z){return G.waterAt?G.waterAt(x,z):-1e9}
 
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
@@ -27,7 +27,7 @@ function makeNoise(seed){
 function fbm(n,x,z,o=4){let s=0,a=1,f=1,t=0;for(let i=0;i<o;i++){s+=(n(x*f+i*17.3,z*f-i*9.1)-.5)*a;t+=a*.5;a*=.5;f*=2.03}return s/t}
 
 /* ---------- height queries ---------- */
-function H(x,z){
+function Hterr(x,z){
   let fx=(x+HALF)/CELL,fz=(z+HALF)/CELL;
   if(G.outside!==null&&(fx<0||fz<0||fx>N-1||fz>N-1))return G.outside;
   fx=fx<0?0:fx>N-1.0001?N-1.0001:fx; fz=fz<0?0:fz>N-1.0001?N-1.0001:fz;
@@ -35,7 +35,18 @@ function H(x,z){
   const a=TH[k],b=TH[k+1],c=TH[k+N],d=TH[k+N+1];
   return (a+(b-a)*u)*(1-v)+(c+(d-c)*u)*v;
 }
-function surfAt(x,z){let i=Math.round((x+HALF)/CELL),j=Math.round((z+HALF)/CELL);i=i<0?0:i>N-1?N-1:i;j=j<0?0:j>N-1?N-1:j;return TS[j*N+i]}
+// suspension bridges are analytic decks laid on top of the terrain: height = max(terrain, deck)
+function deckAt(x,z){let best=-1e9;
+  for(const k of G.decks){if(x<k.x0||x>k.x1||z<k.z0||z>k.z1)continue;
+    const rx=x-k.ax,rz=z-k.az,a=rx*k.ux+rz*k.uz;if(a<0||a>k.len)continue;const b=Math.abs(rx*k.uz-rz*k.ux);if(b>k.hw)continue;
+    const t=a/k.len;let y=k.y0+(k.y1-k.y0)*t-k.sag*4*t*(1-t);const e=k.hw-b;if(e<.16)y+=.15*Math.min(1,(.16-e)/.05); // low plank rail at the edge
+    if(y>best)best=y}
+  return best}
+function H(x,z){const h=Hterr(x,z);if(G.decks.length){const d=deckAt(x,z);if(d>h)return d}return h}
+function surfAt(x,z){let i=Math.round((x+HALF)/CELL),j=Math.round((z+HALF)/CELL);i=i<0?0:i>N-1?N-1:i;j=j<0?0:j>N-1?N-1:j;
+  if(G.decks.length){const d=deckAt(x,z);if(d>-1e8&&d>=Hterr(x,z))return S.WOOD}return TS[j*N+i]}
+// lava: returns the lava surface height at (x,z), or -1e9 if there is none. m widens the area.
+function lavaAt(x,z,m=0){let best=-1e9,bd=1e9;for(const L of G.lavas)for(const p of L.s){const dx=p.x-x,dz=p.z-z,d=Math.sqrt(dx*dx+dz*dz)-p.hw-m;if(d<0&&d<bd){bd=d;best=p.y}}return best}
 function normalAt(x,z,out){const e=.15;return out.set(H(x-e,z)-H(x+e,z),2*e,H(x,z-e)-H(x,z+e)).normalize()}
 
 /* ---------- stamping ---------- */
@@ -99,6 +110,8 @@ function surfColor(s,x,z,n,def){
     case S.BOG:return mix('#2a2016','#3f3024',w*.6+v*.4);
     case S.BARK:return mix('#47321f','#6c4b31',w);
     case S.WOOD:{const g=Math.sin(x*1.25+fbm(n,x*.07,z*.6,3)*9)*.5+.5;return mix('#77482a','#a86f3f',g*.75+w*.25)}
+    case S.ASH:return mix('#26221f','#4a433d',v*.5+w*.5);
+    case S.LAVA:return mix('#2a0d06','#5a1a08',w);
     case S.FLOOR:return mix('#241c16','#2f251d',w);
     default:return mix('#8a8a8a','#9a9a9a',w);
   }
@@ -107,9 +120,21 @@ function surfColor(s,x,z,n,def){
 /* ---------- levels ---------- */
 const LEVELS=[]; // fylles av data/levels/*.js
 
+function benchPts(P,hw,blend){
+  const hs=P.map(p=>Hterr(p.x,p.z)),sm=hs.map((_,i)=>{let a=0,m=0;for(let k=-8;k<=8;k++){const j=i+k;if(j>=0&&j<hs.length){a+=hs[j];m++}}return a/m});
+  const best=new Float32Array(N*N).fill(1e9),bi=new Int32Array(N*N).fill(-1),R=hw+blend;
+  for(let i=0;i<P.length;i+=2){const p=P[i];cellsIn(p.x-R,p.z-R,p.x+R,p.z+R,(k,px,pz)=>{const d=Math.hypot(px-p.x,pz-p.z);if(d<best[k]){best[k]=d;bi[k]=i}})}
+  for(let k=0;k<N*N;k++){if(bi[k]<0||best[k]>=R)continue;const d=best[k],f=d<=hw?1:1-(d-hw)/blend,w=f*f*(3-2*f);TH[k]+=(sm[bi[k]]-TH[k])*w}}
+function carveLava(s){
+  const best=new Float32Array(N*N).fill(1e9),bi=new Int32Array(N*N).fill(-1);
+  s.forEach((p,i)=>{const R=p.hw+.8;cellsIn(p.x-R,p.z-R,p.x+R,p.z+R,(k,px,pz)=>{const d=Math.hypot(px-p.x,pz-p.z)-p.hw;if(d<best[k]){best[k]=d;bi[k]=i}})});
+  for(let k=0;k<N*N;k++){if(bi[k]<0||best[k]>=.6)continue;const p=s[bi[k]],d=best[k],floor=p.y-.3;let nh;
+    if(d<=0)nh=floor;else{const f=d/.6,sf=f*f*(3-2*f);nh=floor+(TH[k]-floor)*sf}
+    if(nh<TH[k]){TH[k]=nh;TCF[k]=0;TS[k]=d<=.12?S.LAVA:S.ASH}}}
+
 function genLevel(def){
   const rng=mulberry32(def.seed),n=makeNoise(def.seed*7+3);
-  G.noise=n;G.def=def;G.outside=def.outside??null;TCF.fill(0);
+  G.noise=n;G.def=def;G.outside=def.outside??null;G.decks=[];G.lavas=[];TCF.fill(0);
   for(let j=0;j<N;j++)for(let i=0;i<N;i++){const k=j*N+i,x=-HALF+i*CELL,z=-HALF+j*CELL;TH[k]=def.base(x,z,n);TS[k]=def.surf(x,z,n)}
   TB.set(TH);
   const curve=new THREE.CatmullRomCurve3(def.path.map(p=>new V3(p[0],0,p[1])),false,'centripetal');
@@ -122,7 +147,13 @@ function genLevel(def){
     nearGate:(x,z,m)=>c.gates.some(g=>Math.hypot(g.c.x-x,g.c.z-z)<m),
     nearStart:(x,z,m)=>Math.hypot(pts[0].x-x,pts[0].z-z)<m,
     block:(x,z,r)=>blocks.push({x,z,r}), free:(x,z,r)=>!blocks.some(b=>Math.hypot(b.x-x,b.z-z)<b.r+r),
-    pools:[],
+    pools:[],fx:[],vents:[],extra:[],bonuses:[],
+    bonus:(x,z,r,nuts,msg)=>c.bonuses.push({x,z,r,nuts,msg}),
+    tOf:(x,z)=>{let m=1e9,bi=0;for(let i=0;i<pts.length;i++){const dx=pts[i].x-x,dz=pts[i].z-z,d=dx*dx+dz*dz;if(d<m){m=d;bi=i}}return bi/(pts.length-1)},
+    lavaNear:(x,z,m)=>lavaAt(x,z,m)>-1e8,
+    crate:(x,z)=>c.extra.push({x,z}),vent:(x,z)=>c.vents.push({x,z,y:H(x,z)}),
+    smoke:(x,z,y)=>c.fx.push({type:'smoke',x,z,y}),
+    fall:(x,z,ang,w,top,bot)=>c.fx.push({type:'fall',x,z,ang,w,top,bot}),
     // dig a pond into the base terrain and fill it; mud rim around it
     pond(x,z,r,dep,o={}){const i=Math.round((x+HALF)/CELL),j=Math.round((z+HALF)/CELL);let hc=TB[j*N+i];
       const R=r*1.25;cellsIn(x-R,z-R,x+R,z+R,(k,px,pz)=>{const d=Math.hypot(px-x,pz-z);if(d>R)return;const f=1-(d/R)**2,nh=hc-dep*f*(1-.15*G.noise(px*2,pz*2))+(TB[k]-hc)*(1-f);
@@ -131,22 +162,38 @@ function genLevel(def){
     // dirt ramp with a drop at the end: a jump in high gear
     ramp(t,h=.55,len=3.2,wid=2.6){const p=c.P(t),an=c.ang(t);c.block(p.x,p.z,3);
       shape(p.x,p.z,an,len,wid,(a,b)=>{const u=(a+len/2)/len;if(u<.08)return u/.08*.02;if(u<.88)return .02+(u-.08)/.8*h;return null},S.DIRT,(a,b)=>mix('#6d4b2d','#8d6a44',G.noise(a*3,b*3)*.7+(Math.abs(b)>wid/2-.18?.5:0)))},
+    // level the ground along the path between t0 and t1 so the car does not drive on a steep side slope
+    bench(t0,t1,hw=1.5,blend=1.8){const i0=Math.round(t0*(pts.length-1)),i1=Math.round(t1*(pts.length-1));benchPts(pts.slice(i0,i1+1),hw,blend)},
+    // the same along any polyline [[x,z],...] (for example a shortcut)
+    benchLine(poly,hw=1.3,blend=1.6){const d=[];for(let i=0;i<poly.length-1;i++){const a=poly[i],b=poly[i+1],L=Math.hypot(b[0]-a[0],b[1]-a[1]),m=Math.max(1,Math.ceil(L/.33));for(let k=0;k<m;k++){const u=k/m;d.push({x:a[0]+(b[0]-a[0])*u,z:a[1]+(b[1]-a[1])*u})}}d.push({x:poly[poly.length-1][0],z:poly[poly.length-1][1]});benchPts(d,hw,blend)},
+    // a lava river along a polyline (from the source outwards). hwFn(x,z) = half width. The surface follows the terrain downhill.
+    lava(poly,hwFn,o={}){const d=[];for(let i=0;i<poly.length-1;i++){const a=poly[i],b=poly[i+1],L=Math.hypot(b[0]-a[0],b[1]-a[1]),m=Math.max(1,Math.ceil(L/.5));for(let k=0;k<m;k++){const u=k/m;d.push([a[0]+(b[0]-a[0])*u,a[1]+(b[1]-a[1])*u])}}
+      d.push(poly[poly.length-1]);let lv=1e9;const s=d.map(p=>{const y=Math.min(lv,Hterr(p[0],p[1])-(o.drop??.55));lv=y;return{x:p[0],z:p[1],y,hw:hwFn(p[0],p[1])}});
+      for(let pass=0;pass<2;pass++)for(let i=0;i<s.length;i++){let a=0,m=0;for(let k=-3;k<=3;k++){const j=i+k;if(j>=0&&j<s.length){a+=s[j].y;m++}}s[i].ny=a/m}
+      s.forEach(p=>p.y=p.ny);carveLava(s);G.lavas.push({s});c.fx.push({type:'lava',s});return s},
+    lavaPool(x,z,r,level){const s=[{x,z,y:level,hw:r}];carveLava(s);G.lavas.push({s});c.fx.push({type:'lavadisc',x,z,r,y:level})},
+    // a suspension bridge from A to B (hw = half width). Both ends must lie on solid ground.
+    bridge(ax,az,bx,bz,hw,o={}){const len=Math.hypot(bx-ax,bz-az),ux=(bx-ax)/len,uz=(bz-az)/len,y0=H(ax,az),y1=H(bx,bz),px=-uz*hw,pz=ux*hw,xs=[ax+px,ax-px,bx+px,bx-px],zs=[az+pz,az-pz,bz+pz,bz-pz];
+      const dk={ax,az,bx,bz,ux,uz,len,hw,y0,y1,sag:o.sag??.22,x0:Math.min(...xs)-.02,x1:Math.max(...xs)+.02,z0:Math.min(...zs)-.02,z1:Math.max(...zs)+.02};
+      G.decks.push(dk);c.fx.push(Object.assign({type:'deck'},dk));c.block((ax+bx)/2,(az+bz)/2,len/2+1);return dk},
     finish(){for(let j=0;j<N;j++)for(let i=0;i<N;i++){const k=j*N+i;if(TCF[k])continue;const cc=surfColor(TS[k],-HALF+i*CELL,-HALF+j*CELL,n,def);TC[k*3]=cc[0];TC[k*3+1]=cc[1];TC[k*3+2]=cc[2]}c._done=true},
     pebbles(cnt,cols,smin,smax){const L=[];for(let i=0;i<cnt;i++){const x=(rng()-.5)*66,z=(rng()-.5)*66;if(def.water!=null&&H(x,z)<def.water+.02)continue;const s=smin+rng()*(smax-smin);
       L.push({x,y:H(x,z)+s*.2,z,sx:s,sy:s*.6,sz:s*(.8+rng()*.5),rx:rng()*3,ry:rng()*3,c:cols[i%cols.length]})}instanced(DG.peb,DM.white,L,c.decor,false)},
     tufts(cnt,cols){const L=[];for(let i=0;i<cnt;i++){const x=(rng()-.5)*66,z=(rng()-.5)*66;if(c.dist(x,z)<1.8)continue;for(let k=0;k<5;k++){const s=.05+rng()*.05;
       L.push({x:x+(rng()-.5)*.5,y:H(x,z)-.02,z:z+(rng()-.5)*.5,sx:s,sy:.35+rng()*.45,sz:s,rx:(rng()-.5)*.6,rz:(rng()-.5)*.6,c:cols[k%cols.length]})}}instanced(DG.tuft,DM.tuft,L,c.decor,false)}
   };
-  for(let k=1;k<=def.gates;k++){const t=.03+.95*k/def.gates,p=c.P(t),tn=c.T(t),s=c.side(t);
-    c.gates.push({t,c:p,tan:tn,side:s,a:{x:p.x+s.x*1.25,z:p.z+s.z*1.25},b:{x:p.x-s.x*1.25,z:p.z-s.z*1.25},finish:k===def.gates})}
+  const gl=def.gateT?def.gateT(c):null,NG=gl?gl.length:def.gates;
+  for(let k=1;k<=NG;k++){const t=gl?gl[k-1]:.03+.95*k/NG,p=c.P(t),tn=c.T(t),s=c.side(t);
+    c.gates.push({t,c:p,tan:tn,side:s,a:{x:p.x+s.x*1.25,z:p.z+s.z*1.25},b:{x:p.x-s.x*1.25,z:p.z-s.z*1.25},finish:k===NG})}
   G.waterAt=(x,z)=>{let w=-1e9;if(def.water!=null&&(!def.waterBand||def.waterBand(x,z)))w=def.water;for(const p of c.pools){if((x-p.x)*(x-p.x)+(z-p.z)*(z-p.z)<p.r*p.r&&p.level>w)w=p.level}return w};
   def.build(c);
   if(!c._done)c.finish();
   c.start={p:c.P(0),tan:c.T(.004)};
   // supply crates: beside the line, never in water
   c.crates=[];for(let k=0;k<6;k++){const t=.09+.8*k/5+(rng()-.5)*.04,p=c.P(t),s=c.side(t);let placed=false;
-    for(const sg of(k%2?[1,-1]:[-1,1])){const off=sg*(1.3+rng()*.7),x=p.x+s.x*off,z=p.z+s.z*off,y=H(x,z);if(WL(x,z)>y-.05||c.nearGate(x,z,1.1)||Math.abs(y-H(p.x,p.z))>.9)continue;c.crates.push({x,z,y:y+.16,t});placed=true;break}
+    for(const sg of(k%2?[1,-1]:[-1,1])){const off=sg*(1.3+rng()*.7),x=p.x+s.x*off,z=p.z+s.z*off,y=H(x,z);if(WL(x,z)>y-.05||lavaAt(x,z,1.1)>-1e8||c.nearGate(x,z,1.1)||Math.abs(y-H(p.x,p.z))>.9)continue;c.crates.push({x,z,y:y+.16,t});placed=true;break}
     if(!placed)c.crates.push({x:p.x,z:p.z,y:H(p.x,p.z)+.16,t})}
+  for(const e of c.extra)c.crates.push({x:e.x,z:e.z,y:H(e.x,e.z)+.16,t:c.tOf(e.x,e.z)});
   G.colliders=c.colliders;
   return c;
 }

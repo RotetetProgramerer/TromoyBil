@@ -71,10 +71,14 @@ Bilen dukker opp i menyen med en gang.
 | `gates` | Antall porter (10 er standard). |
 | `path` | Listen med `[x, z]`-punkter som løypa går gjennom. Verden er 70 × 70 enheter, fra −35 til 35. Hold deg innenfor ±28. |
 | `base(x,z,n)` | Funksjon som gir terrenghøyden. `n` er en støyfunksjon. Start med å kopiere en eksisterende. |
-| `surf(x,z)` | Underlag per punkt: `S.SAND`, `S.GRAVEL`, `S.GRASS`, `S.DIRT`, `S.MUD`, `S.BOG`, `S.ROCK`, `S.WOOD`. Styrer grep og farge. |
+| `surf(x,z)` | Underlag per punkt: `S.SAND`, `S.GRAVEL`, `S.GRASS`, `S.DIRT`, `S.MUD`, `S.BOG`, `S.ROCK`, `S.WOOD`, `S.ASH` (svart vulkansand). Styrer grep og farge. |
 | `sky`, `fog`, `sun`, `hemi`, `sunDir` | Lys og himmel. |
 | `water` | Globalt vannivå (valgfritt). Alt terreng under dette blir vann. |
 | `rain: true` | Regn. `clouds:false` fjerner skyer og sol. |
+| `ash: true` | Glør og aske som svever i lufta (brukes i Vulkanen). |
+| `erupt:[min,maks]` | Vulkanen rumler med jevne mellomrom (sekunder mellom hver gang). Bare for show: ristende kamera og lavabomber, ingenting skader bilen. Krever `c.vent(...)`. |
+| `gateT(c)` | Valgfritt. Funksjon som gir portene nøyaktige plasser i stedet for jevn fordeling: `c=>[[x,z],[x,z],...].map(p=>c.tOf(p[0],p[1]))`. Da styrer antall punkter antall porter. |
+| `shortcut:[[x,z],...]`, `shortcutGates:[a,b]` | Bare for testen: punkter en snarvei følger, og hvilke porter (0-indeksert) den hopper over. Se Vulkanen. |
 | `build(c)` | Her plasserer du hindringer. |
 
 Verktøy du kan bruke i `build(c)`:
@@ -91,7 +95,34 @@ c.tufts(antall,[farger])                    // gresstuster
 c.dist(x,z)                  // avstand fra løypa (hold steiner unna løypa med dette)
 c.nearGate(x,z,avstand)      // sant hvis en port er nær
 c.finish()                   // kall denne når terrenget er ferdig, før pynt
+c.tOf(x,z)                   // t (0–1) for det punktet på løypa som er nærmest (x,z)
 ```
+
+### Lava, hengebroer, foss og vulkan
+
+Disse verktøyene brukes i `data/levels/06-vulkan.js`. Kopier derfra.
+
+```js
+c.bench(t0,t1,hw,blend)      // jevner ut terrenget langs løypa (t0–t1) så bilen slipper å kjøre på skrå
+c.benchLine(punkter,hw,blend)// det samme langs en egen linje, f.eks. en snarvei
+c.lava(punkter,(x,z)=>halvBredde)   // lavaelv langs en linje, fra kilden og nedover. Lavaen følger terrenget.
+c.lavaPool(x,z,r,nivå)       // lavasjø (krater)
+c.bridge(ax,az,bx,bz,halvBredde,{sag:.2})  // hengebro fra A til B. Begge ender må ligge på fast grunn.
+c.fall(x,z,vinkel,bredde,topp,bunn)        // foss (bare utseende): kjør bak den ved å la løypa gå forbi
+c.smoke(x,z,y)               // røyk og glød over et krater
+c.vent(x,z)                  // et sted utbruddet skyter lava (kreves for `erupt`)
+c.crate(x,z)                 // ekstra kasse på et bestemt sted (f.eks. midt på en smal bro)
+c.bonus(x,z,r,muttere,tekst) // belønning (muttere) første gang bilen kommer innenfor r. Brukes til snarveien.
+c.lavaNear(x,z,m)            // sant hvis det er lava innenfor m. Bruk når du plasserer steiner og planter.
+```
+
+Kjører bilen i lava, får spilleren 10 straffepoeng og settes tilbake ved forrige port. Broer er kjørbare flater med en lav kant, og er høye nok over lavaen til at bilen ikke regnes som «i lava».
+
+**Rekkefølge i `build(c)`:** først `c.bench`, så `c.lava`/`c.lavaPool`, så `c.bridge`, så steiner og pynt, og til sist `c.finish()`. Legg ikke steiner nær lava eller på snarveien (bruk `c.lavaNear`).
+
+### Vulkanen: snarveien
+
+Etter port 9 kan du velge den lange runden sør om vulkanen, eller en smal bro rett over lavaelva (skilt vises ved avkjøringen). Snarveien har to kasser midt på broa og gir 40 muttere ekstra («Modig snarvei!»). Faller du i lava, mister du 10 poeng og går tilbake til port 9. Testen `node tools/test-levels.js vulkan` kjører også snarveien.
 
 4. Kjør testen:
 
@@ -99,7 +130,7 @@ c.finish()                   // kall denne når terrenget er ferdig, før pynt
 node tools/test-levels.js minbane
 ```
 
-Autopiloten kjører banen i begge gir. Du vil se `prog 0.99` (kom i mål), `drown 0` (ingen druknet motor på selve løypa) og helst under 5 velt. Står den fast («fast» høyt) eller drukner, er noe i veien plassert feil.
+Autopiloten kjører banen i begge gir. Du vil se `prog 0.99` (kom i mål), `drown 0` (ingen druknet motor på selve løypa), `lava 0` (ingen i lavaen) og helst under 5 velt. Har banen `shortcut`, kjører den også snarveien (`SNARVEI`) og viser hvor lang tid hovedruten tar mellom de samme portene. Står den fast («fast» høyt) eller drukner, er noe i veien plassert feil.
 
 ## Justere garasjen
 
