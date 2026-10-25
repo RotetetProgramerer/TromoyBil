@@ -126,7 +126,7 @@ function onFerryDeck(){const f=LV.ferry;if(!f)return false;const rx=car.pos.x-f.
 function startFerry(destId){const di=LEVELS.findIndex(l=>l.id===destId);if(di<0||!ferryVis)return;if(prof.nuts<5){toast('Du trenger 5 muttere til fergen',true);return}
   prof.nuts-=5;saveProf();const g=ferryVis.g,f=LV.ferry;
   FT={t:0,dest:di,phase:'out',from:g.position.clone(),dx:f.dx,dz:f.dz,off:car.pos.clone().sub(g.position),q:car.q.clone(),faded:false,loaded:false,base:g.position.clone()};
-  state.mode='ferry';car.vel.set(0,0,0);car.w.set(0,0,0);car.throttle=0;ambHorn(f.x,f.z);toast('Fergen går til '+LEVELS[di].name+' · −5 ⚙')}
+  state.mode='ferry';car.vel.set(0,0,0);car.w.set(0,0,0);car.throttle=0;ambHorn(f.x,f.z);if(typeof netFerry==='function')netFerry('out');toast('Fergen går til '+LEVELS[di].name+' · −5 ⚙')}
 function ferryPlace(g){const tm=performance.now()*.001;g.position.y=FT.base.y+.04*Math.sin(tm*1.3);g.rotation.z=.012*Math.sin(tm*.9);car.pos.copy(g.position).add(FT.off);car.q.copy(FT.q);
   // the physics is paused, so the wheels and axles must be carried along with the body by hand
   const up=_c1.set(0,1,0).applyQuaternion(car.q),trv=car.tune.travel;for(const w of car.wheels)w.center.copy(w.mount).applyQuaternion(car.q).add(car.pos).addScaledVector(up,-(trv-Math.min(w.comp,trv)))}
@@ -144,7 +144,7 @@ function ferryArrive(){const di=FT.dest;loadLevel(di);const f=LV.ferry,g=ferryVi
   const along=FT.off.x*FT.dx+FT.off.z*FT.dz,lat=FT.off.x*FT.dz-FT.off.z*FT.dx;
   FT.dx=f.dx;FT.dz=f.dz;FT.off.set(f.dx*along+f.dz*lat,.5,f.dz*along-f.dx*lat);FT.q.setFromAxisAngle(YAX,Math.atan2(-f.dx,-f.dz));
   FT.dock=g.position.clone();FT.phase='in';FT.t=0;FT.loaded=true;g.position.set(FT.dock.x+f.dx*16,FT.dock.y,FT.dock.z+f.dz*16);FT.base=g.position.clone();ferryPlace(g);camSnap=true;
-  $('hud').classList.add('free');$('hLevel').textContent=LEVELS[di].name;ambHorn(f.x,f.z)}
+  $('hud').classList.add('free');$('hLevel').textContent=LEVELS[di].name;ambHorn(f.x,f.z);if(typeof netFerry==='function')netFerry('in')}
 function skipFerry(){if(!FT)return;if(FT.phase==='out'){$('fade').classList.add('on');FT.faded=true;FT.t=4.21}else FT.t=4.21}
 
 /* ---------- golden nuts: five hidden on every island ---------- */
