@@ -161,6 +161,12 @@ Slik blir en bane til en øy, uten at løypa endres:
 
 I fri kjøring blir banens egen løype en startstrek (`c.course` lages automatisk for øyer som er løp), så du kan starte løpet ute i terrenget som på Sandglow-øya. Beste tid deles mellom Hurtigløp og fri kjøring.
 
+**Låste løyper:** `needs:{courses:3}` på en løype krever tre fullførte løyper på øya; `needs:{courses:5,nuts:200}` kan i tillegg låses opp for muttere. Skiltet og kartet viser hengelås. **Biler til salgs:** `price:600` på en bil i `data/cars.js` gjør at den må kjøpes i verkstedet på basen; `winch:true` gir den ekte vinsj.
+
+**Vinsj:** bilen Vinsjen, og alle biler med Utstyr nivå 3, har ekte vinsj. Hold **R** for å sikte (en linje vises til nærmeste festepunkt innen 7 enheter og ca. 70° foran bilen), slipp for å dra; R igjen løsner. Festepunkter er trær, hus, lykter, bropilarer og store steiner (`c.anchor(x,z)` i banefilen, eller `anchor:true` på en kollider). «Hent bilen» i pausemenyen er den gamle vinsjen med straff.
+
+**Gullmuttere:** `c.secret(x,z,'Bak fossen')` gjemmer en gullmutter (25 ⚙, én gang). Fem per øy; finner du alle, får du 100 ⚙ og gull-lakken. Kartet viser bare de du har funnet.
+
 Fergerutene og plasseringen på skjærgårdskartet ligger i `data/archipelago.js` (`ISLANDS`, `ROUTES`). Kartet (K) har to faner: øya du er på, og skjærgården. Hver øy er fortsatt sin egen fil og kan endres og testes for seg: `node tools/test-levels.js sand`.
 
 ## Åpen verden (Sandglow-øya)
@@ -186,6 +192,27 @@ Nye underlag: `S.REDROCK` (rød canyonstein) og `S.ASPHALT` (flystripen).
 Slik virker det i spillet: Kjør bort til en startstrek (flagg, dekk og festivallys), så kommer spørsmålet «Vil du starte?». JA: portene våkner, piler viser veien og nedtellingen går. Resultat og muttere som i løpene; beste tid lagres per løype (`best['verden/jungel']`). Kjører du mer enn 30 enheter fra neste port, avbrytes løpet. **K** åpner øykartet (tåke over det du ikke har sett, lagres per verden), minikartet ligger i hjørnet. Kjør inn foran verkstedportene for å åpne garasjen, eller «Tau hjem» fra kartet for 20 muttere.
 
 Testen kjører hver løype for seg: `node tools/test-levels.js verden`.
+
+## En by (Trinnvik)
+
+`data/levels/07-trinnvik.js` er en verden som er en by: to flate terrasser (Nedre by 1,2 og Øvre by 2,39) med utsiktstoppen øverst, gater med fortauskant, trapper, en skatepark, et stadion, et parkeringshus med spiral og en liten byggetomt. Terrassene, bollen, amfiet og P-huskjeglen ligger i `base()`; alt annet stemples oppå med verktøyene under. Trapper på løypene er 0,15–0,18 høye (det klarer alle biler i begge gir), de bratteste (0,24) ligger utenfor løypene.
+
+Verktøy for byer i `build(c)`:
+
+| Verktøy | Betydning |
+|---|---|
+| `c.stairs(x,z,retning,n,trinn,inntrinn,bredde,{level,land,wall})` | En trapp stemplet i absolutt høyde: `n` trinn à `trinn` opp fra `(x,z)` i retning `retning` (radianer, 0 = +z). Bakken inni fotavtrykket settes til trinnhøyden, så trappa aldri forsvinner under en terrasse. `level` er høyden ved foten (standard bakken der), `land` en flat avsats etter øverste trinn, `wall:true` gir murer med kollidere på sidene. |
+| `c.street(poly,{hw,drop,cross})` | En bygate: kjørebanen senkes `drop` (0,12) innenfor `hw`, så fortauet får kantstein på begge sider. `cross:[[x,z],...]` er fotgjengerfelt der gata kommer opp igjen (opphøyd gangfelt). Gater som krysser hverandre senkes bare én gang. Ingen utjevning: bakken må være flat fra før. |
+| `c.building(x,y,z,b,h,d,farge,ry,{fh,sign,roof})` | En bygning: boks med sokkel, flatt tak, vindusbånd per etasje (`fh` = etasjehøyde), dør og en firkantet kollider som følger fasaden. Fronten vender mot +z i boksens egen ramme. Tegnes på øykartet. |
+| `c.lamp(x,z,{h,ang})` | Gatelykt med stolpe og arm. Lyser om natten (nattløp). Duer sitter på den. |
+| `c.cone(x,z)`, `c.barrier(x,z,retning)` | Trafikkjegle og sperrebukk som velter når bilen treffer dem. |
+| `shape(..., level)` og `disc(..., level)` | Stemplene kan nå få en absolutt høyde for h = 0, i stedet for å måle fra grunnterrenget. Bruk det på terrasser og gater (fartsdumper, ramper, opphøyde kryss). |
+| `c.road(poly,{bench:false})` | En vei uten utjevning av terrenget rundt. |
+| Kollidere `{x,z,w,d,ry}` | Firkantede kollidere (i tillegg til de runde `{x,z,r}`): bilen dyttes ut fra nærmeste punkt på rektangelet. |
+
+Dyr i en by: `pigeons:14` (duer på lykter og hustak), `rats:[{at,r,n}]`, `cats:[{at,r,n}]`. Lydsoner: `biome(x,z)` kan gi `city` (trafikkdur, duer, fjern biltut, rådhusklokke ved `bellAt:[x,z]`), `stadium` (publikumsmumling) og `site` (generator og hammerslag). `ambience:'town'` slår lyden på. En `boulder` med `col:'#f4f4f0'` er en ball (fotballen på stadion).
+
+Testen: `node tools/test-levels.js trinnvik` kjører landsbytesten og alle sju løypene i begge gir.
 
 ## Justere garasjen
 

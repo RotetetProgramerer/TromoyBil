@@ -31,6 +31,8 @@ function buildMapBase(def){
   const isW=(u,v)=>{u=Math.max(0,Math.min(W-1,u));v=Math.max(0,Math.min(W-1,v));const o=(v*W+u)*4;return d[o+2]>d[o]+40};
   for(let v=1;v<W-1;v++)for(let u=1;u<W-1;u++){const w=isW(u,v);if(w===isW(u+1,v)&&w===isW(u,v+1)&&w===isW(u-1,v)&&w===isW(u,v-1))continue;const o=(v*W+u)*4;e[o]=46;e[o+1]=58;e[o+2]=68;e[o+3]=w?120:210}
   const ec=document.createElement('canvas');ec.width=ec.height=W;ec.getContext('2d').putImageData(edge,0,0);x.drawImage(ec,0,0);
+  // buildings: grey footprints, so a town reads on the map
+  for(const b of(LV.footprints||[])){x.save();x.translate(mapX(b.x),mapY(b.z));x.rotate(b.ry);x.fillStyle='rgba(70,66,60,.78)';const w=b.w/WORLD*W,d=b.d/WORLD*W;x.fillRect(-w/2,-d/2,w,d);x.restore()}
   // roads and courses
   x.lineCap='round';x.lineJoin='round';
   for(const poly of(LV.roads||[])){x.strokeStyle='rgba(42,36,28,.55)';x.lineWidth=4.5;x.setLineDash([]);strokePoly(x,poly);x.strokeStyle='#c9a46a';x.lineWidth=2.4;x.setLineDash([7,5]);strokePoly(x,poly)}
@@ -60,9 +62,10 @@ function drawFog(x,W,alpha){const FN=MAP.FN;if(!MAP.fogCv){MAP.fogCv=document.cr
 /* ---------- markers ---------- */
 function drawCar(x,u,v,ang,s){x.save();x.translate(u,v);x.rotate(ang);x.fillStyle='#ff6a2a';x.strokeStyle='#14120E';x.lineWidth=1.5;x.beginPath();x.moveTo(0,-s);x.lineTo(s*.75,s*.8);x.lineTo(0,s*.4);x.lineTo(-s*.75,s*.8);x.closePath();x.fill();x.stroke();x.restore()}
 function drawBase(x,u,v,s){x.save();x.translate(u,v);x.fillStyle='#e5a92b';x.strokeStyle='#14120E';x.lineWidth=1.5;x.beginPath();x.moveTo(-s,s*.2);x.lineTo(-s,-s*.3);x.lineTo(0,-s);x.lineTo(s,-s*.3);x.lineTo(s,s*.2);x.lineTo(-s,s*.2);x.closePath();x.fill();x.stroke();x.fillStyle='#14120E';x.fillRect(-s*.3,-s*.35,s*.6,s*.55);x.restore()}
-function drawCourseIcon(x,u,v,k,done,s,hot){x.save();x.translate(u,v);x.fillStyle=DIFFC[k.diff];x.strokeStyle=hot?'#fff':'#14120E';x.lineWidth=hot?2.5:1.5;x.beginPath();x.arc(0,0,s,0,6.283);x.fill();x.stroke();
+function drawCourseIcon(x,u,v,k,done,s,hot){x.save();x.translate(u,v);const locked=typeof courseLock==='function'&&courseLock(k);x.fillStyle=locked?'#9a9382':DIFFC[k.diff];x.strokeStyle=hot?'#fff':'#14120E';x.lineWidth=hot?2.5:1.5;x.beginPath();x.arc(0,0,s,0,6.283);x.fill();x.stroke();
   x.fillStyle='#14120E';x.textAlign='center';x.textBaseline='middle';
   if(done){for(let i=0;i<3;i++)for(let j=0;j<3;j++)if((i+j)%2===0)x.fillRect(-s*.55+i*s*.37,-s*.55+j*s*.37,s*.37,s*.37)}
+  else if(locked){x.fillRect(-s*.3,-s*.1,s*.6,s*.5);x.lineWidth=s*.18;x.strokeStyle='#14120E';x.beginPath();x.arc(0,-s*.15,s*.22,Math.PI,0);x.stroke()}
   else{x.font='700 '+Math.round(s*1.6)+'px "Barlow Condensed",sans-serif';x.fillText('!',0,s*.08)}x.restore()}
 
 /* ---------- minimap ---------- */
@@ -92,13 +95,14 @@ function openMap(on){if(!state.world||!MAP.base)return;if(on===undefined)on=!MAP
   else if(state.mode==='pause'&&$('pause').hidden)state.mode='play'}
 function bigLayout(){const cv=MAP.big,fr=cv.parentElement.parentElement,sz=Math.max(200,Math.min(fr.clientWidth-32,innerHeight*.58));cv.parentElement.style.width=cv.parentElement.style.height=sz+'px';if(cv.width!==sz){cv.width=cv.height=sz}MAP.scale=sz/MAP.W;return sz}
 function setMapTab(t){MAP.tab=t;$('mTabIsland').setAttribute('aria-pressed',t==='island');$('mTabArch').setAttribute('aria-pressed',t==='arch');
-  if(t==='island')$('mapInfo').textContent='Trykk på en løype for å se beste tid. '+(coursesDone()+' av '+LV.courses.length+' løyper fullført.');else $('mapInfo').textContent='Skjærgården: fergen går mellom kaiene langs de stiplede rutene. Du er på '+LEVELS[state.levelIdx].name+'.';drawBigMap()}
+  if(t==='island')$('mapInfo').textContent='Trykk på en løype for å se beste tid. '+(coursesDone()+' av '+LV.courses.length+' løyper fullført. Gullmuttere: '+foundOn(LEVELS[state.levelIdx])+' av '+SECRET_PER+' funnet.');else $('mapInfo').textContent='Skjærgården: fergen går mellom kaiene langs de stiplede rutene. Du er på '+LEVELS[state.levelIdx].name+'. Gullmuttere: '+foundSecrets()+' av '+totalSecrets()+'.';drawBigMap()}
 function drawBigMap(){if(!MAP.open)return;if(MAP.tab==='arch')return drawArchipelago();const sz=bigLayout(),x=MAP.bigCtx,sc=MAP.scale,lvl=LEVELS[state.levelIdx];
   x.clearRect(0,0,sz,sz);x.save();x.scale(sc,sc);x.drawImage(MAP.base,0,0);drawFog(x,MAP.W,.74);x.restore();
   // dashed line home
   if(lvl.basePos){x.save();x.setLineDash([6,6]);x.strokeStyle='rgba(229,169,43,.9)';x.lineWidth=2;x.beginPath();x.moveTo(mapX(car.pos.x)*sc,mapY(car.pos.z)*sc);x.lineTo(mapX(lvl.basePos[0])*sc,mapY(lvl.basePos[1])*sc);x.stroke();x.restore();drawBase(x,mapX(lvl.basePos[0])*sc,mapY(lvl.basePos[1])*sc,10)}
   for(const k of LV.courses)drawCourseIcon(x,mapX(k.start.p.x)*sc,mapY(k.start.p.z)*sc,k,!!best[courseKey(lvl,k)],9,MAP.hover===k);
   if(LV.ferry)drawFerryIcon(x,mapX(LV.ferry.quay.x)*sc,mapY(LV.ferry.quay.z)*sc,10);
+  (LV.secrets||[]).forEach((sc2,i)=>{if(!prof.secrets[secretKey(lvl,i)])return;x.save();x.translate(mapX(sc2.x)*sc,mapY(sc2.z)*sc);x.fillStyle='#e6b43a';x.strokeStyle='#5a3a1a';x.lineWidth=1.2;x.beginPath();x.arc(0,0,5,0,6.283);x.fill();x.stroke();x.fillStyle='#5a3a1a';x.beginPath();x.arc(0,0,1.8,0,6.283);x.fill();x.restore()});
   drawCar(x,mapX(car.pos.x)*sc,mapY(car.pos.z)*sc,Math.atan2(car.fw.x,car.fw.z),9);
   // compass
   x.save();x.translate(sz-36,sz-36);x.fillStyle='rgba(233,220,185,.85)';x.beginPath();x.arc(0,0,24,0,6.283);x.fill();x.strokeStyle=MAPCOL.ink;x.lineWidth=1.5;x.stroke();x.fillStyle='#d9432f';x.beginPath();x.moveTo(0,-20);x.lineTo(5,0);x.lineTo(-5,0);x.closePath();x.fill();x.fillStyle=MAPCOL.ink;x.beginPath();x.moveTo(0,20);x.lineTo(5,0);x.lineTo(-5,0);x.closePath();x.fill();x.font='700 11px "Barlow Condensed",sans-serif';x.textAlign='center';x.fillText('N',0,-26);x.restore()}
@@ -112,7 +116,7 @@ function drawArchipelago(){const sz=bigLayout(),x=MAP.bigCtx,here=LEVELS[state.l
   for(const isl of ISLANDS){const l=LEVELS.find(v=>v.id===isl.id);if(!l)continue;const[u,v]=P(isl.id),r=(l.world?sz*.085:sz*.055);const done=starKeys(l).filter(k=>best[k]).length,tot=starKeys(l).length;
     x.save();x.translate(u,v);x.fillStyle='#e9dcb9';x.strokeStyle=isl.id===here?'#ff6a2a':'#5a3a1a';x.lineWidth=isl.id===here?4:2;x.beginPath();for(let i=0;i<=24;i++){const a=i/24*6.283,rr=r*(1+.14*Math.sin(a*3+u)+.08*Math.cos(a*5+v));x.lineTo(Math.cos(a)*rr,Math.sin(a)*rr)}x.closePath();x.fill();x.stroke();
     x.fillStyle='#8aa65a';x.beginPath();x.arc(0,0,r*.55,0,6.283);x.fill();if(l.world||l.id==='vulkan'){x.fillStyle=l.id==='vulkan'?'#6b5a52':'#e8eef2';x.beginPath();x.moveTo(-r*.3,r*.2);x.lineTo(0,-r*.35);x.lineTo(r*.3,r*.2);x.closePath();x.fill()}
-    x.fillStyle='#2a241c';x.textAlign='center';x.font='700 '+Math.round(sz*.028)+'px "Barlow Condensed",sans-serif';x.fillText(l.name,0,r+sz*.03);x.font='600 '+Math.round(sz*.022)+'px "Barlow Condensed",sans-serif';x.fillStyle='#4a3a28';x.fillText(done+'/'+tot+(tot>1?' løyper':' løype'),0,r+sz*.055);
+    x.fillStyle='#2a241c';x.textAlign='center';x.font='700 '+Math.round(sz*.028)+'px "Barlow Condensed",sans-serif';x.fillText(l.name,0,r+sz*.03);x.font='600 '+Math.round(sz*.022)+'px "Barlow Condensed",sans-serif';x.fillStyle='#4a3a28';x.fillText(done+'/'+tot+(tot>1?' løyper':' løype')+' · '+foundOn(l)+'/'+SECRET_PER+' ⚙',0,r+sz*.055);
     drawFerryIcon(x,r*.75,-r*.75,sz*.014);if(isl.id===here)drawCar(x,0,0,0,sz*.016);x.restore()}}
 function mapHover(e){if(MAP.tab==='arch')return;const r=MAP.big.getBoundingClientRect(),u=(e.clientX-r.left)/MAP.scale,v=(e.clientY-r.top)/MAP.scale;let h=null;for(const k of LV.courses){if(Math.hypot(mapX(k.start.p.x)-u,mapY(k.start.p.z)-v)<14/MAP.scale)h=k}if(h!==MAP.hover){MAP.hover=h;drawBigMap();MAP.big.style.cursor=h?'pointer':'default'}}
 function mapInfoText(k){const b=best[LEVELS[state.levelIdx].id+'/'+k.id];const d=Math.hypot(k.start.p.x-car.pos.x,k.start.p.z-car.pos.z)*UNIT_CM/100;

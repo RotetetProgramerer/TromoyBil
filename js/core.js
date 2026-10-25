@@ -68,13 +68,14 @@ function rock(x,z,r,h,o={}){
   cellsIn(x-R,z-R,x+R,z+R,(k,px,pz)=>{const dx=px-x,dz=pz-z,lx=(dx*ca-dz*sa)/(r*ax),lz=(dx*sa+dz*ca)/r,d2=lx*lx+lz*lz;if(d2>=1)return;
     const b=h*Math.pow(1-d2,sharp)*(1-nz*.5+nz*n(px*1.9+sd,pz*1.9-sd));if(b<=0)return;TH[k]+=b;if(b>.035){TS[k]=surf;TCF[k]=0}});
 }
-function shape(cx,cz,ang,len,wid,hf,surf,cf){
+// level: an absolute height for h=0 (default: the untouched base terrain TB). Use it on terraces, streets and other stamped ground.
+function shape(cx,cz,ang,len,wid,hf,surf,cf,level){
   const dx=Math.sin(ang),dz=Math.cos(ang),R=Math.hypot(len,wid)/2+CELL;
   cellsIn(cx-R,cz-R,cx+R,cz+R,(k,px,pz)=>{const rx=px-cx,rz=pz-cz,a=rx*dx+rz*dz,b=rx*dz-rz*dx;
-    if(Math.abs(a)>len/2||Math.abs(b)>wid/2)return;const h=hf(a,b);if(h==null)return;const nh=TB[k]+h;
+    if(Math.abs(a)>len/2||Math.abs(b)>wid/2)return;const h=hf(a,b);if(h==null)return;const nh=(level??TB[k])+h;
     if(nh>=TH[k]-1e-4){TH[k]=nh;if(surf!=null)TS[k]=surf;if(cf)setC(k,cf(a,b))}});
 }
-function disc(x,z,r,top,surf,c){cellsIn(x-r,z-r,x+r,z+r,(k,px,pz)=>{if(Math.hypot(px-x,pz-z)>r)return;const nh=TB[k]+top;if(nh>=TH[k]){TH[k]=nh;TS[k]=surf;if(c)setC(k,c)}})}
+function disc(x,z,r,top,surf,c,level){cellsIn(x-r,z-r,x+r,z+r,(k,px,pz)=>{if(Math.hypot(px-x,pz-z)>r)return;const nh=(level??TB[k])+top;if(nh>=TH[k]){TH[k]=nh;TS[k]=surf;if(c)setC(k,c)}})}
 function log(ax,az,bx,bz,r,surf,cf){
   const ex=bx-ax,ez=bz-az,L2=ex*ex+ez*ez||1e-6,R=r*1.8;
   cellsIn(Math.min(ax,bx)-R,Math.min(az,bz)-R,Math.max(ax,bx)+R,Math.max(az,bz)+R,(k,px,pz)=>{
@@ -185,7 +186,7 @@ function genLevel(def){
     nearGate:(x,z,m)=>c.gates.some(g=>Math.hypot(g.c.x-x,g.c.z-z)<m)||c.courses.some(k=>k.gates.some(g=>Math.hypot(g.c.x-x,g.c.z-z)<m)),
     courses:[],roads:[],boxes:[],cyls:[],
     // a road: levelled, painted, and kept clear of decor. poly=[[x,z],...]
-    road(poly,o={}){const d=polyPts(poly,.5);c.xpts.push(...d);c.roads.push(poly);benchPts(polyPts(poly,.33),o.hw??1.3,o.blend??1.6);if(o.surf!=null)for(const p of d)paint(p.x,p.z,o.hw??1.3,o.surf,o.skip);return poly},
+    road(poly,o={}){const d=polyPts(poly,.5);c.xpts.push(...d);c.roads.push(poly);if(o.bench!==false)benchPts(polyPts(poly,.33),o.hw??1.3,o.blend??1.6);if(o.surf!=null)for(const p of d)paint(p.x,p.z,o.hw??1.3,o.surf,o.skip);return poly},
     // a course (an event inside an open world): its own line, gates and crates. Levelled like a road unless bench:false.
     course(ch){const k=genCourse(c,ch,rng);c.courses.push(k);for(let i=0;i<k.pts.length;i+=2)c.xpts.push(k.pts[i]);if(ch.bench!==false){benchPts(k.pts,ch.hw??1.2,ch.blend??1.7);const sp=k.P(0);c.flat(sp.x,sp.z,2.2,Hterr(sp.x,sp.z),2.4)}if(ch.surf!=null)for(let i=0;i<k.pts.length;i+=2)paint(k.pts[i].x,k.pts[i].z,1.3,ch.surf,ch.skip);return k},
     // a flat pad (the base, a camp): the terrain is pulled to height h inside r, blended outside
@@ -193,13 +194,59 @@ function genLevel(def){
     // props: boxes and cylinders drawn as instances at c.props() (buildings, barriers, posts). y is the bottom.
     box(x,y,z,w,h,d,col,ry=0,o={}){c.boxes.push({x,y:y+h/2,z,sx:w,sy:h,sz:d,ry,rx:o.rx||0,rz:o.rz||0,c:col})},
     onLand:(x,z)=>H(x,z)>(def.water??-1e9)+.25&&(!def.coast||Math.hypot(x,z)<def.coast-6),
-    cyl(x,y,z,r,h,col,o={}){c.cyls.push({x,y:y+h/2,z,sx:r,sy:h,sz:r,rx:o.rx||0,rz:o.rz||0,c:col});return c.cyls.length-1},
-    props(){c.propBoxes=instanced(DG.root,DM.white,c.boxes,c.decor);c.propCyls=instanced(DG.trunk,DM.white,c.cyls,c.decor);c.cylList=c.cyls;c.boxes=[];c.cyls=[]},
+    cyl(x,y,z,r,h,col,o={}){c.cyls.push({x,y:y+h/2,z,sx:r,sy:h,sz:r,rx:o.rx||0,ry:o.ry||0,rz:o.rz||0,c:col});return c.cyls.length-1},
+    props(){for(const b of c.boxes)if(b.sx>=1&&b.sz>=1&&b.sy>=.8)c.footprints.push({x:b.x,z:b.z,w:b.sx,d:b.sz,ry:b.ry||0});c.propBoxes=instanced(DG.root,DM.white,c.boxes,c.decor);c.propCyls=instanced(DG.trunk,DM.white,c.cyls,c.decor);c.cylList=c.cyls;c.boxes=[];c.cyls=[]},
+    footprints:[],   // big boxes (buildings), drawn on the island map
+    // ---- town pieces (see README: «En by») ----
+    // a staircase stamped at an absolute height: n steps of `rise` up, each `tread` deep, `w` wide, climbing from (x,z) in direction ang (radians, 0 = +z).
+    // The ground inside the footprint is SET to the step height (not just raised), so a stair never hides under a terrace or leaves a spike where it meets one.
+    // o.level = height at the foot (default H there), o.land = a flat landing after the top step, o.wall = side walls (boxes with colliders), o.max = only raise.
+    stairs(x,z,ang,n,rise,tread,w,o={}){const dx=Math.sin(ang),dz=Math.cos(ang),land=o.land||0,len=n*tread+land,cx=x+dx*len/2,cz=z+dz*len/2,lvl=o.level??H(x,z),R=Math.hypot(len,w)/2+CELL,c0=o.c0||'#8a877f',c1=o.c1||'#a09d95',surf=o.surf??S.ROCK;
+      cellsIn(cx-R,cz-R,cx+R,cz+R,(k,px,pz)=>{const rx=px-cx,rz=pz-cz,a=rx*dx+rz*dz,b=rx*dz-rz*dx;if(Math.abs(a)>len/2||Math.abs(b)>w/2)return;
+        const st=Math.min(n,Math.floor((a+len/2)/tread)+1),nh=lvl+st*rise;if(o.max&&nh<TH[k])return;TH[k]=nh;TS[k]=surf;if(c._st)c._st[k]=0;setC(k,mix(c0,c1,(st%2)*.7+G.noise(px*3,pz*3)*.3))});
+      c.block(cx,cz,Math.max(len,w)/2+1);
+      if(o.wall){const hgt=n*rise+(o.wallH||.25),ry=ang;for(const sd of[-1,1]){const wx=cx-dz*sd*(w/2+.08),wz=cz+dx*sd*(w/2+.08);c.box(wx,lvl-.05,wz,.16,hgt+.05,len,o.wallCol||'#8d8a84',ry);c.colliders.push({x:wx,z:wz,w:.16,d:len,ry,anchor:true,y:lvl+hgt*.5})}}
+      return{x:x+dx*len,z:z+dz*len,y:lvl+n*rise,len}},
+    // a town street: the roadway is lowered by o.drop (default .12) inside hw, so the pavement makes a kerb on both sides; the kerb band is painted concrete.
+    // o.cross=[[x,z],...] are pedestrian crossings where the roadway comes back up to pavement level (a raised crossing). Nothing is benched: the ground must already be flat.
+    street(poly,o={}){const hw=o.hw??1.6,drop=o.drop??.12,kb=o.kerb??.35,P=polyPts(poly,.25),R=hw+kb+.3;c.xpts.push(...polyPts(poly,.5));c.roads.push(poly);
+      let x0=1e9,z0=1e9,x1=-1e9,z1=-1e9;for(const p of P){x0=Math.min(x0,p.x);z0=Math.min(z0,p.z);x1=Math.max(x1,p.x);z1=Math.max(z1,p.z)}
+      const best=new Map();cellsIn(x0-R,z0-R,x1+R,z1+R,(k,px,pz)=>{let m=1e9;for(let i=0;i<poly.length-1;i++){const a=poly[i],b=poly[i+1],ex=b[0]-a[0],ez=b[1]-a[1],L2=ex*ex+ez*ez||1e-9;let t=((px-a[0])*ex+(pz-a[1])*ez)/L2;t=t<0?0:t>1?1:t;const d=Math.hypot(px-a[0]-ex*t,pz-a[1]-ez*t);if(d<m)m=d}if(m<R)best.set(k,[m,px,pz])});
+      // streets may cross: a cell is lowered at most once, to the deepest roadway that covers it (c._st remembers how far down it already is)
+      const st=c._st||(c._st=new Float32Array(N*N));
+      for(const[k,[d,px,pz]]of best){let cr=0;for(const q of(o.cross||[])){const dd=Math.hypot(px-q[0],pz-q[1]);if(dd<1.4)cr=Math.max(cr,1-smt01((dd-.6)/.8))}
+        const f=d<=hw?1:1-smt01((d-hw)/.12),want=drop*f*(1-cr),cur=st[k];if(want>cur){TH[k]-=want-cur;st[k]=want}
+        if(d<=hw){TS[k]=o.surf??S.ASPHALT;TCF[k]=0;if(cr>.5)setC(k,mix('#6a6966','#e8e4da',(Math.floor((px+pz)*2.2)%2)?.9:.1))}
+        else if(cur<=want+1e-6){TS[k]=S.ROCK;setC(k,mix(o.kerbCol||'#a4a099','#b5b1a9',G.noise(px*4,pz*4)))}}
+      return poly},
+    // a building: a box w×h×d with its bottom at y, its front towards +z in its own frame (rotated ry): plinth, flat roof with a lip and a roof box, window bands per floor, a door, and a box collider.
+    building(x,y,z,w,h,d,col,ry=0,o={}){const fh=o.fh??1.2,floors=Math.max(1,Math.round(h/fh)),cs=Math.cos(ry),sn=Math.sin(ry),at=(lx,lz)=>[x+lx*cs+lz*sn,z-lx*sn+lz*cs];
+      c.box(x,y,z,w,h,d,col,ry);c.box(x,y,z,w+.08,.1,d+.08,o.plinth||'#55534f',ry);c.box(x,y+h,z,w+.16,.12,d+.16,o.roof||'#3f3d3a',ry);
+      if(o.roofBox!==false){const[rx,rz]=at(w*.2,-d*.15);c.box(rx,y+h+.12,rz,Math.min(1.2,w*.35),.5,Math.min(1.0,d*.35),o.roofBoxCol||'#6a6866',ry)}
+      const win=o.win||'#1a262d',wh=Math.min(.42,fh*.38),wy0=y+fh*.45;
+      for(let f=0;f<floors;f++){const wy=wy0+f*fh;if(wy+wh>y+h-.1)break;
+        for(const[len,lat,ax]of[[w,d/2,'x'],[w,-d/2,'x'],[d,w/2,'z'],[d,-w/2,'z']]){const nW=Math.max(1,Math.floor((len-.5)/.75)),sp=len/nW;
+          for(let i=0;i<nW;i++){const u=-len/2+sp*(i+.5);if(f===0&&ax==='x'&&lat>0&&Math.abs(u)<.5)continue;   // the door stands here
+            const[wx,wz]=ax==='x'?at(u,lat*1.01):at(lat*1.01,u);c.box(wx,wy,wz,ax==='x'?.34:.03,wh,ax==='x'?.03:.34,win,ry)}}}
+      {const[dx2,dz2]=at(0,d/2*1.01);c.box(dx2,y,dz2,.5,.8,.04,o.door||'#3a2a22',ry);if(o.sign){const[sx,sz]=at(0,d/2*1.02);c.box(sx,y+fh-.1,sz,Math.min(w*.7,2.2),.3,.04,o.sign,ry)}}
+      const col2={x,z,w:w+.04,d:d+.04,ry,anchor:true,y:y+.5};c.colliders.push(col2);c.block(x,z,Math.hypot(w,d)/2+.5);return col2},
+    // a street lamp: pole, arm and head. The head glows at night (c.fx 'lamp', see game.js). Birds may sit on top.
+    lamp(x,z,o={}){const y=o.y??H(x,z),h=o.h??1.7,arm=o.arm??.45,ang=o.ang??0,ax=Math.sin(ang)*arm,az=Math.cos(ang)*arm,col=o.col||'#3a3a3a';
+      c.cyl(x,y,z,.045,h,col);c.box(x+ax/2,y+h-.05,z+az/2,.05,.05,arm,col,ang);c.box(x+ax,y+h-.16,z+az,.26,.14,.26,'#fff0c0');c.box(x+ax,y+h-.02,z+az,.3,.04,.3,col);
+      c.colliders.push({x,z,r:.08,anchor:true,y:y+.6});c.fx.push({type:'lamp',x:x+ax,y:y+h-.1,z:z+az});c.perches.push({x,y:y+h+.03,z,kind:'post'});return{x,y:y+h,z}},
+    // a traffic cone that tips over when the car hits it (cylinders only, so c.breakable works)
+    cone(x,z,o={}){const y=o.y??H(x,z),ids=[c.cyl(x,y,z,.14,.03,'#2a2a2a'),c.cyl(x,y+.03,z,.075,.34,o.col||'#f26b1d'),c.cyl(x,y+.19,z,.08,.06,'#f4f4f0')];c.breakable(x,z,.13,ids);return ids},
+    // a red-and-white barrier trestle across the way (also tips over). ang = direction of the bar.
+    barrier(x,z,ang=0,o={}){const y=o.y??H(x,z),dx=Math.cos(ang),dz=-Math.sin(ang),ids=[];for(const sd of[-.55,.55])ids.push(c.cyl(x+dx*sd,y,z+dz*sd,.03,.55,'#8a8a88'));
+      ids.push(c.cyl(x,y+.42-.65,z,.045,1.3,'#d9432f',{rz:1.57,ry:ang}),c.cyl(x,y+.22-.65,z,.045,1.3,'#f4f4f0',{rz:1.57,ry:ang}));c.breakable(x,z,.7,ids);return ids},
     // something the car can knock over (a cactus): a collider that disappears on impact, and the cylinder instances that tip over
+    anchors:[],anchor:(x,z,y)=>c.anchors.push({x,z,y:y??H(x,z)+.4}),
     breakables:[],breakable(x,z,r,ids){const col={x,z,r};c.colliders.push(col);c.breakables.push({x,z,r,ids,col,broken:false})},
     nearStart:(x,z,m)=>Math.hypot(pts[0].x-x,pts[0].z-z)<m,
     block:(x,z,r)=>blocks.push({x,z,r}), free:(x,z,r)=>!blocks.some(b=>Math.hypot(b.x-x,b.z-z)<b.r+r),
     pools:[],fx:[],vents:[],extra:[],bonuses:[],
+    // a golden nut hidden somewhere on the island (see README): worth 25 once
+    secrets:[],secret:(x,z,label)=>c.secrets.push({x,z,label}),
     bonus:(x,z,r,nuts,msg)=>c.bonuses.push({x,z,r,nuts,msg}),
     tOf:(x,z)=>{let m=1e9,bi=0;for(let i=0;i<pts.length;i++){const dx=pts[i].x-x,dz=pts[i].z-z,d=dx*dx+dz*dz;if(d<m){m=d;bi=i}}return bi/(pts.length-1)},
     lavaNear:(x,z,m)=>lavaAt(x,z,m)>-1e8,
@@ -221,7 +268,7 @@ function genLevel(def){
     trees:[],perches:[],
     tree(x,z,o={}){const t={x,z,h:o.h??(5+rng()*4),r:o.r??(.18+rng()*.16),lean:o.lean??(rng()-.5)*.14,ry:rng()*6.28,moss:o.moss??rng()<.75,kind:o.kind||'jungle',branches:[]};
       const nb=o.branches??(2+Math.floor(rng()*3));for(let i=0;i<nb;i++){const hy=t.h*(.45+.4*i/nb+rng()*.1),ang=t.ry+i*2.1+rng()*.8,len=1.2+rng()*1.4,tilt=.55+rng()*.5;t.branches.push({hy,ang,len,tilt})}
-      c.trees.push(t);c.colliders.push({x,z,r:t.r*1.3});return t},
+      c.trees.push(t);c.colliders.push({x,z,r:t.r*1.3,anchor:true,y:H(x,z)+.7});return t},
     // build meshes for all trees added with c.tree (call after c.finish so H() is final)
     forest(){const R=rng,trunks=[],roots=[],branches=[],canopies=[],moss=[],lianas=[];
       for(const t of c.trees){const y=H(t.x,t.z),th=t.h,top={x:t.x-Math.sin(t.lean)*th,y:y+Math.cos(t.lean)*th,z:t.z};const bark=mix('#4a3826','#6b5137',R());
@@ -254,7 +301,7 @@ function genLevel(def){
     // a suspension bridge from A to B (hw = half width). Both ends must lie on solid ground.
     bridge(ax,az,bx,bz,hw,o={}){const len=Math.hypot(bx-ax,bz-az),ux=(bx-ax)/len,uz=(bz-az)/len,y0=o.y0??H(ax,az),y1=o.y1??H(bx,bz),px=-uz*hw,pz=ux*hw,xs=[ax+px,ax-px,bx+px,bx-px],zs=[az+pz,az-pz,bz+pz,bz-pz];
       const dk={ax,az,bx,bz,ux,uz,len,hw,y0,y1,sag:o.sag??.22,x0:Math.min(...xs)-.02,x1:Math.max(...xs)+.02,z0:Math.min(...zs)-.02,z1:Math.max(...zs)+.02};
-      if(o.pier)dk.pier=true;G.decks.push(dk);c.fx.push(Object.assign({type:'deck'},dk));c.block((ax+bx)/2,(az+bz)/2,len/2+1);return dk},
+      if(o.pier)dk.pier=true;if(o.ferry)dk.ferry=true;G.decks.push(dk);c.fx.push(Object.assign({type:'deck'},dk));c.block((ax+bx)/2,(az+bz)/2,len/2+1);return dk},
     // a village with a ferry quay: houses on a flat pad by the shore, a plank pier out over the water and the ferry's deck at its end.
     // o.at=[x,z] on the beach; o.dir (degrees) points out to sea, default straight away from the island's centre.
     village(o){const vx=o.at[0],vz=o.at[1],a=(o.dir??Math.atan2(vz,vx)/Math.PI*180)*Math.PI/180,dx=Math.cos(a),dz=Math.sin(a),px=-dz,pz=dx,w=def.water??0;
@@ -270,13 +317,13 @@ function genLevel(def){
         c.box(hx,padH,hz,W,Hh,D,col,ry);c.box(hx,padH,hz,W+.1,.08,D+.1,'#3a3a3a',ry);
         for(const sd of[-1,1]){const o2=sd*W*.25;c.box(hx+Math.cos(ry)*o2,padH+Hh+.2,hz-Math.sin(ry)*o2,W*.64,.07,D+.3,rc,ry,{rz:-sd*.62})}
         c.box(hx+Math.cos(ry)*W*.3,padH+Hh+.2,hz-Math.sin(ry)*W*.3,.22,.55,.22,'#6b5a52',ry);c.box(hx+Math.sin(ry)*D/2,padH,hz+Math.cos(ry)*D/2,.42,.72,.04,'#3a2a22',ry);
-        for(const sx2 of[-.45,.45])c.box(hx+Math.sin(ry)*D/2+Math.cos(ry)*sx2*W,padH+.45,hz+Math.cos(ry)*D/2-Math.sin(ry)*sx2*W,.32,.3,.03,'#1a262d',ry);c.colliders.push({x:hx,z:hz,r:Math.max(W,D)*.62})};
+        for(const sx2 of[-.45,.45])c.box(hx+Math.sin(ry)*D/2+Math.cos(ry)*sx2*W,padH+.45,hz+Math.cos(ry)*D/2-Math.sin(ry)*sx2*W,.32,.3,.03,'#1a262d',ry);c.colliders.push({x:hx,z:hz,r:Math.max(W,D)*.62,anchor:true,y:padH+.4})};
       // the four small houses flank the street out of the village (o.out), the big ferry office stands by the pier
       const oa=(o.out??(a/Math.PI*180+180))*Math.PI/180,ox=Math.cos(oa),oz=Math.sin(oa),qx=-oz,qz=ox,yawO=Math.atan2(-ox,-oz);
       const houseO=(f,s,ry,i)=>house2(vx+ox*f+qx*s,vz+oz*f+qz*s,ry,i);
       houseO(2.6,-4.9,yawO+.35,0);houseO(3.4,-2.8,yawO,1);houseO(3.4,2.8,yawO,2);houseO(2.6,4.9,yawO-.35,3);house(1.3,4.2,yaw-1.5,4,true);
       // lamps, barrels, nets and a sign
-      for(const[f,s]of[[1,-3.4],[4.6,2.6],[-.6,-2.3]]){const[lx,lz]=at(f,s);c.cyl(lx,padH,lz,.05,1.5,'#3a3a3a');c.box(lx,padH+1.45,lz,.22,.16,.22,'#fff0c0');c.colliders.push({x:lx,z:lz,r:.1})}
+      for(const[f,s]of[[1,-3.4],[4.6,2.6],[-.6,-2.3]]){const[lx,lz]=at(f,s);c.cyl(lx,padH,lz,.05,1.5,'#3a3a3a');c.box(lx,padH+1.45,lz,.22,.16,.22,'#fff0c0');c.colliders.push({x:lx,z:lz,r:.1,anchor:true,y:padH+.6})}
       for(const[f,s,col]of[[.6,-4.6,'#5a7a8a'],[.9,-4.3,'#c8463a'],[-4.8,-3.6,'#8a6a3a']]){const[bx2,bz2]=at(f,s);c.cyl(bx2,padH,bz2,.17,.42,col);c.colliders.push({x:bx2,z:bz2,r:.2})}
       {const[sx,sz]=at(3.6,2.3);c.fx.push({type:'sign',x:sx,z:sz,ang:Math.atan2(-dx,-dz),text:'FERGE',sub:'kjør om bord'})}
       // the way out of the village: a gravel road from the square inland, levelled so the car never gets boxed in
@@ -287,12 +334,24 @@ function genLevel(def){
       // two rowing boats moored beside the pier
       for(const[f,s,col]of[[8.2,2.6,'#c8463a'],[9.9,-2.7,'#4f7bb5']]){const[qx,qz]=at(f,s);c.box(qx,w-.08,qz,1.5,.34,.6,col,yaw+.2);c.box(qx,w+.22,qz,1.1,.04,.4,'#8a6a3a',yaw+.2)}
       // the ferry's car deck: drivable, flush with the pier. The hull itself is drawn by the game so it can sail.
-      const F0=at(11.2,0),F1=at(18.0,0);const fd=c.bridge(F0[0],F0[1],F1[0],F1[1],1.55,{sag:0,y0:padH+.03,y1:padH+.03,pier:true});
+      const F0=at(11.2,0),F1=at(18.0,0);const fd=c.bridge(F0[0],F0[1],F1[0],F1[1],1.55,{sag:0,y0:padH+.03,y1:padH+.03,pier:true,ferry:true});
       const fc=at(14.6,0);c.ferry={x:fc[0],z:fc[1],dir:a,dx,dz,y:padH+.04,len:6.8,hw:1.55,quay:{x:A[0],z:A[1]},pad:{x:vx,z:vz,h:padH},deck:fd};
       c.village_=o;return c.ferry},
     finish(){for(let j=0;j<N;j++)for(let i=0;i<N;i++){const k=j*N+i;if(TCF[k])continue;const cc=surfColor(TS[k],-HALF+i*CELL,-HALF+j*CELL,n,def);TC[k*3]=cc[0];TC[k*3+1]=cc[1];TC[k*3+2]=cc[2]}c._done=true},
     pebbles(cnt,cols,smin,smax){const L=[];for(let i=0;i<cnt;i++){const x=(rng()-.5)*(WORLD-4),z=(rng()-.5)*(WORLD-4);if(def.water!=null&&H(x,z)<def.water+.02)continue;const s=smin+rng()*(smax-smin);
       L.push({x,y:H(x,z)+s*.2,z,sx:s,sy:s*.6,sz:s*(.8+rng()*.5),rx:rng()*3,ry:rng()*3,c:cols[i%cols.length]})}instanced(DG.peb,DM.white,L,c.decor,false)},
+    // bushes: low rounded clumps of two or three canopies, placed where ok(x,z) says yes
+    bushes(cnt,cols,ok){const L=[];for(let i=0;i<cnt*30&&L.length<cnt*3;i++){const x=(rng()-.5)*(WORLD-6),z=(rng()-.5)*(WORLD-6);if(c.dist(x,z)<2.2||(def.water!=null&&H(x,z)<def.water+.1)||(ok&&!ok(x,z)))continue;const s=.35+rng()*.35,n=2+(rng()<.5?1:0);
+        for(let k=0;k<n;k++){const a=rng()*6.28,d=k?s*.6:0;L.push({x:x+Math.cos(a)*d,y:H(x,z)+s*.45,z:z+Math.sin(a)*d,sx:s*(.9+rng()*.3),sy:s*.75,sz:s*(.9+rng()*.3),c:cols[(i+k)%cols.length]})}c.colliders.push({x,z,r:s*.7})}
+      instanced(DG.canopy,DM.leaf,L,c.decor)},
+    // mushrooms: a stalk and a cap, in the shade of trees
+    mushrooms(cnt,ok){const st=[],cp=[];for(let i=0;i<cnt*40&&st.length<cnt;i++){const x=(rng()-.5)*(WORLD-6),z=(rng()-.5)*(WORLD-6);if(c.dist(x,z)<1.5||(def.water!=null&&H(x,z)<def.water+.1)||(ok&&!ok(x,z)))continue;const h=.08+rng()*.1,y=H(x,z);
+        st.push({x,y:y+h/2,z,sx:.025,sy:h,sz:.025,c:'#e9dcb9'});cp.push({x,y:y+h,z,sx:.07+rng()*.05,sy:.04,sz:.07+rng()*.05,c:['#c43b2f','#d9a93a','#8a6a3a','#e9dcb9'][i%4]})}
+      instanced(DG.trunk,DM.white,st,c.decor,false);instanced(DG.canopy,DM.white,cp,c.decor,false)},
+    // shells and seaweed along the beach
+    shells(cnt){const L=[],W2=[];for(let i=0;i<cnt*30&&L.length<cnt;i++){const x=(rng()-.5)*(WORLD-4),z=(rng()-.5)*(WORLD-4);if(surfAt(x,z)!==S.SAND||(def.water!=null&&(H(x,z)<def.water+.02||H(x,z)>def.water+.9)))continue;const y=H(x,z);
+        if(rng()<.6)L.push({x,y:y+.015,z,sx:.05+rng()*.04,sy:.025,sz:.045+rng()*.03,ry:rng()*6.28,c:['#f2e8d0','#e9c9a8','#d9a0a0','#f7f3e8'][i%4]});else W2.push({x,y:y+.01,z,sx:.3+rng()*.4,sy:.02,sz:.06,ry:rng()*6.28,c:'#3f5a2a'})}
+      instanced(DG.peb,DM.white,L,c.decor,false);instanced(DG.root,DM.white,W2,c.decor,false)},
     tufts(cnt,cols){const L=[];for(let i=0;i<cnt;i++){const x=(rng()-.5)*(WORLD-4),z=(rng()-.5)*(WORLD-4);if(c.dist(x,z)<1.8||(def.water!=null&&H(x,z)<def.water+.05))continue;for(let k=0;k<5;k++){const s=.05+rng()*.05;
       L.push({x:x+(rng()-.5)*.5,y:H(x,z)-.02,z:z+(rng()-.5)*.5,sx:s,sy:.35+rng()*.45,sz:s,rx:(rng()-.5)*.6,rz:(rng()-.5)*.6,c:cols[k%cols.length]})}}instanced(DG.tuft,DM.tuft,L,c.decor,false)}
   };
@@ -310,7 +369,7 @@ function genLevel(def){
   c.crates=def.world?[]:placeCrates(c,c,rng);
   for(const e of c.extra)c.crates.push({x:e.x,z:e.z,y:H(e.x,e.z)+.16,t:c.tOf(e.x,e.z)});
   for(const k of c.courses){k.crates=placeCrates(k,c,rng);for(const e of k.extra)k.crates.push({x:e.x,z:e.z,y:H(e.x,e.z)+.16,t:k.tOf(e.x,e.z)})}
-  G.colliders=c.colliders;
+  G.colliders=c.colliders;G.anchors=c.anchors;
   return c;
 }
 
@@ -321,7 +380,7 @@ const SAMPLES=[[-.8,0],[-.5,0],[-.2,0],[0,0],[.2,0],[.5,0],[.8,0],[0,.07],[0,-.0
 // PARTS og PAINTS ligger i data/parts.js
 function tuneFrom(parts){const g=k=>parts[k]||0,t=g('tyres'),s=g('susp'),mo=g('motor'),w=g('weight'),ge=g('gear');
   return{grip:[1,1.1,1.2,1.3][t],vlow:[1,1.05,1.1,1.15][mo],vhigh:[1,.96,.92,.88][t]*[1,1.12,1.25,1.4][mo]*[1,.97,.94,.9][w],fmot:[1,1.2,1.4,1.65][mo],
-    travel:[.22,.26,.3,.34][s],lift:[0,0,.008,.015][s],right:[0,.35,.7,1][w],wade:ge>=1?.22:.06,winch:ge>=2?2:5,led:ge>=3,snorkel:ge>=1,lv:{tyres:t,susp:s,motor:mo,weight:w,gear:ge}}}
+    travel:[.22,.26,.3,.34][s],lift:[0,0,.008,.015][s],right:[0,.35,.7,1][w],wade:ge>=1?.22:.06,winch:ge>=2?2:5,led:ge>=3,snorkel:ge>=1,realWinch:ge>=3,lv:{tyres:t,susp:s,motor:mo,weight:w,gear:ge}}}
 const TUNE0=tuneFrom({});
 
 function makeCar(cfg,tune){
@@ -394,6 +453,8 @@ function stepCar(car,dt){
     _t.multiplyScalar(tl>1e-6?-ft/tl:0).addScaledVector(_ng,Nf);
     _f.add(_t);_rc.crossVectors(_r,_t);_tq.add(_rc);
   }
+  // the winch rope: a steady pull on the front hook towards the anchor (set by the game while winching)
+  if(car.rope){_P.set(0,.1,car.cfg.L/2).applyQuaternion(q).add(car.pos);_t.set(car.rope.x-_P.x,car.rope.y-_P.y,car.rope.z-_P.z);const L=_t.length();if(L>.05){_t.multiplyScalar(car.rope.F/L);if(_t.y>car.rope.F*.3)_t.y=car.rope.F*.3;_f.add(_t);_r.copy(_P).sub(car.pos);_rc.crossVectors(_r,_t);_tq.add(_rc)}}
   // body in water: buoyancy and drag
   const wl=WL(car.pos.x,car.pos.z);car.depth=wl-car.pos.y;
   const sub=Math.max(0,Math.min(1,(wl-(car.pos.y-.16))/.5));
@@ -402,11 +463,17 @@ function stepCar(car,dt){
   _iq.copy(q).invert();_t.copy(_tq).applyQuaternion(_iq);_t.set(_t.x/car.I.x,_t.y/car.I.y,_t.z/car.I.z).applyQuaternion(q);
   car.w.addScaledVector(_t,dt);
   if(car.assist&&up.y<.8&&up.y>-.2){_t.crossVectors(up,YAX);car.w.addScaledVector(_t,dt*7*(.8-up.y))}
+  if(car.rope&&up.y<.9){_t.crossVectors(up,YAX);if(_t.lengthSq()<1e-4)_t.set(1,0,0);car.w.addScaledVector(_t,dt*12*(1-up.y));car.vel.y+=dt*11*(1-up.y)}   // the winch rolls a tipped car back onto its wheels: a lift and a roll until it is upright
   if(TU.right>0&&up.y<.985&&up.y>-.2){_t.crossVectors(up,YAX);car.w.addScaledVector(_t,dt*9*TU.right*(.985-up.y))}
-  car.w.multiplyScalar(1-(.6+.5*TU.right)*dt);car.vel.multiplyScalar(1-.04*dt);
+  car.w.multiplyScalar(1-(.6+.5*TU.right+(car.rope?2.5:0))*dt);car.vel.multiplyScalar(1-(.04+(car.rope?1.5:0))*dt);
   car.pos.addScaledVector(car.vel,dt);
   _wq.set(car.w.x,car.w.y,car.w.z,0).multiply(q);q.x+=.5*dt*_wq.x;q.y+=.5*dt*_wq.y;q.z+=.5*dt*_wq.z;q.w+=.5*dt*_wq.w;q.normalize();
-  for(const c of G.colliders){const dx=car.pos.x-c.x,dz=car.pos.z-c.z,d=Math.hypot(dx,dz),R=c.r+.62;
+  for(const c of G.colliders){const dx=car.pos.x-c.x,dz=car.pos.z-c.z;
+    if(c.w!=null){   // a box (building, container, wall): the car is pushed out from the nearest point of the rectangle, in the box's own frame
+      const cs=Math.cos(c.ry||0),sn=Math.sin(c.ry||0),a=dx*cs-dz*sn,b=dx*sn+dz*cs,hw=c.w/2,hd=c.d/2,ca=a<-hw?-hw:a>hw?hw:a,cb=b<-hd?-hd:b>hd?hd:b;let ea=a-ca,eb=b-cb,d=Math.hypot(ea,eb);
+      if(d>=.62)continue;let na,nb;if(d<1e-4){const pa=hw-Math.abs(a),pb=hd-Math.abs(b);if(pa<pb){ea=a<0?-1:1;eb=0;na=ea*(hw+.62);nb=b}else{ea=0;eb=b<0?-1:1;na=a;nb=eb*(hd+.62)}}else{ea/=d;eb/=d;na=ca+ea*.62;nb=cb+eb*.62}
+      car.pos.x=c.x+na*cs+nb*sn;car.pos.z=c.z-na*sn+nb*cs;const nx=ea*cs+eb*sn,nz=-ea*sn+eb*cs,vn=car.vel.x*nx+car.vel.z*nz;if(vn<0){car.vel.x-=nx*vn*1.2;car.vel.z-=nz*vn*1.2}continue}
+    const d=Math.hypot(dx,dz),R=c.r+.62;
     if(d<R&&d>1e-4){const nx=dx/d,nz=dz/d;car.pos.x=c.x+nx*R;car.pos.z=c.z+nz*R;const vn=car.vel.x*nx+car.vel.z*nz;if(vn<0){car.vel.x-=nx*vn*1.2;car.vel.z-=nz*vn*1.2}}}
   for(const wh of car.wheels){const target=wh.contact&&wh.slip<.3?wh.vl:vt;wh.spin+=target/WR*dt}
 }

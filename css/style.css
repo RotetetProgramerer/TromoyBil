@@ -202,3 +202,6 @@ html{box-sizing:border-box}*,*::before,*::after{box-sizing:inherit}body{margin:0
 .alist .pr{font-family:var(--f-display);color:var(--sand);align-self:center}
 
 .maptabs{border-color:#8a6a3a}.maptabs button{color:#4a3a28;padding:6px 10px;font-size:.85rem}.maptabs button[aria-pressed="true"]{background:#5a3a1a;color:#e9dcb9}
+.sw.lk{opacity:.55;cursor:default;font-size:1.1rem}
+.card.locked{opacity:.6}
+#carSale h2{font-family:var(--f-display);font-weight:400;font-size:1.25rem;color:var(--sand);letter-spacing:.03em;display:flex;align-items:center;gap:10px;margin-bottom:8px}#carSale h2::after{content:"";flex:1;height:1px;background:var(--line)}

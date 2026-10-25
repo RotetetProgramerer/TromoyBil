@@ -64,7 +64,7 @@ LEVELS.push(
   gateT:c=>[[-10,-30],[2,-29.5],[16,-24],[14,-16.5],[-4,-18],[-20.7,-21.4],[-25,-10],[-18,-7.9],[-11.5,-7.9],b1.pre,b1.post,b2.pre,A,B,pol(rS(555),555),b5.pre,b5.post,FIN].map(p=>c.tOf(p[0],p[1])),
   // rullende stein: når bilen passerer trigger, løsner en stein i from og ruller til to (over veien)
   boulder:{trigger:pol(rS(231),231),from:pol(10,250),to:pol(25,250),speed:5.2,r:.55},
-  animals:{parrots:12,circling:3,monkeys:9,butterflies:36,crabs:7,liana:[-9,-19],bridgeMonkeys:b1},
+  animals:{parrots:12,circling:3,monkeys:9,butterflies:36,crabs:7,liana:[-9,-19],bridgeMonkeys:b1,fish:[{at:[-18,-12.6],r:3,n:2},{at:FORD,r:3,n:2}],lizards:[{at:[8,6],r:12,n:4}]},
   base(x,z,n){const rr=rOf(x,z),ds=lineD(RIVER,x,z),sd=seaD(x,z);
     const s2=smt((ds-2.6)/5);                                          // flatt nær elva
     let h=1.0+(.5*fbm(n,x*.045,z*.045,3)+.1*fbm(n,x*.3,z*.3,2))*s2;
@@ -111,7 +111,7 @@ LEVELS.push(
     const onLedge=(x,z)=>Math.abs(z+7.9)<2.4&&x>-24&&x<-9;
     for(let i=0;i<150;i++){const x=(R()-.5)*62,z=(R()-.5)*62,r=.5+R()*1.5,h=.4+R()*1.2,rr=rOf(x,z);
       if(rr<5.2||c.dist(x,z)<r+1.5||dShort(x,z)<r+1.8||c.nearGate(x,z,r+1.6)||c.nearStart(x,z,r+3)||c.lavaNear(x,z,r+1.3)||!c.free(x,z,r+.8)||c.pools.some(p=>Math.hypot(p.x-x,p.z-z)<p.r+r+.6)||lineD(RIVER,x,z)<r+2.8||seaD(x,z)<13)continue;
-      if(onLedge(x,z))continue;rock(x,z,r,h*(rr<17?1:.6),{ang:R()*6.3,ax:1+R()*.6})}
+      if(onLedge(x,z))continue;rock(x,z,r,h*(rr<17?1:.6),{ang:R()*6.3,ax:1+R()*.6});if(r>1.0)c.anchor(x,z)}
     for(let i=0;i<28;i++){const t=.45+R()*.53,p=c.P(t),s=c.side(t),b=(R()-.5)*2.2;if(c.nearGate(p.x,p.z,1.4)||c.lavaNear(p.x,p.z,3.5))continue;rock(p.x+s.x*b,p.z+s.z*b,.3+R()*.3,.16+R()*.18,{ang:R()*6.3})}
     for(const x of[-21.5,-20.2,-15.8,-14.5])rock(x,-9.6+R()*.4,.4+R()*.3,.3+R()*.2,{sharp:.5,nz:.2});   // steiner ved bassenget
     for(let x=-23;x<-9;x+=.5+R()*.5)if(R()<.7)rock(x,-9.35+R()*.3,.12+R()*.16,.08+R()*.1,{ang:R()*6.3});   // småstein langs ytterkanten av hyllen
@@ -120,6 +120,7 @@ LEVELS.push(
     const trunkOK=(x,z,r,minPath)=>!(c.dist(x,z)<minPath||!c.onLand(x,z)||dShort(x,z)<2.2||c.nearGate(x,z,2.2)||c.nearStart(x,z,3)||rOf(x,z)<18.5||seaD(x,z)<13.5||lineD(RIVER,x,z)<3.2||onLedge(x,z)||c.pools.some(p=>Math.hypot(p.x-x,p.z-z)<p.r+1.2)||c.trees.some(t=>Math.hypot(t.x-x,t.z-z)<r+t.r+1.6)||Math.abs(H(x+.5,z)-H(x-.5,z))+Math.abs(H(x,z+.5)-H(x,z-.5))>.35);
     for(let i=0;i<4000&&c.trees.length<64;i++){const x=-10+R()*34,z=-31+R()*18;if(!FOREST_BOX(x,z)||!trunkOK(x,z,.3,1.75))continue;c.tree(x,z,{h:4.5+R()*3.5,r:.2+R()*.18})}       // den lille skogen: tett
     for(let i=0;i<4000&&c.trees.length<64+70;i++){const x=(R()-.5)*66,z=(R()-.5)*66;if(FOREST_BOX(x,z)||!trunkOK(x,z,.3,2.6))continue;c.tree(x,z,{h:5+R()*4.5,r:.22+R()*.2})}   // resten av regnskogen
+    {const p=pol(5.4,135);c.secret(p[0],p[1],'Kraterkanten')}c.secret(-21.5,-8.4,'Bak fossen');c.secret(16,-28,'Den lille skogen');c.secret(-10,-33,'Stranden');c.secret(-20,20,'Jungelen i nord');
     c.finish();
     c.forest();
     // --- fossen: faller fra klippen rett innenfor veien og spruter ut over den. Vannet renner over veien og ned i bassenget.
