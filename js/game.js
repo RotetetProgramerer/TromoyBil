@@ -418,7 +418,7 @@ function loadLevel(i){
   state.levelIdx=i;const def=LEVELS[i];store.set('level',def.id);
   // free what the old level created; shared geometry and materials stay
   const keepGeo=new Set([...Object.values(DG),...SHARED_GEO,flagGeo,crateGeo,crateBand]),keepMat=new Set([...Object.values(M),...Object.values(DM),gateMat.pole,gateMat.cap,waterMat]);
-  levelGroup.traverse(o=>{if((o.isInstancedMesh||o.isMesh)&&o.geometry&&!keepGeo.has(o.geometry))o.geometry.dispose();
+  levelGroup.traverse(o=>{if((o.isInstancedMesh||o.isMesh||o.isPoints)&&o.geometry&&!keepGeo.has(o.geometry))o.geometry.dispose();
     if(o.material&&!keepMat.has(o.material)){if(o.material.map)o.material.map.dispose();o.material.dispose()}});
   scene.remove(levelGroup);levelGroup=new THREE.Group();scene.add(levelGroup);gateVis=[];
   LV=genLevel(def);if(terrainN!==N)buildTerrainGeo();water.scale.set(WORLD/70,WORLD/70,1);

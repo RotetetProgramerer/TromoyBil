@@ -175,7 +175,8 @@ function updateSecrets(dt){if(!secretVis.length||!car)return;const tm=performanc
 const WINCH_REACH=7,WINCH_F=.55;   // reach in units, pull as a fraction of the car's weight
 let WN={aim:false,target:null,active:false,line:null,hookRing:null,t:0,snd:null},winchBtnDown=false;
 const hasWinch=()=>!!(car&&(car.cfg.winch||car.tune.realWinch));
-function winchAnchors(){const L=[];for(const c of G.colliders)if(c.anchor)L.push(c);for(const a of(G.anchors||[]))L.push(a);for(const d of G.decks){if(d.ferry)continue;const y=Math.max(d.y0,d.y1)+.6;L.push({x:d.ax,z:d.az,y},{x:d.bx,z:d.bz,y})}return L}
+// a box anchor (building, container, wall) is hooked at the point of its face nearest the car, so the rope can actually get there
+function winchAnchors(){const L=[];for(const c of G.colliders)if(c.anchor){if(c.w!=null){const cs=Math.cos(c.ry||0),sn=Math.sin(c.ry||0),dx=car.pos.x-c.x,dz=car.pos.z-c.z,a=dx*cs-dz*sn,b=dx*sn+dz*cs,hw=c.w/2,hd=c.d/2,ca=a<-hw?-hw:a>hw?hw:a,cb=b<-hd?-hd:b>hd?hd:b;L.push({x:c.x+ca*cs+cb*sn,z:c.z-ca*sn+cb*cs,y:c.y})}else L.push(c)}for(const a of(G.anchors||[]))L.push(a);for(const d of G.decks){if(d.ferry)continue;const y=Math.max(d.y0,d.y1)+.6;L.push({x:d.ax,z:d.az,y},{x:d.bx,z:d.bz,y})}return L}
 function winchHook(out){return out.set(0,.1,car.cfg.L/2).applyQuaternion(car.q).add(car.pos)}
 function bestAnchor(){const hk=winchHook(_c1),fw=_c2.set(car.fw.x,0,car.fw.z).normalize();let best=null,bs=-1;
   for(const a of winchAnchors()){const dx=a.x-hk.x,dz=a.z-hk.z,d=Math.hypot(dx,dz);if(d<1.0||d>WINCH_REACH)continue;const cs=(dx*fw.x+dz*fw.z)/d;if(cs<.34)continue;   // within ~70° of straight ahead
