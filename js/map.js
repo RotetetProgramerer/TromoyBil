@@ -38,6 +38,10 @@ function buildMapBase(def){
   for(const poly of(LV.roads||[])){x.strokeStyle='rgba(42,36,28,.55)';x.lineWidth=4.5;x.setLineDash([]);strokePoly(x,poly);x.strokeStyle='#c9a46a';x.lineWidth=2.4;x.setLineDash([7,5]);strokePoly(x,poly)}
   for(const k of(LV.courses||[])){const pts=k.pts.filter((_,i)=>i%10===0).map(p=>[p.x,p.z]);x.setLineDash([]);x.strokeStyle='rgba(42,36,28,.5)';x.lineWidth=4;strokePoly(x,pts);x.strokeStyle=DIFFC[k.diff];x.lineWidth=2.2;x.setLineDash([5,4]);strokePoly(x,pts)}
   x.setLineDash([]);
+  // ski pistes (Gautefall) in their colours, and the chairlift as a black line with its masts
+  const PC=['#3fae3a','#3fae3a','#2f6fd6','#d9432f','#1d1c1a'];
+  for(const k of(LV.pistes||[])){const pts=k.pts.filter((_,i)=>i%6===0).map(p=>[p.x,p.z]);x.strokeStyle='rgba(255,255,255,.75)';x.lineWidth=7;strokePoly(x,pts);x.strokeStyle=PC[k.def.color??k.diff];x.lineWidth=3.2;strokePoly(x,pts)}
+  if(LV.liftDef){const L=LV.liftDef;x.strokeStyle='#14120E';x.lineWidth=1.6;strokePoly(x,[[L.ax,L.az],[L.bx,L.bz]]);x.fillStyle='#14120E';for(const n of L.nodes){x.beginPath();x.arc(mapX(L.ax+L.ux*n.d),mapY(L.az+L.uz*n.d),2.6,0,7);x.fill()}}
   // labels
   x.textAlign='center';x.fillStyle='rgba(42,36,28,.75)';x.font='italic 600 15px "Barlow Condensed",sans-serif';
   for(const[lx,lz,txt]of(def.mapLabels||[])){x.save();x.translate(mapX(lx),mapY(lz));x.rotate(-.05);x.strokeStyle='rgba(233,220,185,.7)';x.lineWidth=4;x.strokeText(txt,0,0);x.fillText(txt,0,0);x.restore()}
@@ -71,7 +75,7 @@ function drawCourseIcon(x,u,v,k,done,s,hot){x.save();x.translate(u,v);const lock
 /* ---------- minimap ---------- */
 function initMaps(){MAP.mini=$('minimap');MAP.miniCtx=MAP.mini.getContext('2d');MAP.mini.addEventListener('pointerdown',e=>{e.stopPropagation();if(state.mode==='play')openMap(true)});MAP.big=$('mapCv');MAP.bigCtx=MAP.big.getContext('2d');
   MAP.big.addEventListener('pointermove',e=>mapHover(e));MAP.big.addEventListener('pointerdown',e=>{mapHover(e);if(MAP.hover)$('mapInfo').textContent=mapInfoText(MAP.hover)})}
-function updateMinimap(){const cv=MAP.mini;if(!MAP.base||!car||$('hud').hidden||!state.world){cv.hidden=true;return}cv.hidden=false;
+function updateMinimap(){const cv=MAP.mini;if(!MAP.base||!car||$('hud').hidden||!state.world||SKI.on){cv.hidden=true;return}cv.hidden=false;
   const S=cv.width,x=MAP.miniCtx,R=S/2,range=15,px=S/(range*2)/(MAP.W/WORLD);   // px: base-pixels → minimap pixels so that `range` world units fit in the radius
   x.clearRect(0,0,S,S);x.save();x.beginPath();x.arc(R,R,R-2,0,6.283);x.clip();x.fillStyle=MAPCOL.fog;x.fillRect(0,0,S,S);
   const ang=Math.atan2(car.fw.x,car.fw.z);   // heading up

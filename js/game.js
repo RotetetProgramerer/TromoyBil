@@ -92,7 +92,7 @@ const rain=new THREE.Points(rainGeo,new THREE.PointsMaterial({color:0xdfe8ee,siz
 let ashMode=false,snowMode=false,precipK=1;
 // rain, drifting ash or snow. def.precip(x,z) (0–1) can limit it to part of the level, for example the summit.
 function updateRain(dt){if(!rain.visible)return;const cx=camera.position.x,cz=camera.position.z,cy=camera.position.y,def=LEVELS[state.levelIdx];
-  if(def.precip&&car){precipK+=(def.precip(car.pos.x,car.pos.z)-precipK)*.04;rain.material.opacity=.55*precipK}
+  if(def.precip&&car){const fp=focusPos();precipK+=(def.precip(fp.x,fp.z)-precipK)*.04;rain.material.opacity=.55*precipK}
   for(let i=0;i<RAIN_N;i++){let y=rainPos[i*3+1]-dt*(ashMode?1.1:snowMode?1.9:13);if(ashMode)rainPos[i*3]+=dt*.5;if(snowMode){rainPos[i*3]+=dt*(.8+.6*Math.sin(y*1.3+i));rainPos[i*3+2]+=dt*.3*Math.cos(y+i)}if(y<cy-6){y+=14;rainPos[i*3]=cx+(Math.random()-.5)*26;rainPos[i*3+2]=cz+(Math.random()-.5)*26}rainPos[i*3+1]=y}
   rainGeo.attributes.position.needsUpdate=true}
 
@@ -405,6 +405,7 @@ function updateAudio(){if(!AC||!car)return;const on=state.sound&&state.mode==='p
 
 /* ---------- level & car management ---------- */
 let LV=null,car=null;
+const focusPos=()=>SKI.on?SKI.s.pos:car.pos;   // what the camera follows: the car, or the skier in Gautefall
 // two light sets blended by def.zone(x,z): 0 = def.alt (for example jungle), 1 = def (for example the volcano)
 const ZL={on:false,fogA:new THREE.Color(),fogB:new THREE.Color(),sunA:new THREE.Color(),sunB:new THREE.Color(),hA:[new THREE.Color(),new THREE.Color()],hB:[new THREE.Color(),new THREE.Color()],k:-1};
 function setupZone(def){ZL.on=!!(def.zone&&def.alt);if(!ZL.on)return;const a=def.alt;ZL.fogA.set(a.fog).convertSRGBToLinear();ZL.fogB.set(def.fog).convertSRGBToLinear();ZL.sunA.set(a.sun).convertSRGBToLinear();ZL.sunB.set(def.sun).convertSRGBToLinear();
@@ -435,7 +436,7 @@ function loadLevel(i){
   hemi.color.set(def.hemi[0]).convertSRGBToLinear();hemi.groundColor.set(def.hemi[1]).convertSRGBToLinear();hemi.intensity=def.hemi[2]*1.15;
   sun.color.set(def.sun).convertSRGBToLinear();sun.intensity=def.sunI*1.55;
   sunGlow.material.color.set(def.sun).convertSRGBToLinear();sunGlow.visible=def.clouds!==false;
-  clearTracks();buildGates(LV);LV.hasLava=G.lavas.length>0;buildFx(LV);resetEruption(def);lavaLight.visible=LV.hasLava&&state.gfx==='hi';setupZone(def);buildAnimals(LV,def);buildBoulder(def);buildPortals(LV);buildFerry(LV);buildSecrets(LV);if(isIsland(def))buildMapBase(def);else MAP.base=null;$('bMap').hidden=!state.world;if(car)applyZone(car.pos.x,car.pos.z);
+  clearTracks();buildGates(LV);LV.hasLava=G.lavas.length>0;buildFx(LV);resetEruption(def);lavaLight.visible=LV.hasLava&&state.gfx==='hi';setupZone(def);buildAnimals(LV,def);buildBoulder(def);buildPortals(LV);buildFerry(LV);buildSki(LV);buildSecrets(LV);if(isIsland(def))buildMapBase(def);else MAP.base=null;$('bMap').hidden=!state.world;if(car)applyZone(car.pos.x,car.pos.z);
   if(car)resetToStart();
   $('hLevel').textContent=def.name;
 }
@@ -474,7 +475,7 @@ $('partList').addEventListener('click',e=>{const b=e.target.closest('[data-buy]'
 $('carSale').addEventListener('click',e=>{const b=e.target.closest('[data-buycar]');if(!b)return;const c=CARS.find(x=>x.id===b.dataset.buycar);if(!c||prof.nuts<c.price)return;prof.nuts-=c.price;prof.cars.push(c.id);saveProf();setCar(CARS.indexOf(c));renderGarage();toast('Gratulerer med '+c.name+'!')});
 $('paintList').addEventListener('click',e=>{const b=e.target.closest('[data-paint]');if(b)pickPaint(+b.dataset.paint)});
 $('mGarage').onclick=toGarage;$('rGarage').onclick=toGarage;$('gBack').onclick=toMenu;$('gDrive').onclick=startRun;
-function pause(on){if(state.mode!=='play'&&state.mode!=='pause')return;state.mode=on?'pause':'play';$('pause').hidden=!on;$('pAbort').hidden=!state.course;$('pMap').hidden=!state.world;$('pRestart').textContent=state.course?'Start løpet på nytt':state.world?'Tilbake til basen':'Start på nytt';if(on)$('pResume').focus()}
+function pause(on){if(state.mode==='ski'){if(on)skiKeyDown('escape');return}if(state.mode!=='play'&&state.mode!=='pause')return;state.mode=on?'pause':'play';$('pause').hidden=!on;$('pAbort').hidden=!state.course;$('pMap').hidden=!state.world;$('pRestart').textContent=state.course?'Start løpet på nytt':state.world?'Tilbake til basen':'Start på nytt';if(on)$('pResume').focus()}
 function addPenalty(n,why){state.penalty+=n;state.log.push(why);toast('+'+n+' '+why.split(':')[0],true)}
 // auto: the flip assist in easy mode puts the car back for free; everything else costs a winch penalty
 function winch(auto){
@@ -548,6 +549,7 @@ addEventListener('keydown',e=>{
   if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k))e.preventDefault();
   if(e.repeat)return;keys.add(k);
   if(state.mode==='ferry'){if(k==='enter'||k===' '||k==='escape')skipFerry();return}
+  if(state.mode==='ski'){skiKeyDown(k);return}
   if(MAP.open&&(k==='escape'||k==='k')){openMap(false);return}
   if(k==='escape'||k==='p'){if(state.mode==='play')pause(true);else if(state.mode==='pause')pause(false);else if(state.mode==='ask')answerAsk(false)}
   if(state.mode==='ask'&&(k==='enter'||k==='j'))answerAsk(true);
@@ -584,12 +586,12 @@ $('bGear').onclick=()=>{if(state.mode==='play')toggleGear()};$('bLights').onclic
 $('bSlow').onclick=()=>setSpeed(state.speed-10);$('bFast').onclick=()=>setSpeed(state.speed+10);
 $('bZoomIn').onclick=()=>zoom(-1);$('bZoomOut').onclick=()=>zoom(1);
 $('spdRange').addEventListener('input',e=>setSpeed(+e.target.value,true));
-$('gfxHi').onclick=()=>setGfx('hi');$('gfxLo').onclick=()=>setGfx('lo');$('bCam').onclick=cycleCam;$('bWinch').addEventListener('pointerdown',e=>{if(hasWinch()){e.preventDefault();winchKey(true)}});$('bWinch').addEventListener('pointerup',()=>{if(hasWinch())winchKey(false)});$('bWinch').onclick=()=>{if(!hasWinch())winch()};$('pFetch').onclick=()=>{pause(false);winch()};$('bPause').onclick=()=>pause(true);
+$('gfxHi').onclick=()=>setGfx('hi');$('gfxLo').onclick=()=>setGfx('lo');$('bCam').onclick=()=>{if(state.mode==='ski')skiKeyDown('c');else cycleCam()};$('bWinch').addEventListener('pointerdown',e=>{if(hasWinch()){e.preventDefault();winchKey(true)}});$('bWinch').addEventListener('pointerup',()=>{if(hasWinch())winchKey(false)});$('bWinch').onclick=()=>{if(!hasWinch())winch()};$('pFetch').onclick=()=>{pause(false);winch()};$('bPause').onclick=()=>pause(true);
 $('pResume').onclick=()=>pause(false);$('pRestart').onclick=()=>{if(state.world&&!state.course){pause(false);resetToStart();return}startRun()};$('pMenu').onclick=toMenu;$('pSound').onclick=()=>setSound(!state.sound);
-$('rRetry').onclick=startRun;$('rMenu').onclick=toMenu;$('rNext').onclick=()=>{if(state.world){endCourse();showHud();state.mode='play';return}loadLevel((state.levelIdx+1)%LEVELS.length);startRun()};
+$('rRetry').onclick=()=>{if(!skiResultBtn('retry'))startRun()};$('rMenu').onclick=()=>{if(!skiResultBtn('car'))toMenu()};$('rNext').onclick=()=>{if(skiResultBtn('next'))return;if(state.world){endCourse();showHud();state.mode='play';return}loadLevel((state.levelIdx+1)%LEVELS.length);startRun()};
 $('bMap').onclick=()=>openMap();$('mTabIsland').onclick=()=>setMapTab('island');$('mTabArch').onclick=()=>setMapTab('arch');$('mClose').onclick=()=>openMap(false);$('pMap').onclick=()=>{$('pause').hidden=true;openMap(true)};
 $('mTow').onclick=()=>{if(prof.nuts<20){toast('Du trenger 20 muttere',true);return}prof.nuts-=20;saveProf();if(state.course)endCourse();openMap(false);const lvl=LEVELS[state.levelIdx];if(lvl.basePos)resetToStart();else if(LV.ferry){const f=LV.ferry;placeCar(car,f.pad.x,f.pad.z,Math.atan2(-f.dx,-f.dz));camSnap=true}else resetToStart();state.checkpoint={x:car.pos.x,z:car.pos.z,h:Math.atan2(car.fw.x,car.fw.z)};toast(lvl.basePos?'Tauet hjem til basen · −20 ⚙':'Tauet til kaia · −20 ⚙')};
-$('aYes').onclick=()=>answerAsk(true);$('aNo').onclick=()=>answerAsk(false);$('aList').addEventListener('click',e=>{const b=e.target.closest('[data-dest]');if(b)answerAsk({dest:b.dataset.dest})});$('pAbort').onclick=()=>{pause(false);endCourse();toast('Løpet avbrutt')};
+$('aYes').onclick=()=>answerAsk(true);$('aNo').onclick=()=>answerAsk(false);$('aList').addEventListener('click',e=>{const b=e.target.closest('[data-dest]');if(b)answerAsk({dest:b.dataset.dest});const sb=e.target.closest('[data-ski]');if(sb)answerAsk({ski:sb.dataset.ski})});$('pAbort').onclick=()=>{pause(false);endCourse();toast('Løpet avbrutt')};
 $("startBtn").onclick=()=>startRoam();$('raceBtn').onclick=()=>{state.roam=false;startRun()};
 document.querySelectorAll('.tb').forEach(b=>{const t=b.dataset.t;const on=e=>{e.preventDefault();state.input[t]=1;b.classList.add('on');try{b.setPointerCapture(e.pointerId)}catch(_){}};
   const off=e=>{state.input[t]=0;b.classList.remove('on')};b.addEventListener('pointerdown',on);b.addEventListener('pointerup',off);b.addEventListener('pointercancel',off);b.addEventListener('lostpointercapture',off)});
@@ -618,9 +620,10 @@ function readInput(dt){
     const ly=gp.axes[1]||0;if(ly<-.2)gas=Math.max(gas,-ly);if(ly>.2)rev=Math.max(rev,ly);
     const pr=i=>gp.buttons[i]&&gp.buttons[i].pressed&&!padPrev[i];
     if(state.mode==='play'){if(pr(0))toggleGear();if(pr(1)){if(hasWinch())winchKey(true);else winch()}if(hasWinch()&&padPrev[1]&&!(gp.buttons[1]&&gp.buttons[1].pressed))winchKey(false);if(pr(3))cycleCam();if(pr(2))setLights(!state.lights)}
-    if(pr(9)){if(state.mode==='play')pause(true);else if(state.mode==='pause')pause(false);else if(state.mode==='menu')startRun()}
+    if(pr(9)){if(state.mode==='play')pause(true);else if(state.mode==='pause')pause(false);else if(state.mode==='ski')skiKeyDown('escape');else if(state.mode==='menu')startRun()}
     padPrev={};gp.buttons.forEach((b,i)=>padPrev[i]=b.pressed)}
   steer=Math.max(-1,Math.min(1,steer));
+  state.inp={gas,rev,steer,jump:keys.has(' ')||state.input.jump>0||!!(gp&&gp.buttons[0]&&gp.buttons[0].pressed)};   // the skier reads these (js/ski.js)
   if(state.mode!=='play'){gas=0;rev=0;steer=0}
   const thr=gas-rev;car.throttle+=Math.max(-dt*3,Math.min(dt*3,thr-car.throttle));
   car.steer+=Math.max(-dt*2.4,Math.min(dt*2.4,steer*.6-car.steer));
@@ -630,6 +633,7 @@ function readInput(dt){
 /* ---------- camera ---------- */
 let camSnap=true,tripod=null;const camTarget=new V3(),camLook=new V3(),_c1=new V3(),_c2=new V3();
 function updateCamera(dt){
+  if(SKI.on){skiCamera(dt);return}
   const fwf=_c1.set(car.fw.x,0,car.fw.z);if(fwf.lengthSq()<1e-4)fwf.set(0,0,1);fwf.normalize();
   if(state.mode==='menu'||state.mode==='garage'){const g=state.mode==='garage',a=performance.now()*(g?.0002:.00012)+.6,r=g?3.2:4.6;camTarget.set(car.pos.x+Math.sin(a)*r,0,car.pos.z+Math.cos(a)*r);camTarget.y=Math.max(car.pos.y+(g?.7:1.1),H(camTarget.x,camTarget.z)+.5);
     camLook.copy(car.pos).add(_c2.set(0,.2,0));camera.fov=g?34:40;}
@@ -663,7 +667,7 @@ function syncVisuals(dt){
   for(let a=0;a<2;a++){const L=car.wheels[a*2].center,R=car.wheels[a*2+1].center,ax=carVis.axles[a];ax.position.copy(L).add(R).multiplyScalar(.5);_c2.copy(L).sub(R);const len=_c2.length();
     ax.quaternion.setFromUnitVectors(YAX,_c2.normalize());ax.userData.tube.scale.y=len}
   // shadow follows car
-  const d=LEVELS[state.levelIdx].sunDir;sun.position.set(car.pos.x+d[0],car.pos.y+d[1],car.pos.z+d[2]);sun.target.position.copy(car.pos);
+  const d=LEVELS[state.levelIdx].sunDir,fp=focusPos();sun.position.set(fp.x+d[0],fp.y+d[1],fp.z+d[2]);sun.target.position.copy(fp);
   skyDome.position.copy(camera.position);const dl=Math.hypot(d[0],d[1],d[2]);sunGlow.position.set(camera.position.x+d[0]/dl*170,camera.position.y+d[1]/dl*170,camera.position.z+d[2]/dl*170);
   // beacon & arrow
   const ng=LV.gates[state.next];
@@ -672,7 +676,7 @@ function syncVisuals(dt){
   else if(state.free&&car.assist&&state.world){const n=nearestPortal();let tx=null,tz=null;if(n&&!courseLock(n.k)&&n.d>6){tx=n.k.start.p.x;tz=n.k.start.p.z}
     if(tx!==null){arrow.visible=true;arrow.position.copy(car.pos).add(_c2.set(0,1.25,0));_c1.set(tx-car.pos.x,0,tz-car.pos.z).normalize();arrow.quaternion.setFromUnitVectors(YAX,_c1)}else arrow.visible=false;beacon.visible=false}
   else{beacon.visible=false;arrow.visible=false}
-  updateDust(dt);updateRain(dt);updateFx(dt);applyZone(car.pos.x,car.pos.z);nightTint();updateCoat(dt);updateWinch(dt);updateAnimals(dt);updateBoulder(dt);
+  updateDust(dt);updateRain(dt);updateFx(dt);applyZone(fp.x,fp.z);nightTint();updateCoat(dt);updateWinch(dt);updateAnimals(dt);updateBoulder(dt);
   waterMat.normalMap.offset.x+=dt*.025;waterMat.normalMap.offset.y+=dt*.018;
   const tm=performance.now()*.001;for(const c of crateVis){if(c.taken)continue;c.g.rotation.y=tm*1.2;c.g.position.y=c.cr.y+Math.sin(tm*2.2+c.cr.x)*.03}
 }
@@ -698,7 +702,7 @@ function frame(now){
   if(!car||!LV){return}
   readInput(dt);if(toastT>0){toastT-=dt;if(toastT<=0)$('toast').classList.remove('on')}
   prevPos.copy(car.pos);
-  if(state.mode!=='pause'&&state.mode!=='ask'&&state.mode!=='ferry'){acc+=dt;let n=0;while(acc>=FIXED&&n<20){stepCar(car,FIXED);acc-=FIXED;n++}if(n>=20)acc=0}
+  if(state.mode!=='pause'&&state.mode!=='ask'&&state.mode!=='ferry'&&state.mode!=='ski'){acc+=dt;let n=0;while(acc>=FIXED&&n<20){stepCar(car,FIXED);acc-=FIXED;n++}if(n>=20)acc=0}
   if(state.mode==='count')updateCountdown(dt);if(state.mode==='ferry')updateFerry(dt);
   // physics blew up: put the car back at the last checkpoint (the start outside a run)
   if(!isFinite(car.pos.x)||!isFinite(car.q.w)){car.q.set(0,0,0,1);const cp=state.mode==='play'&&state.checkpoint;if(cp)placeCar(car,cp.x,cp.z,cp.h);else resetToStart();camSnap=true}
@@ -727,14 +731,14 @@ function frame(now){
   }
   if(state.mode==='done'&&toastT>0)updateHUD(dt);
   updateMinimap();
-  syncVisuals(dt);updateCamera(dt);updateAudio();updateAmbience(dt);
+  updateLift(dt);syncVisuals(dt);updateSki(dt);updateCamera(dt);updateAudio();updateAmbience(dt);
   landShake*=Math.exp(-dt*9);const shk=(ERU.amp>.0005?ERU.amp:0)+boulderShake()+(landShake>.001?landShake:0),sx=(Math.random()-.5)*shk*2,sy=(Math.random()-.5)*shk*2,sz=(Math.random()-.5)*shk*2;if(shk)camera.position.add(_c1.set(sx,sy,sz));
   renderer.render(scene,camera);
   if(shk)camera.position.sub(_c1.set(sx,sy,sz));
 }
 function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}
 addEventListener('resize',resize);resize();
-document.addEventListener('visibilitychange',()=>{if(document.hidden&&state.mode==='play')pause(true)});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&(state.mode==='play'||state.mode==='ski'))pause(true)});
 
 /* ---------- menu ---------- */
 function pips(n,max=5){return'<span class="pips">'+Array.from({length:max},(_,i)=>`<i class="${i<n?'on':''}"></i>`).join('')+'</span>'}
