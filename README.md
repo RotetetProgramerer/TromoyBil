@@ -233,8 +233,8 @@ Strenge nettverk, som enkelte skole- og jobbnett, kan blokkere direkte kobling m
 ## Publisere på GitHub Pages
 
 1. Lag et nytt repository på GitHub og last opp hele mappa.
-2. Settings → Pages → Source: «Deploy from a branch», branch `main`, mappe `/ (root)`.
-3. Etter et par minutter ligger spillet på `https://<brukernavn>.github.io/<repo>/`.
+2. Settings → Pages → Build and deployment → Source: «GitHub Actions». Oppskriften `.github/workflows/pages.yml` publiserer spillet hver gang `main` oppdateres. (Alternativt «Deploy from a branch», branch `main`, mappe `/ (root)`.)
+3. Etter et par minutter ligger spillet på `https://<brukernavn>.github.io/<repo>/`. Fanen Actions viser om publiseringen gikk bra.
 
 Hver gang du laster opp en oppdatering: **øk `VERSION` i `sw.js`** (for eksempel `v1` → `v2`). Ellers kan spillere som har besøkt siden før få den gamle versjonen fra hurtiglageret.
 
