@@ -1,6 +1,6 @@
 // Service worker: gjør at spillet kan spilles uten nett etter første besøk.
 // Øk VERSION hver gang du publiserer en oppdatering, ellers får spillerne den gamle versjonen.
-const VERSION='v9';
+const VERSION='v10';
 const CACHE='sandglow-'+VERSION;
 const FILES=["./", "./index.html", "./css/style.css", "./js/core.js", "./js/animals.js", "./js/ambience.js", "./js/map.js", "./js/game.js", "./js/carmodel.js", "./js/world.js", "./data/parts.js", "./data/cars.js", "./data/archipelago.js", "./manifest.json", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-512-maskable.png", "./data/levels/01-sand.js", "./data/levels/02-stein.js", "./data/levels/03-skog.js", "./data/levels/05-elv.js", "./data/levels/06-vulkan.js", "./data/levels/07-trinnvik.js", "./data/levels/10-verden.js"];
 // three.js fra CDN. Lagres ved installering, men en feil her skal ikke stoppe installeringen (den lagres da ved første bruk).
