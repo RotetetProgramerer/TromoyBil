@@ -9,7 +9,7 @@ index.html            Siden som laster alt. Her står rekkefølgen på skriptene
 css/style.css         Alt utseende (meny, HUD, garasje).
 js/core.js            Motoren: terreng, baneverktøy, bilfysikk. Trenger du sjelden å røre.
 js/game.js            Spillet: grafikk, kamera, lyd, meny, garasje, poeng.
-js/animals.js         Dyr (papegøyer, apekatter, sommerfugler, krabber) og den rullende steinen.
+js/animals.js         Dyr (papegøyer, apekatter, kaimaner, jaguar, frosker og flere) og den rullende steinen.
 js/ambience.js        Jungellyd laget med WebAudio (ingen lydfiler).
 js/skier.js           Fysikken for skiløperen i Gautefall (ingen DOM, testes uten nettleser).
 js/ski.js             Skianlegget i spillet: stolheisen, skiløperen, turen opp og ned, kamera og lyd.
@@ -81,6 +81,7 @@ Bilen dukker opp i menyen med en gang.
 | `sky`, `fog`, `sun`, `hemi`, `sunDir` | Lys og himmel. |
 | `water` | Globalt vannivå (valgfritt). Alt terreng under dette blir vann. |
 | `waterCol`, `waterOpacity` | Vannfarge og hvor gjennomsiktig vannet er (0–1, standard 0.7). |
+| `waterEnv` | Hvor mye vannet speiler himmelen (standard 1.2). Lavt tall gir grumsete jungelvann (Kaimanøya bruker 0.25). |
 | `rain: true` | Regn. `clouds:false` fjerner skyer og sol. |
 | `snow: true`, `precip(x,z)` | Snøvær. `precip` (valgfritt) gir 0–1 for hvor mye det snør der bilen er, f.eks. bare rundt toppen. |
 | `wind: true` | Vindsus som øker med `zone` (brukes sammen med `ambience:'jungle'`). Se Sandglow-øya. |
@@ -244,6 +245,41 @@ Verktøy i `build(c)` for vinter og ski:
 | `village:{…,snow:true}` | Snø på takene i landsbyen. |
 
 Testen kjører også nedfartene med en autopilot på ski: `node tools/test-levels.js gautefall`. Hver løype skal vise `MÅL`, helst `kræsj 0` og `fast 0`. For hoppløypa vises lufttiden for hvert hopp og den hardeste landingen (over 8,2 er et fall).
+
+## Kaimanøya: jungeløya
+
+`data/levels/09-kaiman.js` er en verden med tett regnskog, tre elver og mye gjørme. Storelva faller fra tjernet på Apeberget i nord, over fossen og ut i havet i vest; Sølebekken renner inn i den fra nordvest. Østelva begynner i en kilde øst for berget og renner ned i mangrovedeltaet i sørøst. Gjørmesletta ligger i sørvest og tempelruinen i nordøst. Fra kaia går veien til leiren midt på øya, der veiviseren peker ut til løypene:
+
+| Løype | Vanskelighet | Hva |
+|---|---|---|
+| Gjørmesletta | 1 | Rundt den store gjørmesletta, gjennom fem gjørmehull. |
+| Vadestedene | 2 | Tre vadesteder over Storelva og Sølebekken. |
+| Tempelstien | 2 | Gjennom regnskogen, over Østelva og fram til tempelruinen. Trappa opp tempelet fører til en gullmutter. |
+| Mangrovedeltaet | 3 | Grunne kanaler mellom mangrovetrærnes stylterøtter. |
+| Fosseklatringen | 3 | Opp den steinete flanken på Apeberget og fram til stupkanten ved fossen. |
+
+Elvene er vanlig terreng gravd under vannflaten (`waterBand`), og vadestedene er grunne felt i elvebunnen. Utjevningen av løypene fyller elvebunnen, så banen graver den ut igjen etter `c.course`. Jungelbunnen får egne farger (løvstrø, mose, våt jord) med `setC` før `c.finish()`. Tempelet er stemplet i terrenget (fire avsatser og en rampe med trinn), så bilen kan kjøre opp.
+
+Nye effekter i `c.fx` (tegnes i `js/game.js`):
+
+| Effekt | Betydning |
+|---|---|
+| `{type:'river',pts,hw,y,speed}` | Rennende vann: striper av skum og lys som driver nedover elva i to lag, og blader, kvister og blomster som flyter med strømmen (fortere midt i elva). `pts` er elvas linje fra kilden til munningen. |
+| `{type:'beam',x,z,y,h,w}` | En solstråle gjennom løvtaket, skrått langs `sunDir`. Blekner når kameraet kommer nær. |
+
+Nye dyr i `animals` (se `js/animals.js`):
+
+| Felt | Dyr |
+|---|---|
+| `toucans:n` | Tukaner i trærne. Flyr som papegøyene. |
+| `caimans:[{at,r,n}]` | Kaimaner på elvebredden (der det er vann innen 2,5). Ligger med åpen kjeft, glir ut i vannet med et fres når bilen kommer, og kryper opp igjen når den har kjørt. |
+| `capybaras:[{at,r,n}]` | Kapybaraer som beiter i små flokker. Den første har en liten gul fugl på ryggen. |
+| `jaguar:[[x,z],[x,z]]` | En jaguar som lusker mellom to punkter, stopper og stirrer på bilen, og stikker av med et brøl hvis den kommer for nær. |
+| `frogs:[{at,r,n}]` | Pilgiftfrosker i blått, rødt, gult og grønt. Hopper unna i små buer. |
+| `egrets:[{at,r,n}]` | Hvite hegrer som vasser på grunt vann og fisker. Letter og lander et annet sted når bilen kommer. |
+| `snakes:[{path,speed}]` | En anakonda som svømmer i sløyfe på vannflaten (`path` er en lukket linje i vannet). |
+
+Testen: `node tools/test-levels.js kaiman` kjører landsbytesten og alle fem løypene i begge gir.
 
 ## Kjør sammen (flerspiller)
 
