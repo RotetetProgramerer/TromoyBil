@@ -68,6 +68,7 @@
     </div>
   </div>
   <canvas id="minimap" width="150" height="150" aria-hidden="true" hidden></canvas>
+  <div class="netbadge" id="hNet" hidden></div>
   <div class="toast" id="toast"></div>
   <div class="count" id="count" hidden></div>
   <div class="hint" id="hint" hidden></div>
@@ -122,6 +123,7 @@
     </div>
     <button class="go" id="startBtn">Kjør!</button>
     <p class="note">Fri kjøring i skjærgården: du starter på Sandglow-øya, eller der du sist var. Fergen ved landsbyen tar deg til de andre øyene.</p>
+    <button class="ghost" id="mpBtn">Kjør sammen</button>
     <button class="ghost" id="raceBtn">Hurtigløp</button>
     <dl class="keys">
       <dt><kbd>←</kbd><kbd>↑</kbd><kbd>→</kbd><kbd>↓</kbd></dt><dd>Styr, gass og revers (også WASD)</dd>
@@ -166,6 +168,11 @@
     </div>
     <div class="row"><button class="ghost" id="pMap" hidden>Øykartet</button><button class="ghost" id="pFetch">Hent bilen (straff)</button><button class="ghost" id="pAbort" hidden>Avbryt løpet</button></div>
     <div class="row"><button class="ghost" id="pSound" aria-pressed="true">Lyd: på</button></div>
+    <div class="pnet" id="pNet" hidden>
+      <h3>Kjør sammen · <span id="pNetCode"></span></h3>
+      <div class="alist" id="pNetList"></div>
+      <button class="ghost" id="pNetLeave">Forlat rommet</button>
+    </div>
     <div class="slider"><span class="lbl">Bil</span><input type="range" id="pVolCar" min="0" max="100" step="5" value="70" aria-label="Lydstyrke bil"><output id="pVolCarOut">70 %</output></div>
     <div class="slider"><span class="lbl">Omgivelser</span><input type="range" id="pVolAmb" min="0" max="100" step="5" value="70" aria-label="Lydstyrke omgivelser"><output id="pVolAmbOut">70 %</output></div>
     <ul class="log">
@@ -194,6 +201,32 @@
       <button class="go" id="aYes">JA</button>
       <button class="ghost" id="aNo">NEI, kjør videre</button>
     </div>
+  </div>
+</section>
+
+<!-- DRIVE TOGETHER (multiplayer) -->
+<section class="overlay dialog" id="mp" hidden>
+  <div class="sheet mp">
+    <p class="eyebrow">Flerspiller</p>
+    <h2>Kjør sammen</h2>
+    <div id="mpOut">
+      <label class="fld"><span>Navnet ditt</span><input id="mpName" maxlength="14" autocomplete="off" spellcheck="false" placeholder="Sjåfør"></label>
+      <button class="go" id="mpCreate">Lag rom</button>
+      <p class="note">Eller bli med i et rom med koden du har fått:</p>
+      <div class="row"><input id="mpCode" class="code-in" maxlength="14" autocomplete="off" spellcheck="false" autocapitalize="characters" placeholder="KRABBE-42" aria-label="Romkode"><button class="ghost" id="mpJoin">Bli med</button></div>
+      <label class="chk"><input type="checkbox" id="mpLocal"> Lokal test: to faner i samme nettleser, uten nett</label>
+      <p class="note">Bilene kolliderer ikke. Muttere, løyper og gullmuttere er dine egne. De andre i rommet ser IP-adressen din, se personvernerklæringen.</p>
+    </div>
+    <div id="mpIn" hidden>
+      <p class="note">Romkode</p>
+      <p class="roomcode" id="mpRoom"></p>
+      <p class="note" id="mpMode"></p>
+      <ul class="plist" id="mpList"></ul>
+      <button class="go" id="mpGo">Kjør!</button>
+      <button class="ghost" id="mpLeave">Forlat rommet</button>
+    </div>
+    <p class="note mpstatus" id="mpStatus" role="status" aria-live="polite"></p>
+    <button class="ghost" id="mpClose">Lukk</button>
   </div>
 </section>
 
@@ -272,6 +305,7 @@
 <script src="js/carmodel.js"></script>
 <script src="js/world.js"></script>
 <script src="js/ski.js"></script>
+<script src="js/net.js"></script>
 <script>startGame()</script>
 <script>if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js').catch(()=>{});</script>
 </body>

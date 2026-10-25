@@ -88,6 +88,7 @@ function updateMinimap(){const cv=MAP.mini;if(!MAP.base||!car||$('hud').hidden||
   for(const k of LV.courses){const[u,v]=toMini(k.start.p.x,k.start.p.z);if(Math.hypot(u-R,v-R)>R-9)continue;drawCourseIcon(x,u,v,k,!!best[courseKey(lvl,k)],7,false)}
   if(LV.ferry){const[u,v]=toMini(LV.ferry.quay.x,LV.ferry.quay.z);if(Math.hypot(u-R,v-R)<R-9)drawFerryIcon(x,u,v,7)}
   if(lvl.basePos){const[u,v]=toMini(lvl.basePos[0],lvl.basePos[1]);const d=Math.hypot(u-R,v-R);if(d<R-9)drawBase(x,u,v,7);else{const a=Math.atan2(v-R,u-R);x.save();x.translate(R+Math.cos(a)*(R-8),R+Math.sin(a)*(R-8));x.rotate(a);x.fillStyle='#e5a92b';x.beginPath();x.moveTo(5,0);x.lineTo(-4,-4);x.lineTo(-4,4);x.closePath();x.fill();x.restore()}}
+  if(typeof netDots==='function')for(const d of netDots()){const[u,v]=toMini(d.x,d.z),dd=Math.hypot(u-R,v-R);if(dd<R-8)drawFriend(x,u,v,d.col,5);else{const a=Math.atan2(v-R,u-R);drawFriend(x,R+Math.cos(a)*(R-8),R+Math.sin(a)*(R-8),d.col,4)}}
   drawCar(x,R,R,0,7);
   // north
   {const a=-ang;const nu=R+Math.sin(a)*(R-12),nv=R-Math.cos(a)*(R-12);x.fillStyle='#f2e8d0';x.font='700 11px "Barlow Condensed",sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText('N',nu,nv)}
@@ -107,6 +108,7 @@ function drawBigMap(){if(!MAP.open)return;if(MAP.tab==='arch')return drawArchipe
   for(const k of LV.courses)drawCourseIcon(x,mapX(k.start.p.x)*sc,mapY(k.start.p.z)*sc,k,!!best[courseKey(lvl,k)],9,MAP.hover===k);
   if(LV.ferry)drawFerryIcon(x,mapX(LV.ferry.quay.x)*sc,mapY(LV.ferry.quay.z)*sc,10);
   (LV.secrets||[]).forEach((sc2,i)=>{if(!prof.secrets[secretKey(lvl,i)])return;x.save();x.translate(mapX(sc2.x)*sc,mapY(sc2.z)*sc);x.fillStyle='#e6b43a';x.strokeStyle='#5a3a1a';x.lineWidth=1.2;x.beginPath();x.arc(0,0,5,0,6.283);x.fill();x.stroke();x.fillStyle='#5a3a1a';x.beginPath();x.arc(0,0,1.8,0,6.283);x.fill();x.restore()});
+  if(typeof netDots==='function')for(const d of netDots())drawFriend(x,mapX(d.x)*sc,mapY(d.z)*sc,d.col,7,d.name);
   drawCar(x,mapX(car.pos.x)*sc,mapY(car.pos.z)*sc,Math.atan2(car.fw.x,car.fw.z),9);
   // compass
   x.save();x.translate(sz-36,sz-36);x.fillStyle='rgba(233,220,185,.85)';x.beginPath();x.arc(0,0,24,0,6.283);x.fill();x.strokeStyle=MAPCOL.ink;x.lineWidth=1.5;x.stroke();x.fillStyle='#d9432f';x.beginPath();x.moveTo(0,-20);x.lineTo(5,0);x.lineTo(-5,0);x.closePath();x.fill();x.fillStyle=MAPCOL.ink;x.beginPath();x.moveTo(0,20);x.lineTo(5,0);x.lineTo(-5,0);x.closePath();x.fill();x.font='700 11px "Barlow Condensed",sans-serif';x.textAlign='center';x.fillText('N',0,-26);x.restore()}
@@ -121,7 +123,9 @@ function drawArchipelago(){const sz=bigLayout(),x=MAP.bigCtx,here=LEVELS[state.l
     x.save();x.translate(u,v);x.fillStyle='#e9dcb9';x.strokeStyle=isl.id===here?'#ff6a2a':'#5a3a1a';x.lineWidth=isl.id===here?4:2;x.beginPath();for(let i=0;i<=24;i++){const a=i/24*6.283,rr=r*(1+.14*Math.sin(a*3+u)+.08*Math.cos(a*5+v));x.lineTo(Math.cos(a)*rr,Math.sin(a)*rr)}x.closePath();x.fill();x.stroke();
     x.fillStyle='#8aa65a';x.beginPath();x.arc(0,0,r*.55,0,6.283);x.fill();if(l.world||l.id==='vulkan'){x.fillStyle=l.id==='vulkan'?'#6b5a52':'#e8eef2';x.beginPath();x.moveTo(-r*.3,r*.2);x.lineTo(0,-r*.35);x.lineTo(r*.3,r*.2);x.closePath();x.fill()}
     x.fillStyle='#2a241c';x.textAlign='center';x.font='700 '+Math.round(sz*.028)+'px "Barlow Condensed",sans-serif';x.fillText(l.name,0,r+sz*.03);x.font='600 '+Math.round(sz*.022)+'px "Barlow Condensed",sans-serif';x.fillStyle='#4a3a28';x.fillText(done+'/'+tot+(tot>1?' løyper':' løype')+' · '+foundOn(l)+'/'+SECRET_PER+' ⚙',0,r+sz*.055);
-    drawFerryIcon(x,r*.75,-r*.75,sz*.014);if(isl.id===here)drawCar(x,0,0,0,sz*.016);x.restore()}}
+    drawFerryIcon(x,r*.75,-r*.75,sz*.014);if(isl.id===here)drawCar(x,0,0,0,sz*.016);
+    if(typeof netWhere==='function'){const fr=netWhere().filter(w=>w.lv===isl.id);fr.forEach((w,i)=>{const a=-2.4+i*.75;drawFriend(x,Math.cos(a)*r*.62,Math.sin(a)*r*.62,w.col,sz*.012,w.name)})}
+    x.restore()}}
 function mapHover(e){if(MAP.tab==='arch')return;const r=MAP.big.getBoundingClientRect(),u=(e.clientX-r.left)/MAP.scale,v=(e.clientY-r.top)/MAP.scale;let h=null;for(const k of LV.courses){if(Math.hypot(mapX(k.start.p.x)-u,mapY(k.start.p.z)-v)<14/MAP.scale)h=k}if(h!==MAP.hover){MAP.hover=h;drawBigMap();MAP.big.style.cursor=h?'pointer':'default'}}
 function mapInfoText(k){const b=best[LEVELS[state.levelIdx].id+'/'+k.id];const d=Math.hypot(k.start.p.x-car.pos.x,k.start.p.z-car.pos.z)*UNIT_CM/100;
   return k.name+' · '+['','lett','middels','vanskelig'][k.diff]+' · '+k.gates.length+' porter · '+d.toFixed(1).replace('.',',')+' m unna. '+(b?'Beste: '+fmtTime(b.t)+', '+b.p+' straff, '+b.s+' stjerner.':'Ikke kjørt ennå.')}

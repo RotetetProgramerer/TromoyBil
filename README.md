@@ -13,6 +13,7 @@ js/animals.js         Dyr (papegøyer, apekatter, sommerfugler, krabber) og den 
 js/ambience.js        Jungellyd laget med WebAudio (ingen lydfiler).
 js/skier.js           Fysikken for skiløperen i Gautefall (ingen DOM, testes uten nettleser).
 js/ski.js             Skianlegget i spillet: stolheisen, skiløperen, turen opp og ned, kamera og lyd.
+js/net.js             Flerspiller: rom, romkode og de andre bilene.
 data/cars.js          Bilene.                 ← legg til nye biler her
 data/levels/NN-id.js  Én fil per bane.         ← legg til nye baner her
 data/parts.js         Garasjedeler og lakkfarger.
@@ -244,6 +245,17 @@ Verktøy i `build(c)` for vinter og ski:
 
 Testen kjører også nedfartene med en autopilot på ski: `node tools/test-levels.js gautefall`. Hver løype skal vise `MÅL`, helst `kræsj 0` og `fast 0`. For hoppløypa vises lufttiden for hvert hopp og den hardeste landingen (over 8,2 er et fall).
 
+## Kjør sammen (flerspiller)
+
+`js/net.js` lar opptil fire spillere kjøre sammen i skjærgården. Én lager et rom og får en kode som `KRABBE-42`, de andre skriver inn koden. Hver spiller kjører sin egen bil med den vanlige fysikken. Bare bilens posisjon, rotasjon, hjul, styring og lys sendes, 15 ganger i sekundet, og de andre bilene tegnes 0,12 sekunder bak slik at de glir jevnt. Bilene kolliderer ikke, og muttere, løyper og gullmuttere er personlige.
+
+- **Kobling:** [PeerJS](https://peerjs.com) lastes fra jsDelivr først når noen trykker «Lag rom» eller «Bli med». Verten registrerer romkoden hos den gratis PeerJS-tjenesten, og gjestene kobler seg direkte til verten med WebRTC. Verten sender meldingene videre til de andre. Ingen egen server trengs, så det virker fra GitHub Pages.
+- **Lokal test:** Kryss av for «Lokal test» i dialogen, eller åpne siden med `?local`. Da kobles faner i samme nettleser med `BroadcastChannel`, uten nett, men med nøyaktig samme romlogikk. Åpne to faner, lag rom i den ene og bli med i den andre.
+- **Mellom øyene:** Du ser bare biler på samme øy. Øykartet og minikartet viser vennene som prikker i deres farge, og skjærgårdskartet viser hvilken øy de er på. I pausemenyen kan du ta fergen rett til øya der en venn er (5 muttere). Når en venn reiser fra eller kommer til øya di, seiler fergen med dem.
+- **Brudd:** En gjest som mister verten prøver å koble seg til igjen fem ganger. Forlater verten rommet, får gjestene beskjed og kjører videre alene. Det er ingen ny vert når verten går.
+
+Strenge nettverk, som enkelte skole- og jobbnett, kan blokkere direkte kobling mellom nettlesere. Da får man en melding om at koblingen ikke fikk kontakt.
+
 ## Justere garasjen
 
 `data/parts.js` har navn, priser og beskrivelser. Selve effektene (hvor mye mer grep klatredekk gir, og så videre) ligger i funksjonen `tuneFrom` nederst i `js/core.js`, i små tabeller med fire verdier (nivå 0–3).
@@ -251,8 +263,8 @@ Testen kjører også nedfartene med en autopilot på ski: `node tools/test-level
 ## Publisere på GitHub Pages
 
 1. Lag et nytt repository på GitHub og last opp hele mappa.
-2. Settings → Pages → Source: «Deploy from a branch», branch `main`, mappe `/ (root)`.
-3. Etter et par minutter ligger spillet på `https://<brukernavn>.github.io/<repo>/`.
+2. Settings → Pages → Build and deployment → Source: «GitHub Actions». Oppskriften `.github/workflows/pages.yml` publiserer spillet hver gang `main` oppdateres. (Alternativt «Deploy from a branch», branch `main`, mappe `/ (root)`.)
+3. Etter et par minutter ligger spillet på `https://<brukernavn>.github.io/<repo>/`. Fanen Actions viser om publiseringen gikk bra.
 
 Hver gang du laster opp en oppdatering: **øk `VERSION` i `sw.js`** (for eksempel `v1` → `v2`). Ellers kan spillere som har besøkt siden før få den gamle versjonen fra hurtiglageret.
 
