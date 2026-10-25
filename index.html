@@ -30,6 +30,14 @@
     <div class="r fr"><span>Løyper</span><b id="hDone">0/7</b></div>
     <div class="r fr"><span id="hBaseL">Basen</span><b id="hBase">0 m</b></div>
   </div>
+  <div class="ski-run" aria-live="polite">
+    <div class="ln" id="sName">Gautefall</div>
+    <div class="r"><span>Tid</span><b id="sTime">0:00.0</b></div>
+    <div class="r"><span>Porter</span><b id="sGate">0/0</b></div>
+    <div class="r"><span id="sPenL">Straff</span><b id="sPen" class="pen">0 s</b></div>
+    <div class="r"><span>Fart</span><b id="sSpeed">0 km/t</b></div>
+  </div>
+  <div class="ski-help" id="sHelp" hidden></div>
   <div class="hud-btns">
     <button class="ib" id="bZoomOut" aria-label="Zoom ut (X)" title="Zoom ut (X)"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21M7.5 10.5h6"/></svg></button>
     <button class="ib" id="bZoomIn" aria-label="Zoom inn (Z)" title="Zoom inn (Z)"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21M7.5 10.5h6M10.5 7.5v6"/></svg></button>
@@ -72,6 +80,7 @@
     </div>
     <div class="tpad r">
       <div class="tcol">
+        <button class="tb sk" data-t="jump" aria-label="Hopp"><svg viewBox="0 0 24 24"><path d="M4 18h16M7 14l5-7 5 7"/></svg></button>
         <button class="tb big" data-t="gas" aria-label="Gass"><svg viewBox="0 0 24 24"><path d="M5 15l7-7 7 7"/></svg></button>
         <button class="tb" data-t="rev" aria-label="Revers"><svg viewBox="0 0 24 24"><path d="M5 9l7 7 7-7"/></svg></button>
       </div>
@@ -123,6 +132,7 @@
       <dt><kbd>L</kbd> <kbd>C</kbd> <kbd>R</kbd></dt><dd>Lys, kamera, vinsj tilbake</dd>
       <dt><kbd>Z</kbd> / <kbd>X</kbd></dt><dd>Zoom nærmere og lengre fra bilen</dd>
       <dt>Mus</dt><dd>Dra for å se rundt, rull eller klyp for zoom</dd>
+      <dt>På ski</dt><dd>Gautefall: ← → sving, ↓ plog, ↑ stake, mellomrom hopp</dd>
     </dl>
   </div>
 </section>
@@ -255,8 +265,8 @@
     <div class="stars" id="rStars"></div>
     <div class="res">
       <div><span>Tid</span><b id="rTime">0:00</b></div>
-      <div><span>Straff</span><b id="rPen">0</b></div>
-      <div><span>Porter</span><b id="rGates">10/10</b></div>
+      <div><span id="rPenL">Straff</span><b id="rPen">0</b></div>
+      <div><span id="rGatesL">Porter</span><b id="rGates">10/10</b></div>
     </div>
     <ul class="log" id="rLog"></ul>
     <div class="earn">⚙ <b id="rNuts">+0</b><small id="rNutsNote"></small></div>
@@ -272,6 +282,7 @@
 <!-- Motor -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous"></script>
 <script src="js/core.js"></script>
+<script src="js/skier.js"></script>
 <script src="js/animals.js"></script>
 <script src="js/ambience.js"></script>
 <script src="js/map.js"></script>
@@ -286,12 +297,14 @@
 <script src="data/levels/05-elv.js"></script>
 <script src="data/levels/06-vulkan.js"></script>
 <script src="data/levels/07-trinnvik.js"></script>
+<script src="data/levels/08-gautefall.js"></script>
 <script src="data/levels/10-verden.js"></script>
 
 <!-- Spillet -->
 <script src="js/game.js"></script>
 <script src="js/carmodel.js"></script>
 <script src="js/world.js"></script>
+<script src="js/ski.js"></script>
 <script src="js/net.js"></script>
 <script>startGame()</script>
 <script>if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js').catch(()=>{});</script>

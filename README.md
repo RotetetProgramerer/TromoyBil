@@ -11,6 +11,8 @@ js/core.js            Motoren: terreng, baneverktøy, bilfysikk. Trenger du sjel
 js/game.js            Spillet: grafikk, kamera, lyd, meny, garasje, poeng.
 js/animals.js         Dyr (papegøyer, apekatter, sommerfugler, krabber) og den rullende steinen.
 js/ambience.js        Jungellyd laget med WebAudio (ingen lydfiler).
+js/skier.js           Fysikken for skiløperen i Gautefall (ingen DOM, testes uten nettleser).
+js/ski.js             Skianlegget i spillet: stolheisen, skiløperen, turen opp og ned, kamera og lyd.
 js/net.js             Flerspiller: rom, romkode og de andre bilene.
 data/cars.js          Bilene.                 ← legg til nye biler her
 data/levels/NN-id.js  Én fil per bane.         ← legg til nye baner her
@@ -214,6 +216,34 @@ Verktøy for byer i `build(c)`:
 Dyr i en by: `pigeons:14` (duer på lykter og hustak), `rats:[{at,r,n}]`, `cats:[{at,r,n}]`. Lydsoner: `biome(x,z)` kan gi `city` (trafikkdur, duer, fjern biltut, rådhusklokke ved `bellAt:[x,z]`), `stadium` (publikumsmumling) og `site` (generator og hammerslag). `ambience:'town'` slår lyden på. En `boulder` med `col:'#f4f4f0'` er en ball (fotballen på stadion).
 
 Testen: `node tools/test-levels.js trinnvik` kjører landsbytesten og alle sju løypene i begge gir.
+
+## Gautefall: vinterøya og skianlegget
+
+`data/levels/08-gautefall.js` er en vinterøy med et fjell i midten og et flatt platå på toppen. Fjellveien går fra kaia opp til parkeringsplassen ved bunnstasjonen. Kjør inn på den blå ruta foran heisen, så kommer spørsmålet «Vil du stå på ski?». JA: bilen blir stående, og en skiløper (i samme farge som lakken på bilen) tar stolheisen til toppen (ca. 10 sekunder, hopp over med Enter). På toppen velger du nedfart:
+
+| Løype | Farge | Type | Slik vinner du |
+|---|---|---|---|
+| Familiebakken | Grønn | Friløp i sikksakk | Tid. Brede kontrollporter. |
+| Slalåmbakken | Blå | Slalåm | Tid. Røde og blå porter; bom gir +5 sekunder. |
+| Utforløypa | Rød | Utfor | Tid. Bratt, rask, med isflekker i svingene. |
+| Big Jumps | Svart | Hoppløype | Poeng: 120 per sekund i lufta, +150 for hver hele snurr (360°) med ren landing. |
+
+Styring: **← →** svinger (og snurrer i lufta), **↓** bremser (plog), **↑** staker på flatene og går i hockestilling i fart, **mellomrom** hopper, **C** bytter kamera, **Esc** pause. På mobil er det en egen hoppknapp. I Lett-modus har skiløperen en fartsgrense og tåler hardere landinger. Treffer du et tre, lander på tvers eller for hardt, faller du og starter igjen fra forrige port. Resultatet gir stjerner, rekorder (`best['gautefall/ski/slalom']` osv.) og muttere.
+
+Verktøy i `build(c)` for vinter og ski:
+
+| Verktøy | Betydning |
+|---|---|
+| `c.spruce(x,z,{h,snow})`, `c.spruces()` | Grantre med snø på greinene (kollider og festepunkt for vinsjen). `c.spruces()` bygger alle etter `c.finish()`. |
+| `c.piste({id,name,desc,diff,color,kind,path,gates,hw,blend,gw,ice,par})` | En nedfart: egen linje fra toppen (t=0) til målet (t=1), jevnet ut på tvers, preparert (kordfløyelsstriper, glir bedre, merket i `TG`) og holdt fri for trær. `kind` er `'fri'`, `'slalom'`, `'utfor'` eller `'hopp'`. `gates` er portene som `[x,z]`, den siste er målet. `color` 1–4 er grønn, blå, rød og svart. `ice:[[t0,t1]]` legger is på løypa. `par:[3 stjerner, 2 stjerner]` er tid i sekunder, eller poeng for hoppløypa. |
+| `c.kicker(k,t,{h,len,land,drop,w})` | Et hopp i løype `k` ved `t`: rampe opp til en blå kant, og et gravd ut, bratt landingsområde etterpå. Kall etter `c.piste`. |
+| `c.dressPistes()` | Løypestikker langs kantene og en startbu ved hver start (kalles automatisk hvis banen ikke gjør det). |
+| `c.lift([x,z],[x,z],{off,span,hang,clear})` | Stolheis fra bunnstasjon til toppstasjon. Mastene blir høye nok til at stolene går klar av bakken. Kall når terrenget er ferdig. Kabelen og stolene tegnes og flyttes av `js/ski.js`. |
+| `skiAt:[x,z]` | Der bilen må stå for å få spørsmålet om å stå på ski. |
+| `beachSurf:S.GRAVEL` | Underlaget på stranda rundt en øy (standard sand). |
+| `village:{…,snow:true}` | Snø på takene i landsbyen. |
+
+Testen kjører også nedfartene med en autopilot på ski: `node tools/test-levels.js gautefall`. Hver løype skal vise `MÅL`, helst `kræsj 0` og `fast 0`. For hoppløypa vises lufttiden for hvert hopp og den hardeste landingen (over 8,2 er et fall).
 
 ## Kjør sammen (flerspiller)
 

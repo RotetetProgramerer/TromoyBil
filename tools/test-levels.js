@@ -5,7 +5,7 @@ require('./sim-shim.js');
 const fs=require('fs'),path=require('path'),vm=require('vm');
 const root=path.join(__dirname,'..');
 const load=f=>vm.runInThisContext(fs.readFileSync(path.join(root,f),'utf8'),{filename:f});
-load('js/core.js');load('data/parts.js');load('data/cars.js');
+load('js/core.js');load('js/skier.js');load('data/parts.js');load('data/cars.js');
 // same levels and order as the game: the <script> tags in index.html
 const levelFiles=[...fs.readFileSync(path.join(root,'index.html'),'utf8').matchAll(/<script src="(data\/levels\/[^"]+\.js)"/g)].map(m=>m[1]);
 for(const f of fs.readdirSync(path.join(root,'data/levels')).filter(f=>f.endsWith('.js')))if(!levelFiles.includes('data/levels/'+f))console.log('ADVARSEL: data/levels/'+f+' mangler i index.html og er ikke med i spillet');
@@ -19,6 +19,25 @@ function villageTest(def,lv){const f=lv.ferry,car=makeCar(CARS[1]);car.assist=fa
     const fw=car.fw,lf=car.lf,ang=Math.atan2(dx*lf.x+dz*lf.z,dx*fw.x+dz*fw.z);car.steer=Math.max(-.6,Math.min(.6,ang*1.5));car.throttle=1;stepCar(car,dt);
     if(car.depth>0)fell++;if(car.up.y<.2){console.log(def.id.padEnd(14),'LANDSBY  FEIL: velt ved',car.pos.x.toFixed(1),car.pos.z.toFixed(1));return}}
   const dg=Math.hypot(goal.x-car.pos.x,goal.z-car.pos.z);console.log(def.id.padEnd(14),'LANDSBY ',wp>=pts.length?'OK  ':'FEIL','ut av landsbyen'+(wp>=pts.length?'':' (stoppet '+dg.toFixed(1)+' fra målet ved '+car.pos.x.toFixed(1)+','+car.pos.z.toFixed(1)+')'),'vann',fell)}
+// skis one piste with an autopilot: aims a little way down the line, brakes above a target speed, never spins in the air
+const SKI_TARGET={fri:4,slalom:4.2,utfor:8.5,hopp:7.5};
+function skiTest(def,lv,k){const s=makeSkier(),run=makeSkiRun(k),tgt=SKI_TARGET[k.kind]||5;placeSkier(s,k.start.p.x,k.start.p.z,Math.atan2(k.start.tan.x,k.start.tan.z));
+  let pt=0,t=0,crashes=0,ev=[],jumps=[],maxHard=0,stuck=0,lastPt=0,maxV=0,landN=0;const prev={x:0,z:0},cur={x:0,z:0};
+  for(let i=0;i<240*120&&!run.done;i++){
+    let best=1e9,bt=pt;for(let j=0;j<=60;j++){const tt=Math.min(1,pt+j*.002),q=k.P(tt),d=Math.hypot(q.x-s.pos.x,q.z-s.pos.z);if(d<best){best=d;bt=tt}}pt=bt;
+    // aim at the next gate centre when it is close (slalom), otherwise a point down the line
+    const look=Math.min(.06,1.4/k.len*(1+s.speed*.35));let tg=k.P(Math.min(1,pt+look));const g=k.gates[run.next];if(g&&!g.finish&&(k.kind==='slalom'||Math.hypot(g.c.x-s.pos.x,g.c.z-s.pos.z)<2.2+s.speed*.25))tg=g.c;
+    let err=Math.atan2(tg.x-s.pos.x,tg.z-s.pos.z)-s.head;err=Math.atan2(Math.sin(err),Math.cos(err));
+    // slow down before tight turns: how much the line turns over the next few units
+    const a0=k.T(pt),a1=k.T(Math.min(1,pt+3/k.len)),bend=Math.acos(Math.max(-1,Math.min(1,a0.x*a1.x+a0.z*a1.z))),want=Math.min(tgt,1.8+4.5*(1-bend/2.2));
+    const inp={steer:s.air?0:Math.max(-1,Math.min(1,err*2.2)),gas:s.speed<1.2?1:0,brake:s.speed>want+.3?1:0,jump:false};
+    prev.x=s.pos.x;prev.z=s.pos.z;stepSkier(s,inp,dt);cur.x=s.pos.x;cur.z=s.pos.z;t+=dt;maxV=Math.max(maxV,s.speed);
+    for(const e of s.ev){if(e.type==='crash'){crashes++;ev.push(e.why+'@'+s.pos.x.toFixed(1)+','+s.pos.z.toFixed(1))}if(e.type==='land'){maxHard=Math.max(maxHard,e.hard);if(e.air>.35)jumps.push(e.air.toFixed(2))}}s.ev.length=0;
+    if(s.crashT>1.2){placeSkier(s,run.cp.x,run.cp.z,run.cp.h)}
+    skiGates(run,prev,cur).forEach(e=>{if(e.type==='miss')ev.push('bom'+(e.i+1))});
+    if(i%1200===0&&i>0){if(pt-lastPt<.005){stuck++;ev.push('fast@'+s.pos.x.toFixed(1)+','+s.pos.z.toFixed(1));const q=k.P(Math.min(1,pt+.03)),tn=k.T(Math.min(1,pt+.03));placeSkier(s,q.x,q.z,Math.atan2(tn.x,tn.z))}lastPt=pt}}
+  console.log((def.id+'/ski-'+k.id).padEnd(22),run.done?'MÅL ':'FEIL','tid',t.toFixed(1)+'s','porter',run.passed+'/'+(k.gates.length-1),'bom',run.missed,'kræsj',crashes,'fast',stuck,'maksfart',maxV.toFixed(1),'hopp',jumps.join(',')||'-','hardeste landing',maxHard.toFixed(1),'lengde',k.len.toFixed(0));
+  if(process.argv[3]==='v'&&ev.length)console.log('   hendelser:',ev.join(' '))}
 // drives one line (a level, or one course inside an open world) in both gears
 function drive(def,lv,line,label){
   for(const low of[true,false]){
@@ -48,6 +67,7 @@ for(const def of LEVELS){
   if(only&&def.id!==only)continue;
   const lv=genLevel(def);
   if(lv.ferry)villageTest(def,lv);
+  for(const k of(lv.pistes||[]))skiTest(def,lv,k);
   if(def.world){for(const k of lv.courses)drive(def,lv,k,def.id+'/'+k.id);continue}   // an open world: every course on its own
   drive(def,lv,lv,def.id);
 

@@ -206,6 +206,22 @@ html{box-sizing:border-box}*,*::before,*::after{box-sizing:inherit}body{margin:0
 .card.locked{opacity:.6}
 #carSale h2{font-family:var(--f-display);font-weight:400;font-size:1.25rem;color:var(--sand);letter-spacing:.03em;display:flex;align-items:center;gap:10px;margin-bottom:8px}#carSale h2::after{content:"";flex:1;height:1px;background:var(--line)}
 
+/* ---------- ski (Gautefall) ---------- */
+.ski-run{display:none;position:fixed;z-index:10;top:calc(12px + env(safe-area-inset-top,0px));left:max(16px,env(safe-area-inset-left,0px));
+  background:var(--panel);border-left:4px solid #5ab4ff;padding:8px 12px 9px;min-width:150px;pointer-events:none}
+.ski-run .ln{font-family:var(--f-display);color:#9fd2ff;font-size:1.05rem;line-height:1;margin-bottom:5px}
+.ski-run .r{display:flex;justify-content:space-between;gap:14px;font-size:.82rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.ski-run .r b{color:var(--paper);font-size:1.12rem;letter-spacing:0;font-variant-numeric:tabular-nums}
+.ski-run .r b.pen{color:var(--signal)}
+#hud.ski .ski-run{display:block}
+#hud.ski .hud-run,#hud.ski .gauges,#hud.ski #bWinch,#hud.ski #bLights,#hud.ski #bMap,#hud.ski #bZoomIn,#hud.ski #bZoomOut{display:none}
+.ski-help{position:fixed;z-index:12;left:50%;transform:translateX(-50%);bottom:calc(22px + env(safe-area-inset-bottom,0px));background:var(--panel);color:var(--paper);padding:7px 14px;font-size:.98rem;text-align:center;max-width:calc(100% - 32px);pointer-events:none}
+.ski-help kbd{font-family:inherit;font-weight:700;color:#9fd2ff}
+body.is-touch .ski-help{bottom:calc(190px + env(safe-area-inset-bottom,0px))}
+.tb.sk{display:none}
+#hud.ski .tb.sk{display:grid}
+.alist .pdot{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:7px;border:1px solid var(--paper);vertical-align:1px}
+.alist .nm small{font-family:var(--f-body,inherit);font-size:.78rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-left:4px}
 /* drive together */
 .mp .fld{display:flex;flex-direction:column;gap:6px;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
 .mp input[type=text],.mp input:not([type]){font:inherit;font-size:1.15rem;letter-spacing:.02em;text-transform:none;color:var(--paper);background:var(--ink-2);border:1px solid var(--line);padding:9px 10px;min-width:0}
