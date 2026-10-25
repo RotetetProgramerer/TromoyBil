@@ -503,7 +503,7 @@ function finishRun(){
   if(isBest)items.push('<li><b>Ny personlig rekord på denne banen.</b></li>');
   // earnings
   const gatesOK=LV.gates.length-state.missed;let e=0;const el=[];
-  e+=gatesOK*10;el.push(`${gatesOK} porter +${gatesOK*10}`);
+  e+=gatesOK*10;el.push(`${gatesOK} port${gatesOK===1?'':'er'} +${gatesOK*10}`);
   if(state.crates){e+=state.crates*15;el.push(`${state.crates} kasser +${state.crates*15}`)}
   if(state.longJumps){e+=state.longJumps*20;el.push(`${state.longJumps} store hopp +${state.longJumps*20}`)}
   if(state.bonusNuts){e+=state.bonusNuts;el.push(`snarvei +${state.bonusNuts}`)}
@@ -700,7 +700,8 @@ function frame(now){
   prevPos.copy(car.pos);
   if(state.mode!=='pause'&&state.mode!=='ask'&&state.mode!=='ferry'){acc+=dt;let n=0;while(acc>=FIXED&&n<20){stepCar(car,FIXED);acc-=FIXED;n++}if(n>=20)acc=0}
   if(state.mode==='count')updateCountdown(dt);if(state.mode==='ferry')updateFerry(dt);
-  if(!isFinite(car.pos.x)||!isFinite(car.q.w)){car.q.set(0,0,0,1);resetToStart()}
+  // physics blew up: put the car back at the last checkpoint (the start outside a run)
+  if(!isFinite(car.pos.x)||!isFinite(car.q.w)){car.q.set(0,0,0,1);const cp=state.mode==='play'&&state.checkpoint;if(cp)placeCar(car,cp.x,cp.z,cp.h);else resetToStart();camSnap=true}
   if(state.mode==='play'){
     if(state.started)state.time+=dt;
     checkGates();
