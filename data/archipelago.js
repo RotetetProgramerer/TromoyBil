@@ -7,5 +7,6 @@ const ISLANDS=[
   {id:'skog',   pos:[.16,.26]},
   {id:'elv',    pos:[.84,.24]},
   {id:'vulkan', pos:[.50,.08]},
+  {id:'trinnvik', pos:[.50,.90]},
 ];
-const ROUTES=[['verden','sand'],['verden','stein'],['verden','skog'],['verden','elv'],['verden','vulkan'],['sand','skog'],['stein','elv'],['elv','vulkan'],['skog','vulkan'],['sand','stein']];
+const ROUTES=[['verden','sand'],['verden','stein'],['verden','skog'],['verden','elv'],['verden','vulkan'],['sand','skog'],['stein','elv'],['elv','vulkan'],['skog','vulkan'],['sand','stein'],['verden','trinnvik'],['sand','trinnvik'],['stein','trinnvik']];

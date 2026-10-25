@@ -31,6 +31,8 @@ function buildMapBase(def){
   const isW=(u,v)=>{u=Math.max(0,Math.min(W-1,u));v=Math.max(0,Math.min(W-1,v));const o=(v*W+u)*4;return d[o+2]>d[o]+40};
   for(let v=1;v<W-1;v++)for(let u=1;u<W-1;u++){const w=isW(u,v);if(w===isW(u+1,v)&&w===isW(u,v+1)&&w===isW(u-1,v)&&w===isW(u,v-1))continue;const o=(v*W+u)*4;e[o]=46;e[o+1]=58;e[o+2]=68;e[o+3]=w?120:210}
   const ec=document.createElement('canvas');ec.width=ec.height=W;ec.getContext('2d').putImageData(edge,0,0);x.drawImage(ec,0,0);
+  // buildings: grey footprints, so a town reads on the map
+  for(const b of(LV.footprints||[])){x.save();x.translate(mapX(b.x),mapY(b.z));x.rotate(b.ry);x.fillStyle='rgba(70,66,60,.78)';const w=b.w/WORLD*W,d=b.d/WORLD*W;x.fillRect(-w/2,-d/2,w,d);x.restore()}
   // roads and courses
   x.lineCap='round';x.lineJoin='round';
   for(const poly of(LV.roads||[])){x.strokeStyle='rgba(42,36,28,.55)';x.lineWidth=4.5;x.setLineDash([]);strokePoly(x,poly);x.strokeStyle='#c9a46a';x.lineWidth=2.4;x.setLineDash([7,5]);strokePoly(x,poly)}

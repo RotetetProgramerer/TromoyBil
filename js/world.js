@@ -73,7 +73,7 @@ function buildCourseArrows(k){const L=[];for(let d=1.2;d<k.curve.getLength();d+=
   L.forEach((o,i)=>{p.set(o.x,o.y,o.z);q.setFromAxisAngle(YAX,o.ry);m4.compose(p,q,sc);im.setMatrixAt(i,m4)});im.frustumCulled=false;im.renderOrder=1;levelGroup.add(im);courseArrows=im}
 // night: the lights go down and the car's lamps come on
 function setNight(on){if(on===nightOn)return;nightOn=on;const def=LEVELS[state.levelIdx];
-  skyDome.material.color.set(on?0x2a3350:0xffffff);sunGlow.visible=!on&&def.clouds!==false;if(on)setLights(true);
+  skyDome.material.color.set(on?0x2a3350:0xffffff);sunGlow.visible=!on&&def.clouds!==false;if(on)setLights(true);if(lampGlow)lampGlow.visible=on;
   if(!on){scene.fog.color.set(LIN(def.fog));scene.fog.near=def.fogNear;scene.fog.far=def.fogFar;sun.intensity=def.sunI*1.55;hemi.intensity=def.hemi[2]*1.15;hemi.color.set(def.hemi[0]).convertSRGBToLinear();sun.color.set(def.sun).convertSRGBToLinear()}}
 function nightTint(){if(!nightOn)return;scene.fog.color.multiplyScalar(.22);scene.fog.near=Math.min(scene.fog.near,8);scene.fog.far=Math.min(scene.fog.far,38);sun.intensity*=.12;sun.color.set(0x8fa6ff).convertSRGBToLinear();hemi.intensity*=.3;hemi.color.set(0x7a8ab0).convertSRGBToLinear()}
 function updateWorld(dt){

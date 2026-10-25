@@ -245,7 +245,7 @@ function setGateState(i,s){const g=gateVis[i];if(!g)return;g.state=s;g.mats.forE
 const dustTex=(()=>{const c=document.createElement('canvas');c.width=c.height=64;const x=c.getContext('2d');const g=x.createRadialGradient(32,32,2,32,32,30);g.addColorStop(0,'rgba(255,255,255,.9)');g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.fillRect(0,0,64,64);return new THREE.CanvasTexture(c)})();
 const dust=[];for(let i=0;i<70;i++){const s=new THREE.Sprite(new THREE.SpriteMaterial({map:dustTex,transparent:true,depthWrite:false,opacity:0}));s.visible=false;scene.add(s);dust.push({s,life:0,v:new V3()})}
 let dustI=0;
-const DUST_COL={0:'#d8ccb2',2:'#7a5c3e',5:'#4b3b2a',13:'#2e2218',10:'#9c9384',3:'#6b7a45',4:'#a07a55',14:'#4a4440',15:'#ff7a20',98:'#7a5a3a',99:'#e6f3f7'};
+const DUST_COL={0:'#d8ccb2',2:'#7a5c3e',5:'#4b3b2a',13:'#2e2218',10:'#9c9384',3:'#6b7a45',4:'#a07a55',14:'#4a4440',15:'#ff7a20',19:'#8a8a86',98:'#7a5a3a',99:'#e6f3f7'};
 function spawnDust(p,surf,big){const c=DUST_COL[surf];if(!c)return;const d=dust[dustI++%dust.length];d.s.material.color.set(c).convertSRGBToLinear();d.s.position.copy(p);d.s.position.y+=.05;d.life=1;d.big=big||0;
   const up=big?.7+Math.random()*.9:.25+Math.random()*.3,sp=big?.9:.4;d.v.set((Math.random()-.5)*sp,up,(Math.random()-.5)*sp);d.s.visible=true}
 function updateDust(dt){for(const d of dust){if(d.life<=0)continue;d.life-=dt*(d.big?1.6:1.3);if(d.big)d.v.y-=3.2*dt;d.s.position.addScaledVector(d.v,dt);const k=1-d.life;d.s.scale.setScalar(d.big?.1+k*.35:.15+k*.6);d.s.material.opacity=Math.max(0,d.life)*(d.big?.7:.45);if(d.life<=0)d.s.visible=false}}
@@ -329,8 +329,15 @@ function buildSign(f){const c=document.createElement('canvas');c.width=256;c.hei
   const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;const y=H(f.x,f.z);
   const post=new THREE.Mesh(boxGeo,postMat);post.scale.set(.06,1.1,.06);post.position.set(f.x,y+.55,f.z);post.castShadow=true;levelGroup.add(post);
   const b=new THREE.Mesh(new THREE.PlaneGeometry(1.1,.55),new THREE.MeshBasicMaterial({map:t,side:THREE.DoubleSide}));b.position.set(f.x,y+1.1,f.z);b.rotation.y=f.ang;levelGroup.add(b)}
+// street lamps: one Points cloud of warm glows over all the lamp heads of the level, shown at night (world.js setNight)
+let lampGlow=null;
+function buildLamps(L){lampGlow=null;if(!L.length)return;const pos=new Float32Array(L.length*3);L.forEach((f,i)=>{pos[i*3]=f.x;pos[i*3+1]=f.y+.08;pos[i*3+2]=f.z});
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  lampGlow=new THREE.Points(g,new THREE.PointsMaterial({map:glowTex,color:LIN('#ffd27a'),size:1.5,transparent:true,opacity:.85,blending:THREE.AdditiveBlending,depthWrite:false,fog:false,sizeAttenuation:true}));
+  lampGlow.frustumCulled=false;lampGlow.visible=false;lampGlow.renderOrder=4;levelGroup.add(lampGlow)}
 function buildFx(lv){
   fxAnim={falls:[],smoke:[],lavaPts:[],ripples:[],mist:[],drips:[],fallMist:[]};
+  buildLamps(lv.fx.filter(f=>f.type==='lamp'));
   for(const f of lv.fx){
     if(f.type==='lava'){const m=new THREE.Mesh(lavaRibbon(f.s),lavaMat);m.renderOrder=1;levelGroup.add(m);fxAnim.lavaPts.push(...f.s)}
     else if(f.type==='lavadisc'){const m=new THREE.Mesh(new THREE.CircleGeometry(f.r+.3,40),lavaMat);m.rotation.x=-Math.PI/2;m.position.set(f.x,f.y+.02,f.z);m.renderOrder=1;levelGroup.add(m);fxAnim.lavaPts.push({x:f.x,z:f.z,y:f.y,hw:f.r})}

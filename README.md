@@ -193,6 +193,27 @@ Slik virker det i spillet: Kjør bort til en startstrek (flagg, dekk og festival
 
 Testen kjører hver løype for seg: `node tools/test-levels.js verden`.
 
+## En by (Trinnvik)
+
+`data/levels/07-trinnvik.js` er en verden som er en by: to flate terrasser (Nedre by 1,2 og Øvre by 2,39) med utsiktstoppen øverst, gater med fortauskant, trapper, en skatepark, et stadion, et parkeringshus med spiral og en liten byggetomt. Terrassene, bollen, amfiet og P-huskjeglen ligger i `base()`; alt annet stemples oppå med verktøyene under. Trapper på løypene er 0,15–0,18 høye (det klarer alle biler i begge gir), de bratteste (0,24) ligger utenfor løypene.
+
+Verktøy for byer i `build(c)`:
+
+| Verktøy | Betydning |
+|---|---|
+| `c.stairs(x,z,retning,n,trinn,inntrinn,bredde,{level,land,wall})` | En trapp stemplet i absolutt høyde: `n` trinn à `trinn` opp fra `(x,z)` i retning `retning` (radianer, 0 = +z). Bakken inni fotavtrykket settes til trinnhøyden, så trappa aldri forsvinner under en terrasse. `level` er høyden ved foten (standard bakken der), `land` en flat avsats etter øverste trinn, `wall:true` gir murer med kollidere på sidene. |
+| `c.street(poly,{hw,drop,cross})` | En bygate: kjørebanen senkes `drop` (0,12) innenfor `hw`, så fortauet får kantstein på begge sider. `cross:[[x,z],...]` er fotgjengerfelt der gata kommer opp igjen (opphøyd gangfelt). Gater som krysser hverandre senkes bare én gang. Ingen utjevning: bakken må være flat fra før. |
+| `c.building(x,y,z,b,h,d,farge,ry,{fh,sign,roof})` | En bygning: boks med sokkel, flatt tak, vindusbånd per etasje (`fh` = etasjehøyde), dør og en firkantet kollider som følger fasaden. Fronten vender mot +z i boksens egen ramme. Tegnes på øykartet. |
+| `c.lamp(x,z,{h,ang})` | Gatelykt med stolpe og arm. Lyser om natten (nattløp). Duer sitter på den. |
+| `c.cone(x,z)`, `c.barrier(x,z,retning)` | Trafikkjegle og sperrebukk som velter når bilen treffer dem. |
+| `shape(..., level)` og `disc(..., level)` | Stemplene kan nå få en absolutt høyde for h = 0, i stedet for å måle fra grunnterrenget. Bruk det på terrasser og gater (fartsdumper, ramper, opphøyde kryss). |
+| `c.road(poly,{bench:false})` | En vei uten utjevning av terrenget rundt. |
+| Kollidere `{x,z,w,d,ry}` | Firkantede kollidere (i tillegg til de runde `{x,z,r}`): bilen dyttes ut fra nærmeste punkt på rektangelet. |
+
+Dyr i en by: `pigeons:14` (duer på lykter og hustak), `rats:[{at,r,n}]`, `cats:[{at,r,n}]`. Lydsoner: `biome(x,z)` kan gi `city` (trafikkdur, duer, fjern biltut, rådhusklokke ved `bellAt:[x,z]`), `stadium` (publikumsmumling) og `site` (generator og hammerslag). `ambience:'town'` slår lyden på. En `boulder` med `col:'#f4f4f0'` er en ball (fotballen på stadion).
+
+Testen: `node tools/test-levels.js trinnvik` kjører landsbytesten og alle sju løypene i begge gir.
+
 ## Justere garasjen
 
 `data/parts.js` har navn, priser og beskrivelser. Selve effektene (hvor mye mer grep klatredekk gir, og så videre) ligger i funksjonen `tuneFrom` nederst i `js/core.js`, i små tabeller med fire verdier (nivå 0–3).
