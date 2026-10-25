@@ -11,6 +11,7 @@ js/core.js            Motoren: terreng, baneverktøy, bilfysikk. Trenger du sjel
 js/game.js            Spillet: grafikk, kamera, lyd, meny, garasje, poeng.
 js/animals.js         Dyr (papegøyer, apekatter, sommerfugler, krabber) og den rullende steinen.
 js/ambience.js        Jungellyd laget med WebAudio (ingen lydfiler).
+js/net.js             Flerspiller: rom, romkode og de andre bilene.
 data/cars.js          Bilene.                 ← legg til nye biler her
 data/levels/NN-id.js  Én fil per bane.         ← legg til nye baner her
 data/parts.js         Garasjedeler og lakkfarger.
@@ -213,6 +214,17 @@ Verktøy for byer i `build(c)`:
 Dyr i en by: `pigeons:14` (duer på lykter og hustak), `rats:[{at,r,n}]`, `cats:[{at,r,n}]`. Lydsoner: `biome(x,z)` kan gi `city` (trafikkdur, duer, fjern biltut, rådhusklokke ved `bellAt:[x,z]`), `stadium` (publikumsmumling) og `site` (generator og hammerslag). `ambience:'town'` slår lyden på. En `boulder` med `col:'#f4f4f0'` er en ball (fotballen på stadion).
 
 Testen: `node tools/test-levels.js trinnvik` kjører landsbytesten og alle sju løypene i begge gir.
+
+## Kjør sammen (flerspiller)
+
+`js/net.js` lar opptil fire spillere kjøre sammen i skjærgården. Én lager et rom og får en kode som `KRABBE-42`, de andre skriver inn koden. Hver spiller kjører sin egen bil med den vanlige fysikken. Bare bilens posisjon, rotasjon, hjul, styring og lys sendes, 15 ganger i sekundet, og de andre bilene tegnes 0,12 sekunder bak slik at de glir jevnt. Bilene kolliderer ikke, og muttere, løyper og gullmuttere er personlige.
+
+- **Kobling:** [PeerJS](https://peerjs.com) lastes fra jsDelivr først når noen trykker «Lag rom» eller «Bli med». Verten registrerer romkoden hos den gratis PeerJS-tjenesten, og gjestene kobler seg direkte til verten med WebRTC. Verten sender meldingene videre til de andre. Ingen egen server trengs, så det virker fra GitHub Pages.
+- **Lokal test:** Kryss av for «Lokal test» i dialogen, eller åpne siden med `?local`. Da kobles faner i samme nettleser med `BroadcastChannel`, uten nett, men med nøyaktig samme romlogikk. Åpne to faner, lag rom i den ene og bli med i den andre.
+- **Mellom øyene:** Du ser bare biler på samme øy. Øykartet og minikartet viser vennene som prikker i deres farge, og skjærgårdskartet viser hvilken øy de er på. I pausemenyen kan du ta fergen rett til øya der en venn er (5 muttere). Når en venn reiser fra eller kommer til øya di, seiler fergen med dem.
+- **Brudd:** En gjest som mister verten prøver å koble seg til igjen fem ganger. Forlater verten rommet, får gjestene beskjed og kjører videre alene. Det er ingen ny vert når verten går.
+
+Strenge nettverk, som enkelte skole- og jobbnett, kan blokkere direkte kobling mellom nettlesere. Da får man en melding om at koblingen ikke fikk kontakt.
 
 ## Justere garasjen
 
