@@ -1,4 +1,4 @@
-// Sandglow-øya: åpen verden (120 × 120). Fri kjøring med basen i midten og sju løyper spredt rundt på øya.
+// Tromøya: åpen verden (120 × 120). Fri kjøring med basen i midten og sju løyper spredt rundt på øya.
 // Biomer: regnskog i vest, sump i sørvest, strand i sør, canyon/ørken i øst, snøfjell i nord. Bekken renner fra tjernet
 // på fjellet, over fossen, gjennom canyonen og ut i havet. Løypene registreres med c.course(...) og testes hver for seg:
 //   node tools/test-levels.js verden
@@ -52,7 +52,7 @@ const ROADS=[
 ];
 
 LEVELS.push(
-{ id:'verden', name:'Sandglow-øya', diff:2, seed:4242, size:120, world:true,
+{ id:'verden', name:'Tromøya', diff:2, seed:4242, size:120, world:true,
   desc:'Hele øya i fri kjøring. Basen i midten, sju løyper rundt omkring. Kjør bort til en startstrek for å begynne.',
   start:[0,-11,0],
   // kaldt lys på fjellet …

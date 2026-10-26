@@ -1,4 +1,4 @@
-// Bane 6: Vulkanen
+// Bane 6: Hisøya
 // Strand → gjørmesti i regnskogen → en liten, tett skog → vadested i jungelelva → hyllen bak fossen → spiralvei opp en vulkan.
 // Vulkanen ligger i (8,6). Veien går 1,25 runder opp mot krateret. Tre lavaelver renner ned fra kraterkanten og krysser veien,
 // og i krateret ligger en lavasjø. Snarvei: etter port 13 kan du kjøre en smal bro rett over i stedet for den lange runden sør om.
@@ -52,7 +52,7 @@ const dShort=(x,z)=>lineD(shortcut,x,z);
 const FOREST_BOX=(x,z)=>x>-12&&x<25&&z>-31&&z<-12.5;
 
 LEVELS.push(
-{ id:'vulkan', name:'Vulkanen', diff:3, seed:211, gates:18, size:120, coast:42, village:{at:[-26.2,26.2]},
+{ id:'vulkan', name:'Hisøya', diff:3, seed:211, gates:18, size:120, coast:42, village:{at:[-26.2,26.2]},
   desc:'Regnskog, gjørme, en foss du kjører bak, og opp en vulkan med lavaelver og hengebroer. Papegøyer, apekatter og en snarvei for de modige.',
   // lys ved vulkanen (brukes nær krateret) …
   sky:['#3b4a86','#f2b37a'], fog:0xd99f78, fogNear:22, fogFar:80, sun:0xffc690, sunI:1.0, hemi:[0xffdcb4,0x3a2418,.62], sunDir:[-20,15,-14], rockCol:'#3b3733',
