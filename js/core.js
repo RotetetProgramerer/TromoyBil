@@ -264,6 +264,10 @@ function genLevel(def){
         cellsIn(p.x-.7,p.z-.7,p.x+.7,p.z+.7,(k,px,pz)=>{const b=Math.abs((px-p.x)*tz-(pz-p.z)*tx),a=Math.abs((px-p.x)*tx+(pz-p.z)*tz);if(a>L*.6)return;const d=Math.abs(b-.4);if(d>.14)return;
           const w=1-(d/.14)**2;TH[k]-=depth*w*(.8+.4*G.noise(px*3,pz*3))})}},
     steam:(x,z,y,s=.45)=>c.fx.push({type:'smoke',x,z,y:y??H(x,z),small:s}),
+    // a plant or an animal from PROPS (data/vegetasjon.js, data/dyr.js): c.plant('jungel_kapok',x,z,{s:1.2}). Colliders now, drawn after build (js/props.js).
+    plantList:[],plant:(name,x,z,o)=>plantProp(c,name,x,z,o),plants:()=>buildProps(c),
+    // c.sow('subtrop_agave',12,[x,z],radius,{r,gap,ok,p}): scatter props on free spots (see js/props.js). plantOK(x,z,r): is the spot free?
+    sow:(name,n,at,rad,o)=>sowProps(c,name,n,at,rad,o),plantOK:(x,z,r=.5)=>propSpotOK(c,x,z,r),
     // a jungle tree: trunk with buttress roots, branches, canopy and moss. Returns the tree (perches for animals are collected in c.perches)
     trees:[],perches:[],
     tree(x,z,o={}){const t={x,z,h:o.h??(5+rng()*4),r:o.r??(.18+rng()*.16),lean:o.lean??(rng()-.5)*.14,ry:rng()*6.28,moss:o.moss??rng()<.75,kind:o.kind||'jungle',branches:[]};
@@ -429,6 +433,7 @@ function genLevel(def){
   def.build(c);
   if(c.pistes.length&&!c._pisteDressed)c.dressPistes();G.pistes=c.pistes;
   if(!c._done)c.finish();
+  if(c.plantList.length)c.plants();
   if(c.boxes.length||c.cyls.length)c.props();
   // an island that is a race: the race line is also a course you can start from its portal while roaming
   if(def.village&&!def.world){const k=c.course({id:def.id,name:def.name,desc:def.desc,diff:def.diff,path:def.path,gates:def.gates,gateT:def.gateT,bench:false});k.main=true}

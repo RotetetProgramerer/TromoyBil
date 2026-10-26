@@ -194,6 +194,15 @@ LEVELS.push(
     for(let i=0;i<36;i++){const a=R()*6.28,d=4+R()*9,x=M[0]+Math.cos(a)*d,z=M[1]+Math.sin(a)*d;c.fx.push({type:'mist',x,z,y:H(x,z)+.8+R()*.8,s:4+R()*5})}
     // --- drivved på stranden ---
     for(let i=0;i<16;i++){const a=R()*6.28,Rr=isl(0,0)-9+R()*3,x=Math.cos(a)*Rr,z=Math.sin(a)*Rr;if(c.dist(x,z)<1.6||H(x,z)<def.water+.1)continue;const b=R()*6.28,len=.8+R()*1.4;log(x,z,x+Math.sin(b)*len,z+Math.cos(b)*len,.06+R()*.05,S.BARK,()=>'#9a8468')}
+    // --- jungelens planter og dyr (data/vegetasjon.js, data/dyr.js) ---
+    const jg=[-28,-14],JR=26,inJ=(x,z)=>inJungle(x,z)&&lineD(STREAM,x,z)>3;
+    c.sow('jungel_kapok',5,jg,JR,{r:.5,gap:8,ok:inJ,p:R=>({s:1+R()*.5,lianer:1+Math.floor(R()*3)})});
+    c.sow('jungel_bregnetre',12,jg,JR,{r:.3,gap:2.5,ok:inJ,p:R=>({s:.8+R()*.5})});
+    c.sow('jungel_banan',14,jg,JR,{r:.3,gap:2,ok:inJ,p:R=>({s:.8+R()*.4,klase:R()<.4?1:0})});
+    c.sow('jungel_jaguar',2,jg,JR,{r:.5,gap:12,ok:inJ,p:R=>({svart:R()<.3?1:0})});
+    c.sow('jungel_dovendyr',2,jg,JR,{r:.8,gap:8,ok:inJ,p:R=>({unge:R()<.5?1:0})});
+    c.sow('jungel_tukan',4,jg,JR,{r:.2,gap:5,ok:inJ});
+    c.sow('jungel_giftfrosk',6,jg,JR,{r:.15,gap:3,ok:inJ,p:R=>({farge:Math.floor(R()*3)})});
     c.props();
     c.pebbles(1400,['#6f6a63','#8a847a','#4f4a44'],.04,.11);
     c.tufts(160,['#4d7a2f','#6b9a3c']);

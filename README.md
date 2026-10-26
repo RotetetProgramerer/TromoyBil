@@ -8,6 +8,7 @@ Et 3D-spill i nettleseren der du kjører en RC-crawler i skala 1:24 gjennom port
 index.html            Siden som laster alt. Her står rekkefølgen på skriptene.
 css/style.css         Alt utseende (meny, HUD, garasje).
 js/core.js            Motoren: terreng, baneverktøy, bilfysikk. Trenger du sjelden å røre.
+js/props.js           Planter og dyr du setter ut ett og ett (c.plant, c.sow). Innholdet ligger i data/.
 js/game.js            Spillet: grafikk, kamera, lyd, meny, garasje, poeng.
 js/animals.js         Dyr (papegøyer, apekatter, sommerfugler, krabber) og den rullende steinen.
 js/ambience.js        Jungellyd laget med WebAudio (ingen lydfiler).
@@ -17,6 +18,8 @@ js/net.js             Flerspiller: rom, romkode og de andre bilene.
 data/cars.js          Bilene.                 ← legg til nye biler her
 data/levels/NN-id.js  Én fil per bane.         ← legg til nye baner her
 data/parts.js         Garasjedeler og lakkfarger.
+data/vegetasjon.js    Trær og planter for jungel, subtropisk og arktisk.   ← legg til nye planter her
+data/dyr.js           Dyr for de samme tre miljøene (står i ro).          ← legg til nye dyr her
 tools/test-levels.js  Autopilot som tester alle baner uten nettleser.
 manifest.json, sw.js  Gjør spillet til en PWA (installerbar, virker uten nett).
 icons/                Appikoner.
@@ -244,6 +247,31 @@ Verktøy i `build(c)` for vinter og ski:
 | `village:{…,snow:true}` | Snø på takene i landsbyen. |
 
 Testen kjører også nedfartene med en autopilot på ski: `node tools/test-levels.js gautefall`. Hver løype skal vise `MÅL`, helst `kræsj 0` og `fast 0`. For hoppløypa vises lufttiden for hvert hopp og den hardeste landingen (over 8,2 er et fall).
+
+## Planter og dyr (`data/vegetasjon.js`, `data/dyr.js`)
+
+Hver plante og hvert dyr er en oppføring `PROPS.navn={navn,info,params,place,build}`. Prefikset i navnet forteller miljøet: `jungel_*`, `subtrop_*` og `arktis_*`.
+
+| Navn | Hva |
+|---|---|
+| `jungel_kapok`, `jungel_banan`, `jungel_bregnetre` | Kapoktre med lianer, bananplante, bregnetre |
+| `jungel_jaguar`, `jungel_tukan`, `jungel_giftfrosk`, `jungel_dovendyr` | Jaguar, tukan på stubbe, pilgiftfrosk på blad, dovendyr på stativ |
+| `subtrop_palme`, `subtrop_oliven`, `subtrop_sypress`, `subtrop_agave` | Kokospalme, oliventre, sypress, agave |
+| `subtrop_flamingo`, `subtrop_skilpadde`, `subtrop_perleogle` | Flamingo, landskilpadde, perleøgle på stein |
+| `arktis_dvergbjork`, `arktis_gran`, `arktis_myrull` | Dvergbjørk, snøgran, myrull (dvergbjørk og myrull har ingen kollider) |
+| `arktis_isbjorn`, `arktis_snougle`, `arktis_fjellrev` | Isbjørn med unge, snøugle på snøhaug, fjellrev |
+
+Verktøy i `build(c)`:
+
+| Verktøy | Betydning |
+|---|---|
+| `c.plant(navn,x,z,{s,retning,…})` | Én plante eller ett dyr. Parametrene står i `params` i oppføringen; det du ikke gir, får standardverdien. Dyr uten `retning` ser en tilfeldig vei. |
+| `c.sow(navn,n,[x,z],radius,{r,gap,ok,p})` | Opptil `n` på tilfeldige ledige steder innenfor `radius`. `r` er fotavtrykket, `gap` avstanden mellom dem, `ok(x,z)` en ekstra test, `p` parametrene (et objekt, eller en funksjon av tilfeldighetsgeneratoren, f.eks. `R=>({s:.8+R()*.4})`). |
+| `c.plantOK(x,z,r)` | Sant hvis stedet er ledig: på land, ikke i vann, minst 3 fra løyper og veier, ikke ved porter, start, blokkerte områder eller andre kollidere. |
+
+Plantene og dyrene plasseres (kollidere) med en gang, men tegnes etter `build(c)`, når terrenget er ferdig. De bruker sin egen tilfeldighetsgenerator, så resten av banen blir lik selv om du legger til flere. Bykkevika har de subtropiske, jungelen på Tromøya de tropiske og Gautefall de arktiske.
+
+Ny plante eller nytt dyr: kopier en oppføring. `place(x,z,o,env)` leser parametrene med `propParams` og legger til kollidere i `env.colliders`; `build(t,env,out)` tegner med `out.add(geometri,materiale,{x,y,z,sx,sy,sz,c})`. Geometrier: `PG.blob` (kule, sx/sy/sz er halvakser), `PG.trunk` og `DG.branch`. Hjelpere: `stemBetween(a,b,r,{c})` (gren fra a til b; med `PG.blob` blir det en avlang kule mellom punktene), `footY`, `shade`, `dirVec`, og `DYR.*` i `data/dyr.js` for kropper, øyne og buer. Sitteplasser for fugler legges i `env.perches`.
 
 ## Kjør sammen (flerspiller)
 

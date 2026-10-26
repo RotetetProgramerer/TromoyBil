@@ -112,6 +112,13 @@ LEVELS.push(
     c.dressPistes();
     c.finish();
     c.spruces();
+    // --- tundraens planter og dyr (data/vegetasjon.js, data/dyr.js): dvergbjørk og myrull rundt Isvannet, isbjørn på nordkysten ---
+    const low=(x,z)=>rC(x,z)>PLAT+4&&Math.hypot(x-LAKE[0],z-LAKE[1])>LAKE_R+.6;
+    c.sow('arktis_myrull',12,LAKE,LAKE_R+5,{r:.2,gap:1,ok:low});
+    c.sow('arktis_dvergbjork',24,[0,0],34,{r:.3,gap:2.5,ok:low,p:R=>({host:R()})});
+    c.sow('arktis_isbjorn',1,[0,29],6,{r:1.4,ok:low});
+    c.sow('arktis_fjellrev',3,[0,0],32,{r:.25,gap:12,ok:low,p:R=>({vinter:R()<.8?1:.2})});
+    c.sow('arktis_snougle',3,[0,0],32,{r:.4,gap:12,ok:low,p:R=>({hunn:R()<.5?1:0})});
     c.props();
     c.pebbles(220,['#5f6368','#7a7f84'],.04,.1);
   }}
