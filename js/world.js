@@ -37,6 +37,7 @@ function buildPortals(lv){portals=[];if(!lv.courses||!lv.courses.length)return;
 function nearestPortal(){let b=null;for(const p of portals){const d=Math.hypot(p.x-car.pos.x,p.z-car.pos.z);if(!b||d<b.d)b={k:p.k,d}}return b}
 function openAsk(k){state.mode='ask';state.askK=k;$('aList').hidden=true;$('aYes').hidden=false;
   if(typeof k==='string'&&k.startsWith('ski')){skiAsk(k);return}   // Gautefall: the ski trip (js/ski.js)
+  if(typeof k==='string'&&k.startsWith('boat')){boatAsk(k);return}   // Tromøya: the boat race from the marina (js/boat.js)
   if(k==='ferry'){const here=LEVELS[state.levelIdx];$('aName').textContent='Fergen';$('aKind').textContent='Kaia på '+here.name;$('aDesc').textContent='Hvor vil du reise? Overfarten koster 5 muttere. Du har '+fmtN(prof.nuts)+'.';$('aBest').textContent='';$('aQ').textContent='';
     const dests=ROUTES.filter(r=>r.includes(here.id)).map(r=>r[0]===here.id?r[1]:r[0]).map(id=>LEVELS.find(l=>l.id===id)).filter(Boolean);
     $('aList').innerHTML=dests.map(l=>`<button data-dest="${l.id}"><span><span class="nm">${l.name}</span><span class="sub">${l.desc}</span></span><span class="pr">5 ⚙</span></button>`).join('');$('aList').hidden=false;$('aYes').hidden=true;$('aNo').textContent='Bli her';$('ask').hidden=false;return}
@@ -56,6 +57,7 @@ function setOffer(k){if(state.offerK===k)return;state.offerK=k;const el=$('offer
 function acceptOffer(){const k=state.offerK;if(!k||state.mode!=='play'||state.course)return;setOffer(null);if(courseLock(k))openAsk(k);else startCourse(k)}
 function answerAsk(yes){if(state.mode!=='ask')return;$('ask').hidden=true;const k=state.askK;state.askK=null;
   if(typeof k==='string'&&k.startsWith('ski')){skiAnswer(k,yes);return}
+  if(typeof k==='string'&&k.startsWith('boat')){boatAnswer(k,yes);return}
   if(k==='garage'){state.askCool='garage';if(yes){state.mode='play';toGarage()}else{state.mode='play';toast('Kjør videre når du vil')}return}
   if(k==='ferry'){state.askCool='ferry';state.mode='play';if(yes&&yes.dest)startFerry(yes.dest);return}
   if(yes&&state.askUnlock){prof.nuts-=state.askUnlock;prof.unlocked.push(courseKey(LEVELS[state.levelIdx],k));saveProf();state.askUnlock=0;state.mode='play';state.askCool=k.id;rebuildPortalSign(k);toast(k.name+' er låst opp · −'+(k.def.needs.nuts)+' ⚙');return}
@@ -90,6 +92,7 @@ function updateWorld(dt){
     {const n=nearestPortal();setOffer(n&&n.d<4?n.k:null)}   // a start portal: offer the course, but keep driving
     if(LV.ferry&&onFerryDeck()&&state.askCool!=='ferry'){openAsk('ferry');return}if(LV.ferry&&!onFerryDeck()&&state.askCool==='ferry')state.askCool=null;
     const sa=LEVELS[state.levelIdx].skiAt;if(sa&&LV.liftDef){const d=Math.hypot(sa[0]-car.pos.x,sa[1]-car.pos.z);if(d<1.6&&state.askCool!=='ski'){openAsk('ski');return}if(d>3.5&&state.askCool==='ski')state.askCool=null}   // Gautefall: park on the blue square to go skiing
+    const mb=LV.marinaDef;if(mb){const d=Math.hypot(mb.ask.x-car.pos.x,mb.ask.z-car.pos.z);if(d<1.6&&state.askCool!=='boat'){openAsk('boat');return}if(d>3.5&&state.askCool==='boat')state.askCool=null}   // the marina: park on the blue square to take a boat out
     const ga=LEVELS[state.levelIdx].garageAt;if(ga){const d=Math.hypot(ga[0]-car.pos.x,ga[1]-car.pos.z);if(d<2.4&&state.askCool!=='garage'){openAsk('garage');return}if(d>4.5&&state.askCool==='garage')state.askCool=null}}
   else{setOffer(null);const ng=LV.gates[state.next];if(ng&&Math.hypot(ng.c.x-car.pos.x,ng.c.z-car.pos.z)>30){endCourse();toast('For langt fra løypa: løpet er avbrutt',true)}}
   const tm=performance.now()*.001;for(const p of portals){if(Math.abs(p.x-car.pos.x)+Math.abs(p.z-car.pos.z)>40)continue;p.lights.forEach((l,i)=>l.material.opacity=.6+.4*Math.sin(tm*5+i*1.3))}
@@ -107,7 +110,7 @@ function updateBreakables(dt){if(!LV.breakables||!LV.propCyls)return;
 /* ---------- roaming the archipelago ---------- */
 // «Kjør!» in the menu: free driving, starting on Tromøya or wherever you last were
 let roamSaveT=0;
-function startRoam(){state.roam=true;const sv=store.get('roam',null);let i=LEVELS.findIndex(l=>l.id===(sv&&sv.id));if(i<0||!isIsland(LEVELS[i]))i=LEVELS.findIndex(l=>l.world);if(i<0)i=0;
+function startRoam(){state.roam=true;const sv=store.get('roam',null);let i=LEVELS.findIndex(l=>l.id===(sv&&sv.id));if(i<0||!isIsland(LEVELS[i]))i=LEVELS.findIndex(l=>l.world&&l.basePos);if(i<0)i=LEVELS.findIndex(l=>l.world);if(i<0)i=0;   // new players start on Tromøya, the island with the base
   if(i!==state.levelIdx||!state.world)loadLevel(i);startFree();
   if(!store.get('helpSeen',false)){state.mode='ask';$('help').hidden=false;$('helpOk').onclick=()=>{$('help').hidden=true;state.mode='play';store.set('helpSeen',true)};$('helpOk').focus()}
   if(sv&&sv.id===LEVELS[i].id&&isFinite(sv.x)){placeCar(car,sv.x,sv.z,sv.h||0);camSnap=true;state.checkpoint={x:sv.x,z:sv.z,h:sv.h||0}}}

@@ -19,6 +19,16 @@ function villageTest(def,lv){const f=lv.ferry,car=makeCar(CARS[1]);car.assist=fa
     const fw=car.fw,lf=car.lf,ang=Math.atan2(dx*lf.x+dz*lf.z,dx*fw.x+dz*fw.z);car.steer=Math.max(-.6,Math.min(.6,ang*1.5));car.throttle=1;stepCar(car,dt);
     if(car.depth>0)fell++;if(car.up.y<.2){console.log(def.id.padEnd(14),'LANDSBY  FEIL: velt ved',car.pos.x.toFixed(1),car.pos.z.toFixed(1));return}}
   const dg=Math.hypot(goal.x-car.pos.x,goal.z-car.pos.z);console.log(def.id.padEnd(14),'LANDSBY ',wp>=pts.length?'OK  ':'FEIL','ut av landsbyen'+(wp>=pts.length?'':' (stoppet '+dg.toFixed(1)+' fra målet ved '+car.pos.x.toFixed(1)+','+car.pos.z.toFixed(1)+')'),'vann',fell)}
+// to the marina: along the level road that ends where the marina road starts, then the marina road, then onto the blue square
+function marinaTest(def,lv){const m=lv.marinaDef,car=makeCar(CARS[1]);car.assist=false;car.low=true;
+  const oa=(def.marina.out??(m.dir/Math.PI*180+180))*Math.PI/180,ox=Math.cos(oa),oz=Math.sin(oa),inland={x:m.x+ox*13,z:m.z+oz*13};
+  const road=(def.roads||[]).find(r=>Math.hypot(r[r.length-1][0]-inland.x,r[r.length-1][1]-inland.z)<2),pts=[...(road||[]).slice(1).map(p=>({x:p[0],z:p[1]})),{x:m.x+ox*1.5,z:m.z+oz*1.5},m.ask];
+  const from=road?{x:road[0][0],z:road[0][1]}:inland,nx=pts[0];placeCar(car,from.x,from.z,Math.atan2(nx.x-from.x,nx.z-from.z));for(let i=0;i<480;i++)stepCar(car,dt);
+  let fell=0,wp=0,t=0;
+  for(let i=0;i<240*60;i++){const w=pts[wp],dx=w.x-car.pos.x,dz=w.z-car.pos.z,d=Math.hypot(dx,dz);if(d<(wp===pts.length-1?.7:1.2)){wp++;if(wp>=pts.length){t=i*dt;break}continue}
+    const fw=car.fw,lf=car.lf,ang=Math.atan2(dx*lf.x+dz*lf.z,dx*fw.x+dz*fw.z);car.steer=Math.max(-.6,Math.min(.6,ang*1.5));car.throttle=1;stepCar(car,dt);
+    if(car.depth>0)fell++;if(car.up.y<.2){console.log(def.id.padEnd(14),'MARINA   FEIL: velt ved',car.pos.x.toFixed(1),car.pos.z.toFixed(1));return}}
+  const ok=wp>=pts.length;console.log(def.id.padEnd(14),'MARINA  ',ok?'OK  ':'FEIL',(road?'veien og ':'')+'inn på den blå ruta'+(ok?' tid '+t.toFixed(0)+'s':' (stoppet ved '+car.pos.x.toFixed(1)+','+car.pos.z.toFixed(1)+')'),'vann',fell)}
 // skis one piste with an autopilot: aims a little way down the line, brakes above a target speed, never spins in the air
 const SKI_TARGET={fri:4,slalom:4.2,utfor:8.5,hopp:7.5};
 function skiTest(def,lv,k){const s=makeSkier(),run=makeSkiRun(k),tgt=SKI_TARGET[k.kind]||5;placeSkier(s,k.start.p.x,k.start.p.z,Math.atan2(k.start.tan.x,k.start.tan.z));
@@ -67,6 +77,7 @@ for(const def of LEVELS){
   if(only&&def.id!==only)continue;
   const lv=genLevel(def);
   if(lv.ferry)villageTest(def,lv);
+  if(lv.marinaDef)marinaTest(def,lv);
   for(const k of(lv.pistes||[]))skiTest(def,lv,k);
   if(def.world){for(const k of lv.courses)drive(def,lv,k,def.id+'/'+k.id);continue}   // an open world: every course on its own
   drive(def,lv,lv,def.id);

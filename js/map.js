@@ -87,6 +87,7 @@ function updateMinimap(){const cv=MAP.mini;if(!MAP.base||!car||$('hud').hidden||
   const lvl=LEVELS[state.levelIdx];
   for(const k of LV.courses){const[u,v]=toMini(k.start.p.x,k.start.p.z);if(Math.hypot(u-R,v-R)>R-9)continue;drawCourseIcon(x,u,v,k,!!best[courseKey(lvl,k)],7,false)}
   if(LV.ferry){const[u,v]=toMini(LV.ferry.quay.x,LV.ferry.quay.z);if(Math.hypot(u-R,v-R)<R-9)drawFerryIcon(x,u,v,7)}
+  if(LV.marinaDef){const[u,v]=toMini(LV.marinaDef.x,LV.marinaDef.z);if(Math.hypot(u-R,v-R)<R-9)drawBoatIcon(x,u,v,7)}
   if(lvl.basePos){const[u,v]=toMini(lvl.basePos[0],lvl.basePos[1]);const d=Math.hypot(u-R,v-R);if(d<R-9)drawBase(x,u,v,7);else{const a=Math.atan2(v-R,u-R);x.save();x.translate(R+Math.cos(a)*(R-8),R+Math.sin(a)*(R-8));x.rotate(a);x.fillStyle='#e5a92b';x.beginPath();x.moveTo(5,0);x.lineTo(-4,-4);x.lineTo(-4,4);x.closePath();x.fill();x.restore()}}
   if(typeof netDots==='function')for(const d of netDots()){const[u,v]=toMini(d.x,d.z),dd=Math.hypot(u-R,v-R);if(dd<R-8)drawFriend(x,u,v,d.col,5);else{const a=Math.atan2(v-R,u-R);drawFriend(x,R+Math.cos(a)*(R-8),R+Math.sin(a)*(R-8),d.col,4)}}
   drawCar(x,R,R,0,7);
@@ -107,6 +108,7 @@ function drawBigMap(){if(!MAP.open)return;if(MAP.tab==='arch')return drawArchipe
   if(lvl.basePos){x.save();x.setLineDash([6,6]);x.strokeStyle='rgba(229,169,43,.9)';x.lineWidth=2;x.beginPath();x.moveTo(mapX(car.pos.x)*sc,mapY(car.pos.z)*sc);x.lineTo(mapX(lvl.basePos[0])*sc,mapY(lvl.basePos[1])*sc);x.stroke();x.restore();drawBase(x,mapX(lvl.basePos[0])*sc,mapY(lvl.basePos[1])*sc,10)}
   for(const k of LV.courses)drawCourseIcon(x,mapX(k.start.p.x)*sc,mapY(k.start.p.z)*sc,k,!!best[courseKey(lvl,k)],9,MAP.hover===k);
   if(LV.ferry)drawFerryIcon(x,mapX(LV.ferry.quay.x)*sc,mapY(LV.ferry.quay.z)*sc,10);
+  if(LV.marinaDef)drawBoatIcon(x,mapX(LV.marinaDef.x)*sc,mapY(LV.marinaDef.z)*sc,10);
   (LV.secrets||[]).forEach((sc2,i)=>{if(!prof.secrets[secretKey(lvl,i)])return;x.save();x.translate(mapX(sc2.x)*sc,mapY(sc2.z)*sc);x.fillStyle='#e6b43a';x.strokeStyle='#5a3a1a';x.lineWidth=1.2;x.beginPath();x.arc(0,0,5,0,6.283);x.fill();x.stroke();x.fillStyle='#5a3a1a';x.beginPath();x.arc(0,0,1.8,0,6.283);x.fill();x.restore()});
   if(typeof netDots==='function')for(const d of netDots())drawFriend(x,mapX(d.x)*sc,mapY(d.z)*sc,d.col,7,d.name);
   drawCar(x,mapX(car.pos.x)*sc,mapY(car.pos.z)*sc,Math.atan2(car.fw.x,car.fw.z),9);
@@ -114,6 +116,10 @@ function drawBigMap(){if(!MAP.open)return;if(MAP.tab==='arch')return drawArchipe
   x.save();x.translate(sz-36,sz-36);x.fillStyle='rgba(233,220,185,.85)';x.beginPath();x.arc(0,0,24,0,6.283);x.fill();x.strokeStyle=MAPCOL.ink;x.lineWidth=1.5;x.stroke();x.fillStyle='#d9432f';x.beginPath();x.moveTo(0,-20);x.lineTo(5,0);x.lineTo(-5,0);x.closePath();x.fill();x.fillStyle=MAPCOL.ink;x.beginPath();x.moveTo(0,20);x.lineTo(5,0);x.lineTo(-5,0);x.closePath();x.fill();x.font='700 11px "Barlow Condensed",sans-serif';x.textAlign='center';x.fillText('N',0,-26);x.restore()}
 // a little ferry: hull and wheelhouse
 function drawFerryIcon(x,u,v,s){x.save();x.translate(u,v);x.fillStyle='#3f5f78';x.strokeStyle='#14120E';x.lineWidth=1.2;x.beginPath();x.moveTo(-s,-s*.1);x.lineTo(s,-s*.1);x.lineTo(s*.7,s*.5);x.lineTo(-s*.7,s*.5);x.closePath();x.fill();x.stroke();x.fillStyle='#eef0ea';x.fillRect(-s*.35,-s*.6,s*.7,s*.5);x.strokeRect(-s*.35,-s*.6,s*.7,s*.5);x.fillStyle='#c8463a';x.fillRect(s*.1,-s*.95,s*.18,s*.35);x.restore()}
+// the marina: a little motorboat with its windscreen and a wake
+function drawBoatIcon(x,u,v,s){x.save();x.translate(u,v);x.strokeStyle='#14120E';x.lineWidth=1.2;x.fillStyle='#f2e8d0';x.beginPath();x.moveTo(-s*1.1,s*.55);x.lineTo(-s*.4,s*.55);x.stroke();
+  x.fillStyle='#d9432f';x.beginPath();x.moveTo(-s,-s*.15);x.lineTo(s*.65,-s*.15);x.lineTo(s*1.05,-s*.45);x.lineTo(s*.55,s*.35);x.lineTo(-s*.85,s*.35);x.closePath();x.fill();x.stroke();
+  x.fillStyle='#9fd3f0';x.beginPath();x.moveTo(-s*.15,-s*.15);x.lineTo(s*.15,-s*.65);x.lineTo(s*.35,-s*.15);x.closePath();x.fill();x.stroke();x.restore()}
 // the archipelago: every island as a blob with its name, the ferry routes between them, and where you are
 function drawArchipelago(){const sz=bigLayout(),x=MAP.bigCtx,here=LEVELS[state.levelIdx].id;x.clearRect(0,0,sz,sz);
   x.fillStyle='#6fa3c4';x.fillRect(0,0,sz,sz);x.strokeStyle='rgba(255,255,255,.12)';x.lineWidth=1;for(let i=1;i<8;i++){x.beginPath();x.moveTo(i*sz/8,0);x.lineTo(i*sz/8,sz);x.stroke();x.beginPath();x.moveTo(0,i*sz/8);x.lineTo(sz,i*sz/8);x.stroke()}

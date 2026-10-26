@@ -324,11 +324,12 @@ function buildSmoke(f){const L=[],small=f.small||0,n=small?10:26;
   for(let i=0;i<n;i++){const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:dustTex,color:LIN(small?'#8d8880':'#4a4039'),transparent:true,depthWrite:false,opacity:0}));sp.position.set(f.x,f.y,f.z);levelGroup.add(sp);L.push({s:sp,t:i/n,x:f.x,y:f.y,z:f.z})}
   let gl=null;if(!small){gl=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:LIN('#ff7a20'),transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,opacity:.55,fog:false}));gl.scale.set(9,9,1);gl.position.set(f.x,f.y+.6,f.z);levelGroup.add(gl)}
   fxAnim.smoke.push({L,gl,small})}
-function buildSign(f){const c=document.createElement('canvas');c.width=256;c.height=128;const x=c.getContext('2d');x.fillStyle='#f2c230';x.fillRect(0,0,256,128);x.strokeStyle='#14120E';x.lineWidth=8;x.strokeRect(4,4,248,120);
-  x.fillStyle='#14120E';x.textAlign='center';x.font='700 48px "Barlow Condensed",sans-serif';x.fillText(f.text,128,64);x.font='600 24px "Barlow Condensed",sans-serif';x.fillText(f.sub||'',128,102);
+// f.w: a wider board (default 1.1), the text keeps its size
+function buildSign(f){const bw=f.w||1.1,cw=Math.round(256*bw/1.1),c=document.createElement('canvas');c.width=cw;c.height=128;const x=c.getContext('2d');x.fillStyle='#f2c230';x.fillRect(0,0,cw,128);x.strokeStyle='#14120E';x.lineWidth=8;x.strokeRect(4,4,cw-8,120);
+  x.fillStyle='#14120E';x.textAlign='center';x.font='700 48px "Barlow Condensed",sans-serif';x.fillText(f.text,cw/2,64);x.font='600 24px "Barlow Condensed",sans-serif';x.fillText(f.sub||'',cw/2,102);
   const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;const y=H(f.x,f.z);
   const post=new THREE.Mesh(boxGeo,postMat);post.scale.set(.06,1.1,.06);post.position.set(f.x,y+.55,f.z);post.castShadow=true;levelGroup.add(post);
-  const b=new THREE.Mesh(new THREE.PlaneGeometry(1.1,.55),new THREE.MeshBasicMaterial({map:t,side:THREE.DoubleSide}));b.position.set(f.x,y+1.1,f.z);b.rotation.y=f.ang;levelGroup.add(b)}
+  const b=new THREE.Mesh(new THREE.PlaneGeometry(bw,.55),new THREE.MeshBasicMaterial({map:t,side:THREE.DoubleSide}));b.position.set(f.x,y+1.1,f.z);b.rotation.y=f.ang;levelGroup.add(b)}
 // street lamps: one Points cloud of warm glows over all the lamp heads of the level, shown at night (world.js setNight)
 let lampGlow=null;
 function buildLamps(L){lampGlow=null;if(!L.length)return;const pos=new Float32Array(L.length*3);L.forEach((f,i)=>{pos[i*3]=f.x;pos[i*3+1]=f.y+.08;pos[i*3+2]=f.z});
@@ -436,7 +437,7 @@ function loadLevel(i){
   hemi.color.set(def.hemi[0]).convertSRGBToLinear();hemi.groundColor.set(def.hemi[1]).convertSRGBToLinear();hemi.intensity=def.hemi[2]*1.15;
   sun.color.set(def.sun).convertSRGBToLinear();sun.intensity=def.sunI*1.55;
   sunGlow.material.color.set(def.sun).convertSRGBToLinear();sunGlow.visible=def.clouds!==false;
-  clearTracks();buildGates(LV);LV.hasLava=G.lavas.length>0;buildFx(LV);resetEruption(def);lavaLight.visible=LV.hasLava&&state.gfx==='hi';setupZone(def);buildAnimals(LV,def);buildBoulder(def);buildPortals(LV);buildFerry(LV);buildSki(LV);buildSecrets(LV);if(isIsland(def))buildMapBase(def);else MAP.base=null;$('bMap').hidden=!state.world;if(car)applyZone(car.pos.x,car.pos.z);
+  clearTracks();buildGates(LV);LV.hasLava=G.lavas.length>0;buildFx(LV);resetEruption(def);lavaLight.visible=LV.hasLava&&state.gfx==='hi';setupZone(def);buildAnimals(LV,def);buildBoulder(def);buildPortals(LV);buildFerry(LV);buildSki(LV);buildMarina(LV);buildSecrets(LV);if(isIsland(def))buildMapBase(def);else MAP.base=null;$('bMap').hidden=!state.world;if(car)applyZone(car.pos.x,car.pos.z);
   if(car)resetToStart();
   $('hLevel').textContent=def.name;
 }
@@ -475,7 +476,7 @@ $('partList').addEventListener('click',e=>{const b=e.target.closest('[data-buy]'
 $('carSale').addEventListener('click',e=>{const b=e.target.closest('[data-buycar]');if(!b)return;const c=CARS.find(x=>x.id===b.dataset.buycar);if(!c||prof.nuts<c.price)return;prof.nuts-=c.price;prof.cars.push(c.id);saveProf();setCar(CARS.indexOf(c));renderGarage();toast('Gratulerer med '+c.name+'!')});
 $('paintList').addEventListener('click',e=>{const b=e.target.closest('[data-paint]');if(b)pickPaint(+b.dataset.paint)});
 $('mGarage').onclick=toGarage;$('rGarage').onclick=toGarage;$('gBack').onclick=toMenu;$('gDrive').onclick=startRun;
-function pause(on){if(state.mode==='ski'){if(on)skiKeyDown('escape');return}if(state.mode!=='play'&&state.mode!=='pause')return;state.mode=on?'pause':'play';$('pause').hidden=!on;$('pAbort').hidden=!state.course;$('pMap').hidden=!state.world;$('pRestart').textContent=state.course?'Start løpet på nytt':state.world?'Tilbake til basen':'Start på nytt';if(on)$('pResume').focus();if(on&&typeof netPauseUI==='function')netPauseUI()}
+function pause(on){if(state.mode==='ski'){if(on)skiKeyDown('escape');return}if(state.mode==='boat'){if(on)boatKeyDown('escape');return}if(state.mode!=='play'&&state.mode!=='pause')return;state.mode=on?'pause':'play';$('pause').hidden=!on;$('pAbort').hidden=!state.course;$('pMap').hidden=!state.world;$('pRestart').textContent=state.course?'Start løpet på nytt':state.world?'Tilbake til basen':'Start på nytt';if(on)$('pResume').focus();if(on&&typeof netPauseUI==='function')netPauseUI()}
 function addPenalty(n,why){state.penalty+=n;state.log.push(why);toast('+'+n+' '+why.split(':')[0],true)}
 // auto: the flip assist in easy mode puts the car back for free; everything else costs a winch penalty
 function winch(auto){
@@ -523,7 +524,7 @@ function finishRun(){
   setTimeout(()=>{$('result').hidden=false;$('rNext').focus()},900);toast('Mål!');
 }
 function fmtTime(t){t=Math.round(t*10)/10;const m=Math.floor(t/60),s=t-m*60;return m+':'+(s<10?'0':'')+s.toFixed(1)}
-let toastT=0;function toast(msg,bad){const el=$('toast');el.textContent=msg;el.classList.toggle('bad',!!bad);el.classList.add('on');toastT=1.6}
+let toastT=0;function toast(msg,bad){const el=$(BT.on?'boatToast':'toast');el.textContent=msg;el.classList.toggle('bad',!!bad);el.classList.add('on');toastT=1.6}
 
 function segX(p1,p2,a,b){const d=(p2.x-p1.x)*(b.z-a.z)-(p2.z-p1.z)*(b.x-a.x);if(Math.abs(d)<1e-9)return false;
   const u=((a.x-p1.x)*(b.z-a.z)-(a.z-p1.z)*(b.x-a.x))/d,v=((a.x-p1.x)*(p2.z-p1.z)-(a.z-p1.z)*(p2.x-p1.x))/d;return u>=0&&u<=1&&v>=0&&v<=1}
@@ -550,6 +551,7 @@ addEventListener('keydown',e=>{
   if(e.repeat)return;keys.add(k);
   if(state.mode==='ferry'){if(k==='enter'||k===' '||k==='escape')skipFerry();return}
   if(state.mode==='ski'){skiKeyDown(k);return}
+  if(state.mode==='boat'){boatKeyDown(k);return}
   if(MAP.open&&(k==='escape'||k==='k')){openMap(false);return}
   if(k==='escape'||k==='p'){if(state.mode==='play')pause(true);else if(state.mode==='pause')pause(false);else if(state.mode==='ask')answerAsk(false)}
   if(state.mode==='ask'&&(k==='enter'||k==='j'))answerAsk(true);
@@ -589,7 +591,7 @@ $('bZoomIn').onclick=()=>zoom(-1);$('bZoomOut').onclick=()=>zoom(1);
 $('spdRange').addEventListener('input',e=>setSpeed(+e.target.value,true));
 $('gfxHi').onclick=()=>setGfx('hi');$('gfxLo').onclick=()=>setGfx('lo');$('bCam').onclick=()=>{if(state.mode==='ski')skiKeyDown('c');else cycleCam()};$('bWinch').addEventListener('pointerdown',e=>{if(hasWinch()){e.preventDefault();winchKey(true)}});$('bWinch').addEventListener('pointerup',()=>{if(hasWinch())winchKey(false)});$('bWinch').onclick=()=>{if(!hasWinch())winch()};$('pFetch').onclick=()=>{pause(false);winch()};$('bPause').onclick=()=>pause(true);
 $('pResume').onclick=()=>pause(false);$('pRestart').onclick=()=>{if(state.world&&!state.course){pause(false);resetToStart();return}startRun()};$('pMenu').onclick=toMenu;$('pSound').onclick=()=>setSound(!state.sound);
-$('rRetry').onclick=()=>{if(!skiResultBtn('retry'))startRun()};$('rMenu').onclick=()=>{if(!skiResultBtn('car'))toMenu()};$('rNext').onclick=()=>{if(skiResultBtn('next'))return;if(state.world){endCourse();showHud();state.mode='play';return}loadLevel((state.levelIdx+1)%LEVELS.length);startRun()};
+$('rRetry').onclick=()=>{if(!skiResultBtn('retry')&&!boatResultBtn('retry'))startRun()};$('rMenu').onclick=()=>{if(!skiResultBtn('car')&&!boatResultBtn('car'))toMenu()};$('rNext').onclick=()=>{if(skiResultBtn('next')||boatResultBtn('next'))return;if(state.world){endCourse();showHud();state.mode='play';return}loadLevel((state.levelIdx+1)%LEVELS.length);startRun()};
 $('bMap').onclick=()=>openMap();$('mTabIsland').onclick=()=>setMapTab('island');$('mTabArch').onclick=()=>setMapTab('arch');$('mClose').onclick=()=>openMap(false);$('pMap').onclick=()=>{$('pause').hidden=true;openMap(true)};
 $('mTow').onclick=()=>{if(prof.nuts<20){toast('Du trenger 20 muttere',true);return}prof.nuts-=20;saveProf();if(state.course)endCourse();openMap(false);const lvl=LEVELS[state.levelIdx];if(lvl.basePos)resetToStart();else if(LV.ferry){const f=LV.ferry;placeCar(car,f.pad.x,f.pad.z,Math.atan2(-f.dx,-f.dz));camSnap=true}else resetToStart();state.checkpoint={x:car.pos.x,z:car.pos.z,h:Math.atan2(car.fw.x,car.fw.z)};toast(lvl.basePos?'Tauet hjem til basen · −20 ⚙':'Tauet til kaia · −20 ⚙')};
 $('oGo').onclick=()=>acceptOffer();$('aYes').onclick=()=>answerAsk(true);$('aNo').onclick=()=>answerAsk(false);$('aList').addEventListener('click',e=>{const b=e.target.closest('[data-dest]');if(b)answerAsk({dest:b.dataset.dest});const sb=e.target.closest('[data-ski]');if(sb)answerAsk({ski:sb.dataset.ski})});$('pAbort').onclick=()=>{pause(false);endCourse();toast('Løpet avbrutt')};
@@ -621,7 +623,7 @@ function readInput(dt){
     const ly=gp.axes[1]||0;if(ly<-.2)gas=Math.max(gas,-ly);if(ly>.2)rev=Math.max(rev,ly);
     const pr=i=>gp.buttons[i]&&gp.buttons[i].pressed&&!padPrev[i];
     if(state.mode==='play'){if(pr(0))toggleGear();if(pr(1)){if(hasWinch())winchKey(true);else winch()}if(hasWinch()&&padPrev[1]&&!(gp.buttons[1]&&gp.buttons[1].pressed))winchKey(false);if(pr(3))cycleCam();if(pr(2))setLights(!state.lights)}
-    if(pr(9)){if(state.mode==='play')pause(true);else if(state.mode==='pause')pause(false);else if(state.mode==='ski')skiKeyDown('escape');else if(state.mode==='menu')startRun()}
+    if(pr(9)){if(state.mode==='play')pause(true);else if(state.mode==='pause')pause(false);else if(state.mode==='ski')skiKeyDown('escape');else if(state.mode==='boat')boatKeyDown('escape');else if(state.mode==='menu')startRun()}
     padPrev={};gp.buttons.forEach((b,i)=>padPrev[i]=b.pressed)}
   steer=Math.max(-1,Math.min(1,steer));
   state.inp={gas,rev,steer,jump:keys.has(' ')||state.input.jump>0||!!(gp&&gp.buttons[0]&&gp.buttons[0].pressed)};   // the skier reads these (js/ski.js)
@@ -701,9 +703,9 @@ function frame(now){
   requestAnimationFrame(frame);
   const dt=Math.min(.05,(now-last)/1000);last=now;
   if(!car||!LV){return}
-  readInput(dt);if(toastT>0){toastT-=dt;if(toastT<=0)$('toast').classList.remove('on')}
+  readInput(dt);if(toastT>0){toastT-=dt;if(toastT<=0){$('toast').classList.remove('on');$('boatToast').classList.remove('on')}}
   prevPos.copy(car.pos);
-  if(state.mode!=='pause'&&state.mode!=='ask'&&state.mode!=='ferry'&&state.mode!=='ski'){acc+=dt;let n=0;while(acc>=FIXED&&n<20){stepCar(car,FIXED);acc-=FIXED;n++}if(n>=20)acc=0}
+  if(state.mode!=='pause'&&state.mode!=='ask'&&state.mode!=='ferry'&&state.mode!=='ski'&&state.mode!=='boat'){acc+=dt;let n=0;while(acc>=FIXED&&n<20){stepCar(car,FIXED);acc-=FIXED;n++}if(n>=20)acc=0}
   if(state.mode==='count')updateCountdown(dt);if(state.mode==='ferry')updateFerry(dt);
   // physics blew up: put the car back at the last checkpoint (the start outside a run)
   if(!isFinite(car.pos.x)||!isFinite(car.q.w)){car.q.set(0,0,0,1);const cp=state.mode==='play'&&state.checkpoint;if(cp)placeCar(car,cp.x,cp.z,cp.h);else resetToStart();camSnap=true}
@@ -731,6 +733,7 @@ function frame(now){
     updateHUD(dt);
   }
   if(state.mode==='done'&&toastT>0)updateHUD(dt);
+  if(updateBoat(dt)){if(typeof netTick==='function')netTick(dt);return}   // out at sea (js/boat.js): the boat race is drawn instead of the island
   updateMinimap();
   updateLift(dt);syncVisuals(dt);updateSki(dt);if(typeof netTick==='function')netTick(dt);updateCamera(dt);updateAudio();updateAmbience(dt);
   landShake*=Math.exp(-dt*9);const shk=(ERU.amp>.0005?ERU.amp:0)+boulderShake()+(landShake>.001?landShake:0),sx=(Math.random()-.5)*shk*2,sy=(Math.random()-.5)*shk*2,sz=(Math.random()-.5)*shk*2;if(shk)camera.position.add(_c1.set(sx,sy,sz));

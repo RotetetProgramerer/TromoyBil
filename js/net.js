@@ -10,7 +10,7 @@
    Progress (nuts, courses, golden nuts) stays personal.
    Loaded after world.js; uses the globals of game.js/world.js/map.js at run time.
    ================================================================= */
-const NET_VER=1,NET_MAX=4,NET_HZ=15,NET_DELAY=120,NET_STALE=60000;
+const NET_VER=2,NET_MAX=4,NET_HZ=15,NET_DELAY=120,NET_STALE=60000;
 const PEER_URL='https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js';
 const NET_COLS=['#3fa9f5','#8bd14a','#d94fd0','#f2c230'];   // by slot; your own car is the orange arrow on the maps
 const NET_WORDS=['KRABBE','OTER','SEL','ELG','REV','HARE','ULV','GAUPE','LUNDE','ORRE','JERV','HJORT','MAKRELL','TORSK','LAKS','EKORN','SKARV','TERNE','HUMMER','GREVLING'];
@@ -78,7 +78,7 @@ function netJoin(raw,local){if(NET.on||NET.joining)return;const code=netNormCode
     NET.welcomeT=setTimeout(()=>{if(!NET.on){netStop();netStatus(netErrText('noroom'),true)}},8000)})
   .catch(e=>{NET.joining=false;NET.tr=null;netStatus(netErrText(e.message),true)})}
 function netStop(){clearTimeout(NET.welcomeT);if(NET.tr){NET.leaving=true;NET.tr.stop()}NET.tr=null;NET.on=false;NET.joining=false;NET.host=false;NET.hostLink=null;NET.links.clear();NET.retry=0;
-  for(const p of NET.players.values())netDropVis(p);NET.players.clear();RF=null;NET.infoSig='';netUI()}
+  for(const p of NET.players.values())netDropVis(p);NET.players.clear();RF=null;NET.infoSig='';if(typeof boatNetGone==='function')boatNetGone(null);netUI()}
 function netLeave(msg){if(!NET.on&&!NET.joining)return;NET.leaving=true;netSend({t:'bye'});setTimeout(netStop,60);NET.on=false;if(msg)toast(msg);netUI()}
 addEventListener('pagehide',()=>{if(NET.on){NET.leaving=true;netSend({t:'bye'});if(NET.tr)NET.tr.stop()}});
 // a hidden tab stops drawing, so it would stop sending; a slow ping tells the others it is still there
@@ -128,8 +128,9 @@ function netRoster(list){if(!Array.isArray(list))return;const keep=new Set();
     else{const ch=JSON.stringify(p.info)!==JSON.stringify(info)||p.slot!==slot||p.name!==name;p.name=name;p.slot=slot;p.info=info;if(ch)netBuildVis(p)}}
   for(const p of[...NET.players.values()])if(!keep.has(p.id))netRemove(p,p.name+' forlot rommet');netUI()}
 function netAddPlayer(id,name,slot,info){const p={id,name,slot,info,buf:[],off:null,lv:null,vis:null,seen:performance.now(),hidden:true};NET.players.set(id,p);netBuildVis(p);return p}
-function netRemove(p,msg){netDropVis(p);NET.players.delete(p.id);if(msg&&NET.on)toast(msg);netUI()}
+function netRemove(p,msg){netDropVis(p);NET.players.delete(p.id);if(typeof boatNetGone==='function')boatNetGone(p.id);if(msg&&NET.on)toast(msg);netUI()}
 function netHandle(p,m){p.seen=performance.now();
+  if(m.t.charAt(0)==='B'){if(typeof boatNet==='function')boatNet(p,m);return}   // the boat race (js/boat.js)
   if(m.t==='s'){if(!netFin(m.p,3)||!netFin(m.q,4)||!netFin(m.w,4)||!netFin(m.sp,4)||typeof m.tm!=='number'||typeof m.lv!=='string')return;
     const o=performance.now()-m.tm;p.off=p.off==null||o<p.off?o:p.off+(o-p.off)*.02;   // clock offset: the smallest delay seen, drifting slowly
     if(p.lv!==m.lv)p.buf.length=0;p.lv=m.lv;

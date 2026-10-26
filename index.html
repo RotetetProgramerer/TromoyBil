@@ -92,6 +92,42 @@
   </div>
 </div>
 
+<!-- BOAT RACE (js/boat.js): one pane per player on this screen, the clock and the minimap -->
+<div id="boatHud" hidden>
+  <div class="bpane" id="bpane0">
+    <div class="bflash"></div>
+    <div class="btop">
+      <div class="bbox bwho"><span class="bplace" hidden>1.</span><span><small class="bpl">Kaptein</small><span class="bname">Spiller 1</span></span></div>
+      <div class="bmid"><div class="bbox bcomp"><canvas class="bcompass" width="540" height="64" aria-hidden="true"></canvas></div><div class="bbox btarget">Bøye 1</div></div>
+      <div class="bbox bspeed"><small>Fart</small><b class="bkn">0 kn</b><div class="bboost"><i></i></div></div>
+    </div>
+    <div class="bnotice" aria-live="polite"></div>
+    <div class="btouch">
+      <div class="bt-steer"><button class="tb" data-t="left" aria-label="Sving til venstre"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><button class="tb" data-t="right" aria-label="Sving til høyre"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button></div>
+      <div class="bt-gas"><button class="tb big" data-t="gas" aria-label="Gass"><svg viewBox="0 0 24 24"><path d="M5 15l7-7 7 7"/></svg></button><button class="tb" data-t="rev" aria-label="Brems og revers"><svg viewBox="0 0 24 24"><path d="M5 9l7 7 7-7"/></svg></button></div>
+    </div>
+  </div>
+  <div class="bpane" id="bpane1" hidden>
+    <div class="bflash"></div>
+    <div class="btop">
+      <div class="bbox bwho"><span class="bplace" hidden>1.</span><span><small class="bpl">Kaptein</small><span class="bname">Spiller 2</span></span></div>
+      <div class="bmid"><div class="bbox bcomp"><canvas class="bcompass" width="540" height="64" aria-hidden="true"></canvas></div><div class="bbox btarget">Bøye 1</div></div>
+      <div class="bbox bspeed"><small>Fart</small><b class="bkn">0 kn</b><div class="bboost"><i></i></div></div>
+    </div>
+    <div class="bnotice" aria-live="polite"></div>
+    <div class="btouch">
+      <div class="bt-steer"><button class="tb" data-t="left2" aria-label="Sving til venstre"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><button class="tb" data-t="right2" aria-label="Sving til høyre"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button></div>
+      <div class="bt-gas"><button class="tb big" data-t="gas2" aria-label="Gass"><svg viewBox="0 0 24 24"><path d="M5 15l7-7 7 7"/></svg></button><button class="tb" data-t="rev2" aria-label="Brems og revers"><svg viewBox="0 0 24 24"><path d="M5 9l7 7 7-7"/></svg></button></div>
+    </div>
+  </div>
+  <div id="bdiv" hidden></div>
+  <div class="bbox" id="bclock">0:00.0</div>
+  <div id="bminiBox"><canvas id="bmini" width="200" height="200" aria-hidden="true"></canvas></div>
+  <button class="ib" id="bPauseB" aria-label="Pause (Esc)" title="Pause (Esc)"><svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></svg></button>
+  <div class="count" id="bcount" hidden></div>
+  <div class="toast" id="boatToast"></div>
+</div>
+
 <!-- MENU -->
 <canvas id="spray" aria-hidden="true"></canvas>
 <section class="overlay menu" id="menu">
@@ -137,6 +173,7 @@
       <dt><kbd>Z</kbd> / <kbd>X</kbd></dt><dd>Zoom nærmere og lengre fra bilen</dd>
       <dt>Mus</dt><dd>Dra for å se rundt, rull eller klyp for zoom</dd>
       <dt>På ski</dt><dd>Gautefall: ← → sving, ↓ plog, ↑ stake, mellomrom hopp</dd>
+      <dt>Med båt</dt><dd>Marinaen på Tromøya: WASD eller piltastene. To spillere deler tastaturet.</dd>
     </dl>
   </div>
 </section>
@@ -255,6 +292,7 @@
       <li><b>Start en løype</b> ved å kjøre inn mellom flaggene og svare JA. Du tjener muttere på porter, kasser og hopp.</li>
       <li><b>Bruk mutterne</b> i verkstedet på basen: dekk, fjæring, motor, lakk og en ny bil.</li>
       <li><b>Finn gullmutterne</b> (fem per øy) og ta fergen fra landsbyen til de andre øyene.</li>
+      <li><b>Kjør båtløp</b> fra Captain Theis' marina nordvest på øya: parker på den blå ruta.</li>
       <li><b>Sitter du fast?</b> Lavt gir (G), vinsj (R) eller «Hent bilen» i pausemenyen (Esc).</li>
     </ul>
     <button class="go" id="helpOk">Kjør!</button>
@@ -283,11 +321,49 @@
   </div>
 </section>
 
+<!-- THE BOAT MENU AND THE PAUSE AT SEA (js/boat.js) -->
+<section class="overlay dialog" id="boatMenu" hidden>
+  <div class="sheet mp boat">
+    <p class="eyebrow">Captain Theis' marina</p>
+    <h2>Motorbåtløpet</h2>
+    <p class="note">Rund bøyene i rekkefølge og fortøy ved brygga: sakk farten der, ellers får du ikke lagt til. Tønnene gir turbo. Piratskutene skyter på alt som beveger seg, og blir du truffet, spinner du rundt.</p>
+    <div class="alist" id="bmRaces"></div>
+    <div class="seg" role="group" aria-label="Antall spillere" id="bmSeg"><button id="bm1" aria-pressed="true">1 spiller</button><button id="bm2" aria-pressed="false">2 spillere</button></div>
+    <label class="fld"><span><i class="chip" id="bmChip0"></i><span id="bmKeys0">Kaptein</span></span><input id="bmName0" maxlength="14" autocomplete="off" spellcheck="false" aria-label="Navnet på spiller 1"></label>
+    <label class="fld" id="bmP2" hidden><span><i class="chip" id="bmChip1"></i><span id="bmKeys1">Spiller 2</span></span><input id="bmName1" maxlength="14" autocomplete="off" spellcheck="false" aria-label="Navnet på spiller 2"></label>
+    <div class="pnet" id="bmNet" hidden>
+      <h3>Kjør sammen · <span id="bmNetCode"></span></h3>
+      <p class="note" id="bmNetNote"></p>
+      <ul class="plist" id="bmNetList"></ul>
+      <div class="row"><button class="ghost" id="bmInvite">Inviter rommet</button><button class="ghost" id="bmJoin" hidden>Bli med</button><button class="ghost" id="bmDecline" hidden>Nei takk</button><button class="ghost" id="bmLeave" hidden>Forlat lobbyen</button></div>
+    </div>
+    <button class="go" id="bmGo">Start løpet</button>
+    <button class="ghost" id="bmBack">Tilbake til bilen</button>
+  </div>
+</section>
+<section class="overlay dialog" id="boatPause" hidden>
+  <div class="sheet">
+    <h2>Pause</h2>
+    <p class="note" id="bpNote"></p>
+    <button class="go" id="bpResume">Fortsett</button>
+    <div class="row"><button class="ghost" id="bpRestart">Start på nytt</button><button class="ghost" id="bpMenu">Velg løp</button></div>
+    <div class="row"><button class="ghost" id="bpCar">Tilbake til bilen</button><button class="ghost" id="bpSound">Lyd: på</button></div>
+    <ul class="log">
+      <li><b>Styring:</b> WASD eller piltastene. To spillere deler tastaturet: WASD og piltastene.</li>
+      <li><b>Bøyene:</b> kjør gjennom dem i rekkefølge. Lyssøylen og kompasset viser hvor neste er.</li>
+      <li><b>Fortøy:</b> sakk farten inne ved brygga.</li>
+      <li><b>Turbo:</b> kjør gjennom de lysende tønnene.</li>
+      <li><b>Truffet av en kanonkule:</b> båten spinner rundt en stund.</li>
+    </ul>
+  </div>
+</section>
+
 <!-- Motor -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous"></script>
 <script src="js/core.js"></script>
 <script src="js/props.js"></script>
 <script src="js/skier.js"></script>
+<script src="js/boatsim.js"></script>
 <script src="js/animals.js"></script>
 <script src="js/ambience.js"></script>
 <script src="js/map.js"></script>
@@ -296,6 +372,7 @@
 <script src="data/parts.js"></script>
 <script src="data/cars.js"></script>
 <script src="data/archipelago.js"></script>
+<script src="data/boats.js"></script>
 <script src="data/vegetasjon.js"></script>
 <script src="data/dyr.js"></script>
 <script src="data/levels/01-sand.js"></script>
@@ -312,6 +389,7 @@
 <script src="js/carmodel.js"></script>
 <script src="js/world.js"></script>
 <script src="js/ski.js"></script>
+<script src="js/boat.js"></script>
 <script src="js/net.js"></script>
 <script>startGame()</script>
 <script>if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js').catch(()=>{});</script>

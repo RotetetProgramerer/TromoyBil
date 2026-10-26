@@ -250,3 +250,53 @@ body.is-touch .ski-help{bottom:calc(190px + env(safe-area-inset-bottom,0px))}
 .netbadge{position:fixed;z-index:10;left:max(16px,env(safe-area-inset-left,0px));top:calc(290px + env(safe-area-inset-top,0px));background:rgba(20,18,14,.72);border:1px solid var(--line);color:var(--paper);padding:5px 10px;font-weight:700;letter-spacing:.06em;font-size:.9rem;pointer-events:none}
 .is-touch .netbadge{top:calc(250px + env(safe-area-inset-top,0px))}
 #mpOut,#mpIn{display:flex;flex-direction:column;gap:12px}
+
+/* ---------- the boat race (js/boat.js): a pane per player, compass and next buoy on top, the minimap in a corner ---------- */
+#boatHud{position:fixed;inset:0;z-index:10;pointer-events:none}
+.bpane{position:absolute;left:0;top:0;width:100%;height:100%;overflow:hidden;pointer-events:none}
+.btop{position:absolute;top:calc(10px + env(safe-area-inset-top,0px));left:max(10px,env(safe-area-inset-left,0px));right:max(10px,env(safe-area-inset-right,0px));display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.bbox{background:var(--panel);border:1px solid var(--line);color:var(--paper);padding:6px 12px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.bbox small{display:block;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);line-height:1;margin-bottom:3px}
+.bwho{display:flex;align-items:center;gap:10px;border-left:4px solid var(--sand);min-width:0}
+.bplace{font-family:var(--f-display);font-size:2.3rem;line-height:.9;color:var(--sand)}
+.bname{font-weight:700;font-size:1.12rem}
+.bmid{display:flex;flex-direction:column;align-items:center;gap:6px;flex:0 1 280px;min-width:0}
+.bcomp{padding:3px;width:100%}
+.bcompass{display:block;width:100%;height:32px}
+.btarget{font-size:1rem;font-weight:600;padding:3px 10px}
+.bspeed{text-align:right;min-width:96px}
+.bkn{display:block;font-size:1.35rem;line-height:1.05}
+.bboost{width:100%;height:5px;background:var(--ink);margin-top:5px;overflow:hidden}
+.bboost i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--sand),var(--signal))}
+.bnotice{position:absolute;top:34%;left:50%;transform:translateX(-50%);font-family:var(--f-display);font-size:clamp(1.5rem,4vw,2.3rem);color:var(--sand);text-shadow:0 2px 0 var(--ink),0 0 18px rgba(0,0,0,.7);opacity:0;transition:opacity .3s;white-space:nowrap}
+.bflash{position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(217,67,47,0) 45%,rgba(180,30,20,.75));opacity:0;transition:opacity .15s}
+#bdiv{position:absolute;background:var(--sand);box-shadow:0 0 8px rgba(0,0,0,.6)}
+#bclock{position:absolute;left:50%;transform:translateX(-50%);top:calc(112px + env(safe-area-inset-top,0px));font-size:1.15rem;font-weight:700;padding:4px 12px;z-index:2}
+#bminiBox{position:absolute;left:max(16px,env(safe-area-inset-left,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));width:150px;height:150px;border-radius:50%;overflow:hidden;box-shadow:0 0 0 3px var(--ink),0 6px 18px rgba(0,0,0,.5);background:#6fa3c4}
+#bmini{display:block;width:100%;height:100%}
+#bPauseB{position:absolute;pointer-events:auto;right:max(16px,env(safe-area-inset-right,0px));top:calc(86px + env(safe-area-inset-top,0px))}
+#boatHud.two #bPauseB{top:auto;right:auto;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px))}
+#boatHud .toast{top:24%}
+#boatHud.menu .bpane,#boatHud.menu #bclock,#boatHud.menu #bminiBox,#boatHud.menu #bdiv,#boatHud.menu #bPauseB,
+#boatHud.won .bpane,#boatHud.won #bclock,#boatHud.won #bminiBox,#boatHud.won #bdiv,#boatHud.won #bPauseB{display:none}
+/* touch: steering in the left corner and gas and brake in the right corner of each player's part of the screen */
+.btouch{display:none}
+body.is-touch .btouch{display:block}
+.bt-steer,.bt-gas{position:absolute;bottom:calc(14px + env(safe-area-inset-bottom,0px));display:flex;gap:10px;align-items:flex-end;pointer-events:auto}
+.bt-steer{left:max(14px,env(safe-area-inset-left,0px))}
+.bt-gas{right:max(14px,env(safe-area-inset-right,0px));flex-direction:column}
+#boatHud.two .tb{width:60px;height:60px}#boatHud.two .tb.big{width:68px;height:68px}
+body.is-touch #boatHud:not(.two) #bminiBox{bottom:auto;top:calc(130px + env(safe-area-inset-top,0px));width:104px;height:104px}
+body.is-touch #boatHud.two #bPauseB{bottom:auto;transform:none}
+/* the boat menu */
+.sheet.boat{width:min(540px,100%)}
+.alist button[aria-pressed="true"]{border-color:var(--sand);background:#2A2318;box-shadow:inset 3px 0 0 var(--sand)}
+.alist button.lk{opacity:.6}
+.alist button:disabled{cursor:default}
+.chip{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:7px;vertical-align:-1px;border:1.5px solid var(--paper)}
+.sheet.boat .pnet .row>*{flex:1 1 140px}
+@media (max-width:900px){#boatHud.two .bname{display:none}.bplace{font-size:1.9rem}.btarget{font-size:.9rem}.bnotice{font-size:1.6rem}#bclock{top:calc(98px + env(safe-area-inset-top,0px))}}
+@media (max-width:620px){.bbox{padding:4px 8px}.bspeed{min-width:74px}.bkn{font-size:1.1rem}.bwho .bpl{display:none}}
+/* a dialog taller than the screen (the boat menu on a phone held sideways) starts at the top, so nothing is cut off above */
+#boatMenu,#boatPause,#result{align-items:start}
+@supports (align-items:safe center){#boatMenu,#boatPause,#result{align-items:safe center}}
