@@ -14,6 +14,8 @@ js/ambience.js        Jungellyd laget med WebAudio (ingen lydfiler).
 js/skier.js           Fysikken for skiløperen i Gautefall (ingen DOM, testes uten nettleser).
 js/ski.js             Skianlegget i spillet: stolheisen, skiløperen, turen opp og ned, kamera og lyd.
 js/net.js             Flerspiller: rom, romkode og de andre bilene.
+js/props/             Enkeltelementer: trær, palmer, gran … én fil per element. ← finpuss elementer her
+props.html            Elementverkstedet: se og juster ett element alene (åpne i nettleseren).
 data/cars.js          Bilene.                 ← legg til nye biler her
 data/levels/NN-id.js  Én fil per bane.         ← legg til nye baner her
 data/parts.js         Garasjedeler og lakkfarger.
@@ -33,6 +35,22 @@ Vil du ha en lokal server, for eksempel for å teste på mobilen i samme nettver
 ```
 npx serve .
 ```
+
+## Elementer og elementverkstedet
+
+Trær og andre elementer ligger i `js/props/`, én fil per element. Hver fil har innstillingene øverst (`params`) og to funksjoner: `place` (kollider, kalles når banen plasserer elementet) og `build` (selve delene, kalles etter `c.finish()` når bakken er ferdig). Banene bruker dem med `c.plant('palme',x,z,{h:3.5})`, eller `c.tree` og `c.spruce`.
+
+Åpne `props.html` i nettleseren for å se ett element alene:
+
+- Velg element, og dra i glidebryterne. Endringen vises med en gang.
+- **Hjelpelinjer** viser kollideren (rød ring, gul hvis vinsjen kan feste i den), sitteplassene for dyr (gule kuler) og foten (hvit ring). Da ser du at ting henger sammen.
+- **Skråning** og **Ujevn bakke** viser om foten flyter på skrå bakke. **Lys** henter lyset fra en av øyene.
+- **Ny variant** gir samme innstillinger med nye tilfeldige detaljer. **Antall** viser en hel lund.
+- **Kopier** gir linjen du limer inn i banen. Vil du endre standarden for alle øyene, endrer du `params` i elementets fil og laster siden på nytt (innstillingene huskes).
+
+Hvert element bygges med sin egen tilfeldighetsrekke ut fra posisjonen. Du kan derfor endre et tre uten at buskene og steinene på banen flytter seg.
+
+Nytt element: kopier en fil i `js/props/`, gi den et nytt navn i `PROPS.navn`, og legg den inn i `index.html`, `props.html` og `FILES` i `sw.js`.
 
 ## Legge til en ny bil
 
@@ -130,6 +148,8 @@ c.bonus(x,z,r,muttere,tekst) // belønning (muttere) første gang bilen kommer i
 c.steam(x,z)                 // liten dampsøyle (sprekk i vulkanen)
 c.tree(x,z,{h,r})            // regnskogstre med røtter, grener, krone, mose og lianer. Grener blir sitteplasser for dyr.
 c.forest()                   // bygger alle trærne. Kall etter c.finish().
+c.plant(navn,x,z,{...})      // et hvilket som helst element fra js/props/ ('palme', 'bytre', 'gran', 'kjempestamme' …)
+c.plants()                   // bygger alle elementene som er plassert. Kall etter c.finish().
 c.ruts(t0,t1,dybde)          // hjulspor i stien mellom t0 og t1
 c.pond(x,z,r,dybde,{mud:true})  // søledam med brunt vann
 c.lavaNear(x,z,m)            // sant hvis det er lava innenfor m. Bruk når du plasserer steiner og planter.

@@ -62,9 +62,8 @@ const rectCells=(x0,z0,x1,z1,fn)=>cellsIn(x0,z0,x1,z1,(k,px,pz)=>{if(px<x0||px>x
 const stripe=(a,w,c0,c1)=>(Math.floor(a/w)%2===0)?c0:c1;
 // fartsdump på en gate: 0,12 høy sinushump, gule og svarte striper. level = gatenivået
 const bump=(x,z,ang,level,h=.12)=>shape(x,z,ang,.9,3.2,(a,b)=>h*(1-Math.cos(2*Math.PI*(a+.45)/.9))/2,S.ASPHALT,(a,b)=>stripe(b+1.6,.4,'#e5c13a','#2a2a2a'),level);
-// enkelt bytre: stamme nå, tre kuler etter c.finish; perches til duene
-const TREES=[];
-const tree=(c,x,z,s=1)=>{const y=H(x,z),h=1.4*s+.3;c.cyl(x,y,z,.07*s,h,'#5a4330');TREES.push({x,y:y+h,z,s});c.colliders.push({x,z,r:.1,anchor:true,y:y+.6});c.perches.push({x,y:y+h+.6*s,z,kind:'top'})};
+// bytre (js/props/tre-by.js): plasseres nå, bygges av c.plants() etter c.finish, så stamme og krone står på ferdig bakke
+const tree=(c,x,z,s=1)=>c.plant('bytre',x,z,{s});
 
 LEVELS.push(
 { id:'trinnvik', name:'Trinnvik', diff:2, seed:7171, size:120, coast:42, world:true,
@@ -206,8 +205,7 @@ LEVELS.push(
     // --- gullmutterne ---
     c.secret(25.6,-5.3,'På taket av P-huset');c.secret(BOWL[0],BOWL[1],'Bunnen av Bollen');c.secret(1,30.5,'Utsikten');c.secret(AMF[0],AMF[1],'På scenen i Amfiet');c.secret(-7,-38.6,'Ytterst på moloen');
     c.finish();
-    // trekroner (etter finish så H er ferdig)
-    {const L=[];for(const t of TREES){for(let k=0;k<3;k++){const a=k*2.1+t.x,d=k?.3*t.s:0;L.push({x:t.x+Math.cos(a)*d,y:t.y+.45*t.s+(k?.1:.35)*t.s,z:t.z+Math.sin(a)*d,sx:.55*t.s*(1+(k?0:.3)),sy:.5*t.s,sz:.55*t.s*(1+(k?0:.3)),c:['#4f8a3a','#3f7a34','#5a9a44'][k]})}}instanced(DG.canopy,DM.leaf,L,c.decor);TREES.length=0}
+    c.plants();   // bytrærne
     c.props();
     c.pebbles(300,['#8a847a','#a49d90'],.04,.1);c.tufts(70,['#5d8a3a','#7aa048']);c.shells(140);
   }}

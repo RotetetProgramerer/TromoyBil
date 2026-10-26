@@ -96,7 +96,7 @@ DG.tuft.translate(0,.5,0); DG.fern.translate(0,.5,0);
 const DM={
   white:new THREE.MeshStandardMaterial({color:0xffffff,roughness:.9,flatShading:true}),
   tuft:new THREE.MeshStandardMaterial({color:0xffffff,roughness:1,side:THREE.DoubleSide,flatShading:true}),
-  bark:new THREE.MeshStandardMaterial({color:0x5d4330,roughness:1,flatShading:true}),
+  bark:new THREE.MeshStandardMaterial({color:0xffffff,roughness:1,flatShading:true}),   // white: the bark colour comes from each instance
   leaf:new THREE.MeshStandardMaterial({color:0xffffff,roughness:.85,side:THREE.DoubleSide,flatShading:true})
 };
 function instanced(geo,mat,list,grp,shadow=true){
@@ -264,27 +264,17 @@ function genLevel(def){
         cellsIn(p.x-.7,p.z-.7,p.x+.7,p.z+.7,(k,px,pz)=>{const b=Math.abs((px-p.x)*tz-(pz-p.z)*tx),a=Math.abs((px-p.x)*tx+(pz-p.z)*tz);if(a>L*.6)return;const d=Math.abs(b-.4);if(d>.14)return;
           const w=1-(d/.14)**2;TH[k]-=depth*w*(.8+.4*G.noise(px*3,pz*3))})}},
     steam:(x,z,y,s=.45)=>c.fx.push({type:'smoke',x,z,y:y??H(x,z),small:s}),
-    // a jungle tree: trunk with buttress roots, branches, canopy and moss. Returns the tree (perches for animals are collected in c.perches)
+    // plants and trees from js/props/: c.plant(kind,x,z,o) places one now (colliders), c.plants() builds every placed one (call after c.finish so H() is final)
+    plantList:[],
+    plant(kind,x,z,o={}){const rec=PROPS[kind].place(x,z,o,c.env());rec.kind=kind;c.plantList.push(rec);return rec},
+    // each plant is built with its own random stream from its position, so tuning one element in js/props/ never moves the bushes and stones placed after it
+    plants(){const out=propBatch(),env=c.env();for(const r of c.plantList){env.rng=propRng(r.x,r.z,def.seed);PROPS[r.kind].build(r,env,out)}out.flush(c.decor);c.plantList=[]},
+    env(){return{H,rng,colliders:c.colliders,perches:c.perches}},
+    // a jungle tree (js/props/tre-jungel.js). Returns the tree (perches for animals are collected in c.perches)
     trees:[],perches:[],
-    tree(x,z,o={}){const t={x,z,h:o.h??(5+rng()*4),r:o.r??(.18+rng()*.16),lean:o.lean??(rng()-.5)*.14,ry:rng()*6.28,moss:o.moss??rng()<.75,kind:o.kind||'jungle',branches:[]};
-      const nb=o.branches??(2+Math.floor(rng()*3));for(let i=0;i<nb;i++){const hy=t.h*(.45+.4*i/nb+rng()*.1),ang=t.ry+i*2.1+rng()*.8,len=1.2+rng()*1.4,tilt=.55+rng()*.5;t.branches.push({hy,ang,len,tilt})}
-      c.trees.push(t);c.colliders.push({x,z,r:t.r*1.3,anchor:true,y:H(x,z)+.7});return t},
-    // build meshes for all trees added with c.tree (call after c.finish so H() is final)
-    forest(){const R=rng,trunks=[],roots=[],branches=[],canopies=[],moss=[],lianas=[];
-      for(const t of c.trees){const y=H(t.x,t.z),th=t.h,top={x:t.x-Math.sin(t.lean)*th,y:y+Math.cos(t.lean)*th,z:t.z};const bark=mix('#4a3826','#6b5137',R());
-        trunks.push({x:(t.x+top.x)/2,y:(y+top.y)/2-.1,z:t.z,sx:t.r,sy:th+.2,sz:t.r,rz:t.lean,c:bark});
-        for(let k=0;k<3;k++){const a=t.ry+k*2.09;roots.push({x:t.x+Math.cos(a)*t.r*1.1,y:y+.08,z:t.z+Math.sin(a)*t.r*1.1,sx:t.r*.5,sy:.5+R()*.3,sz:t.r*1.6,ry:-a,rx:.25,c:bark})}
-        if(t.moss)moss.push({x:t.x+Math.cos(t.ry)*t.r*.55,y:y+th*.3,z:t.z+Math.sin(t.ry)*t.r*.55,sx:t.r*.75,sy:th*.5,sz:t.r*.75,rz:t.lean,c:mix('#3e6b2a','#5a8a34',R())});
-        for(const b of t.branches){const bx=t.x-Math.sin(t.lean)*b.hy,by=y+Math.cos(t.lean)*b.hy,dx=Math.cos(b.ang),dz=Math.sin(b.ang);
-          const ex=bx+dx*Math.cos(b.tilt)*b.len,ey=by+Math.sin(b.tilt)*b.len,ez=t.z+dz*Math.cos(b.tilt)*b.len;
-          branches.push({x:bx,y:by,z:t.z,sx:t.r*.45,sy:b.len,sz:t.r*.45,ry:-b.ang,rz:-(Math.PI/2-b.tilt),c:bark,ord:'YZX'});
-          c.perches.push({x:ex-dx*.2,y:ey-.02,z:ez-dz*.2,tree:t,kind:'branch',dir:b.ang});
-          canopies.push({x:ex,y:ey+.3,z:ez,sx:.9+R()*.5,sy:.5+R()*.25,sz:.9+R()*.5,c:['#2d6b2a','#3b7f33','#246126','#4a8f3a'][Math.floor(R()*4)]})}
-        for(let k=0;k<3;k++){const a=R()*6.28,d=R()*.9;canopies.push({x:top.x+Math.cos(a)*d,y:top.y+.2+R()*.5,z:top.z+Math.sin(a)*d,sx:1.3+R()*.8,sy:.7+R()*.4,sz:1.3+R()*.8,c:['#2d6b2a','#3b7f33','#246126','#4a8f3a'][Math.floor(R()*4)]})}
-        c.perches.push({x:top.x,y:top.y+.9,z:top.z,tree:t,kind:'top'});
-        if(R()<.6){const a=R()*6.28,len=th*(.35+R()*.45),lx=top.x+Math.cos(a)*(.4+R()*1.2),lz=top.z+Math.sin(a)*(.4+R()*1.2);lianas.push({x:lx,y:top.y-len/2,z:lz,sx:.022,sy:len,sz:.022,rx:(R()-.5)*.12,rz:(R()-.5)*.12,c:'#4f6b2c'})}}
-      instanced(DG.trunk,DM.bark,trunks,c.decor);instanced(DG.root,DM.bark,roots,c.decor);instanced(DG.branch,DM.bark,branches,c.decor);
-      instanced(DG.canopy,DM.leaf,canopies,c.decor);instanced(DG.trunk,DM.tuft,moss,c.decor,false);instanced(DG.trunk,DM.white,lianas,c.decor,false)},
+    tree(x,z,o={}){const t=c.plant('jungeltre',x,z,o);c.trees.push(t);return t},
+    // build meshes for all trees (and other plants) placed so far
+    forest(){c.plants()},
     // dirt ramp with a drop at the end: a jump in high gear
     ramp(t,h=.55,len=3.2,wid=2.6){const p=c.P(t),an=c.ang(t);c.block(p.x,p.z,3);
       shape(p.x,p.z,an,len,wid,(a,b)=>{const u=(a+len/2)/len;if(u<.08)return u/.08*.02;if(u<.88)return .02+(u-.08)/.8*h;return null},S.DIRT,(a,b)=>mix('#6d4b2d','#8d6a44',G.noise(a*3,b*3)*.7+(Math.abs(b)>wid/2-.18?.5:0)))},
@@ -338,16 +328,10 @@ function genLevel(def){
       const fc=at(14.6,0);c.ferry={x:fc[0],z:fc[1],dir:a,dx,dz,y:padH+.04,len:6.8,hw:1.55,quay:{x:A[0],z:A[1]},pad:{x:vx,z:vz,h:padH},deck:fd};
       c.village_=o;return c.ferry},
     // ---- winter pieces (see README: «Gautefall: vinterøya og skianlegget») ----
-    // a spruce with snow on its branches: a trunk and three or four stacked cones, each with a white cap. c.spruces() builds them all (after c.finish).
+    // a spruce with snow on its branches (js/props/gran.js). c.spruces() builds them all (after c.finish).
     spruceList:[],
-    spruce(x,z,o={}){const t={x,z,h:o.h??(1.5+rng()*1.7),snow:o.snow??(.5+rng()*.45),ry:rng()*6.28};c.spruceList.push(t);c.colliders.push({x,z,r:.14+t.h*.03,anchor:true,y:H(x,z)+.5});return t},
-    spruces(){const tr=[],nd=[],sn=[];
-      for(const t of c.spruceList){const y=H(t.x,t.z),h=t.h,n=h>2.3?4:3,col=mix('#1d452b','#2e5c38',rng());
-        tr.push({x:t.x,y:y+h*.1,z:t.z,sx:.05+h*.012,sy:h*.22,sz:.05+h*.012,c:'#4a3626'});
-        for(let i=0;i<n;i++){const u=i/n,yb=y+h*(.12+.7*u),ch=h*(.42-.14*u),r=h*(.31-.19*u),ry=t.ry+i*.9;
-          nd.push({x:t.x,y:yb,z:t.z,sx:r,sy:ch,sz:r,ry,c:col});
-          sn.push({x:t.x,y:yb+ch*(1-t.snow*.62),z:t.z,sx:r*t.snow*.66,sy:ch*t.snow*.64,sz:r*t.snow*.66,ry:ry+.5,c:'#f1f5f8'})}}
-      instanced(DG.trunk,DM.bark,tr,c.decor);instanced(DG.fern,DM.white,nd,c.decor);instanced(DG.fern,DM.white,sn,c.decor,false);c.spruceList=[]},
+    spruce(x,z,o={}){const t=c.plant('gran',x,z,o);c.spruceList.push(t);return t},
+    spruces(){c.plants();c.spruceList=[]},
     // a ski piste: its own line from the start up the mountain (t=0) to the finish (t=1), levelled across like a groomed slope, painted with
     // corduroy, marked in TG (the skier glides better there) and kept clear of trees. p={id,name,desc,diff,kind:'fri'|'slalom'|'utfor'|'hopp',
     // path,gates:[[x,z],...] (the last one is the finish),hw,blend,gw (half width of a gate),ice:[[t0,t1],...]}. Jumps: c.kicker after this.
@@ -429,6 +413,7 @@ function genLevel(def){
   def.build(c);
   if(c.pistes.length&&!c._pisteDressed)c.dressPistes();G.pistes=c.pistes;
   if(!c._done)c.finish();
+  if(c.plantList.length)c.plants();
   if(c.boxes.length||c.cyls.length)c.props();
   // an island that is a race: the race line is also a course you can start from its portal while roaming
   if(def.village&&!def.world){const k=c.course({id:def.id,name:def.name,desc:def.desc,diff:def.diff,path:def.path,gates:def.gates,gateT:def.gateT,bench:false});k.main=true}

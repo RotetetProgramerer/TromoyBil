@@ -14,7 +14,7 @@ class Curve{constructor(p){this.p=p;this.cum=[0];for(let i=1;i<p.length;i++)this
 seg(t){const d=t*this.L;let i=1;while(i<this.cum.length-1&&this.cum[i]<d)i++;const u=(d-this.cum[i-1])/(this.cum[i]-this.cum[i-1]);return[i,u]}
 getPointAt(t){const[i,u]=this.seg(Math.min(1,Math.max(0,t)));const a=this.p[i-1],b=this.p[i];return new Vector3(a.x+(b.x-a.x)*u,0,a.z+(b.z-a.z)*u)}
 getTangentAt(t){const[i]=this.seg(Math.min(.9999,Math.max(0,t)));return this.p[i].clone().sub(this.p[i-1]).normalize()}getSpacedPoints(n){const r=[];for(let i=0;i<=n;i++)r.push(this.getPointAt(i/n));return r}}
-class Obj{constructor(){this.position=new Vector3();this.rotation={x:0,y:0,z:0,set(){} };this.scale=new Vector3(1,1,1);this.children=[]}add(...o){this.children.push(...o)}translate(){return this}setMatrixAt(){}setColorAt(){}}
+class Obj{constructor(){this.position=new Vector3();this.rotation={x:0,y:0,z:0,set(){} };this.scale=new Vector3(1,1,1);this.children=[]}add(...o){this.children.push(...o)}translate(){return this}setAttribute(){return this}computeVertexNormals(){}setMatrixAt(){}setColorAt(){}}
 const stub=class extends Obj{};
 global.THREE={Vector3,Quaternion,Color,CatmullRomCurve3:Curve,Group:stub,Mesh:stub,InstancedMesh:stub,Matrix4:class{compose(){}},Euler:class{set(){}},
-IcosahedronGeometry:stub,ConeGeometry:stub,CylinderGeometry:stub,SphereGeometry:stub,TorusGeometry:stub,BoxGeometry:stub,PlaneGeometry:stub,CircleGeometry:stub,RingGeometry:stub,PointsMaterial:stub,Points:stub,BufferGeometry:stub,BufferAttribute:stub,MeshStandardMaterial:stub,MeshBasicMaterial:stub,DoubleSide:2,BackSide:1};
+IcosahedronGeometry:stub,ConeGeometry:stub,CylinderGeometry:stub,SphereGeometry:stub,TorusGeometry:stub,BoxGeometry:stub,PlaneGeometry:stub,CircleGeometry:stub,RingGeometry:stub,PointsMaterial:stub,Points:stub,BufferGeometry:stub,BufferAttribute:stub,Float32BufferAttribute:stub,MeshStandardMaterial:stub,MeshBasicMaterial:stub,DoubleSide:2,BackSide:1};
