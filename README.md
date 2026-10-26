@@ -195,7 +195,7 @@ Nye verktøy i `build(c)`: `c.course(ch)` (lager løypa, portene og kassene, jev
 
 Nye underlag: `S.REDROCK` (rød canyonstein) og `S.ASPHALT` (flystripen).
 
-Slik virker det i spillet: Kjør bort til en startstrek (flagg, dekk og festivallys), så kommer spørsmålet «Vil du starte?». JA: portene våkner, piler viser veien og nedtellingen går. Resultat og muttere som i løpene; beste tid lagres per løype (`best['verden/jungel']`). Kjører du mer enn 30 enheter fra neste port, avbrytes løpet. **K** åpner øykartet (tåke over det du ikke har sett, lagres per verden), minikartet ligger i hjørnet. Kjør inn foran verkstedportene for å åpne garasjen, eller «Tau hjem» fra kartet for 20 muttere.
+Slik virker det i spillet: Kjør bort til en startstrek (flagg, dekk og festivallys), så dukker det opp et banner nederst med løypa og en START-knapp. Spillet stopper ikke: kjør videre hvis du ikke vil. Trykk **Enter** eller START, så settes bilen på startstreken med fronten langs løypa, portene våkner, piler viser veien og nedtellingen går. Resultat og muttere som i løpene; beste tid lagres per løype (`best['verden/jungel']`). Kjører du mer enn 30 enheter fra neste port, avbrytes løpet. **K** åpner øykartet (tåke over det du ikke har sett, lagres per verden), minikartet ligger i hjørnet. Kjør inn foran verkstedportene for å åpne garasjen, eller «Tau hjem» fra kartet for 20 muttere.
 
 Testen kjører hver løype for seg: `node tools/test-levels.js verden`.
 
