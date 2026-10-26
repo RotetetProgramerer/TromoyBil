@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<title>Sandglow Crawl</title>
+<title>Skare Offroad</title>
 <meta name="description" content="Kjør en 1:24 RC-crawler gjennom porter, gjørme og vadesteder. Tjen muttere og bygg bilen i garasjen.">
 <meta name="theme-color" content="#14120E">
 <link rel="manifest" href="manifest.json">
@@ -21,7 +21,7 @@
 <!-- HUD -->
 <div id="hud" hidden>
   <div class="hud-run" aria-live="polite">
-    <div class="ln" id="hLevel">Sandklitten</div>
+    <div class="ln" id="hLevel">Bykkevika</div>
     <div class="r rc"><span>Port</span><b id="hGate">0/10</b></div>
     <div class="r rc"><span>Tid</span><b id="hTime">0:00.0</b></div>
     <div class="r rc"><span>Straff</span><b id="hPen" class="pen">0</b></div>
@@ -93,7 +93,7 @@
 <section class="overlay menu" id="menu">
   <header class="brand">
     <p class="eyebrow">Skala 1:24 · Krabbekjøring</p>
-    <h1>Sandglow<br>Crawl</h1>
+    <h1>Skare<br>Offroad</h1>
     <p class="lede">Gjennom portene, over hoppet, gjennom gjørma og vadestedene. Plukk opp kassene på veien, og ikke drukne motoren.</p>
   </header>
   <div class="panel">
@@ -122,7 +122,7 @@
       <button id="gfxLo" aria-pressed="false">Lav</button>
     </div>
     <button class="go" id="startBtn">Kjør!</button>
-    <p class="note">Fri kjøring i skjærgården: du starter på Sandglow-øya, eller der du sist var. Fergen ved landsbyen tar deg til de andre øyene.</p>
+    <p class="note">Fri kjøring i skjærgården: du starter på Tromøya, eller der du sist var. Fergen ved landsbyen tar deg til de andre øyene.</p>
     <button class="ghost" id="mpBtn">Kjør sammen</button>
     <button class="ghost" id="raceBtn">Hurtigløp</button>
     <dl class="keys">
@@ -233,7 +233,7 @@
 <!-- ISLAND MAP (open world) -->
 <section class="overlay dialog" id="map" hidden>
   <div class="mapframe">
-    <header><p class="eyebrow" id="mIsland">Sandglow-øya</p><h2>Kartet</h2><div class="seg maptabs" role="group"><button id="mTabIsland" aria-pressed="true">Øya</button><button id="mTabArch" aria-pressed="false">Skjærgården</button></div><button class="ghost" id="mClose">Lukk (K)</button></header>
+    <header><p class="eyebrow" id="mIsland">Tromøya</p><h2>Kartet</h2><div class="seg maptabs" role="group"><button id="mTabIsland" aria-pressed="true">Øya</button><button id="mTabArch" aria-pressed="false">Skjærgården</button></div><button class="ghost" id="mClose">Lukk (K)</button></header>
     <div class="mapbox"><canvas id="mapCv" width="512" height="512"></canvas></div>
     <p class="note" id="mapInfo"></p>
     <div class="legend"><span><i style="background:#8bbb4a"></i>Lett</span><span><i style="background:#e5a92b"></i>Middels</span><span><i style="background:#d9432f"></i>Vanskelig</span><span><i class="ck"></i>Fullført</span><span><i style="background:#cdbf9c"></i>Uutforsket</span></div>
@@ -260,7 +260,7 @@
 <!-- RESULT -->
 <section class="overlay dialog" id="result" hidden>
   <div class="sheet">
-    <p class="eyebrow" id="rLevel">Sandklitten</p>
+    <p class="eyebrow" id="rLevel">Bykkevika</p>
     <h2 id="rTitle">I mål!</h2>
     <div class="stars" id="rStars"></div>
     <div class="res">

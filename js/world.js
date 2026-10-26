@@ -99,7 +99,7 @@ function updateBreakables(dt){if(!LV.breakables||!LV.propCyls)return;
     LV.propCyls.instanceMatrix.needsUpdate=true;if(a>=1.5)falling.splice(i,1)}}
 
 /* ---------- roaming the archipelago ---------- */
-// «Kjør!» in the menu: free driving, starting on Sandglow-øya or wherever you last were
+// «Kjør!» in the menu: free driving, starting on Tromøya or wherever you last were
 let roamSaveT=0;
 function startRoam(){state.roam=true;const sv=store.get('roam',null);let i=LEVELS.findIndex(l=>l.id===(sv&&sv.id));if(i<0||!isIsland(LEVELS[i]))i=LEVELS.findIndex(l=>l.world);if(i<0)i=0;
   if(i!==state.levelIdx||!state.world)loadLevel(i);startFree();

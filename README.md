@@ -1,4 +1,4 @@
-# Sandglow Crawl
+# Skare Offroad
 
 Et 3D-spill i nettleseren der du kjører en RC-crawler i skala 1:24 gjennom porter, gjørme og vadesteder, tjener muttere og bygger bilen i garasjen. Ingen byggeverktøy: last opp mappa, og spillet kjører.
 
@@ -83,11 +83,11 @@ Bilen dukker opp i menyen med en gang.
 | `waterCol`, `waterOpacity` | Vannfarge og hvor gjennomsiktig vannet er (0–1, standard 0.7). |
 | `rain: true` | Regn. `clouds:false` fjerner skyer og sol. |
 | `snow: true`, `precip(x,z)` | Snøvær. `precip` (valgfritt) gir 0–1 for hvor mye det snør der bilen er, f.eks. bare rundt toppen. |
-| `wind: true` | Vindsus som øker med `zone` (brukes sammen med `ambience:'jungle'`). Se Sandglow-øya. |
-| `ash: true` | Glør og aske som svever i lufta (brukes i Vulkanen). |
+| `wind: true` | Vindsus som øker med `zone` (brukes sammen med `ambience:'jungle'`). Se Tromøya. |
+| `ash: true` | Glør og aske som svever i lufta (brukes på Hisøya). |
 | `erupt:[min,maks]` | Vulkanen rumler med jevne mellomrom (sekunder mellom hver gang). Bare for show: ristende kamera og lavabomber, ingenting skader bilen. Krever `c.vent(...)`. |
 | `gateT(c)` | Valgfritt. Funksjon som gir portene nøyaktige plasser i stedet for jevn fordeling: `c=>[[x,z],[x,z],...].map(p=>c.tOf(p[0],p[1]))`. Da styrer antall punkter antall porter. |
-| `shortcut:[[x,z],...]`, `shortcutGates:[a,b]` | Bare for testen: punkter en snarvei følger, og hvilke porter (0-indeksert) den hopper over. Se Vulkanen. |
+| `shortcut:[[x,z],...]`, `shortcutGates:[a,b]` | Bare for testen: punkter en snarvei følger, og hvilke porter (0-indeksert) den hopper over. Se Hisøya (`06-vulkan.js`). |
 | `alt:{fog,fogNear,fogFar,sun,sunI,hemi}`, `zone(x,z)` | To lyssett i samme bane. `zone` gir 0–1 for hvor bilen er: 0 bruker `alt` (f.eks. jungel), 1 bruker banens vanlige lys (f.eks. vulkanen). Blandes mykt mens du kjører. |
 | `dark(x,z)` | Valgfritt. 0–1 for hvor mørkt det er (tunnel, grotte). Demper himmellyset og tåken der bilen står. |
 | `ambience:'jungle'` | Insekter, fugler, foss (etter avstand) og vulkanrumling (etter `zone`). Se `js/ambience.js`. |
@@ -139,7 +139,7 @@ Kjører bilen i lava, får spilleren 10 straffepoeng og settes tilbake ved forri
 
 **Rekkefølge i `build(c)`:** først `c.bench`, så `c.lava`/`c.lavaPool`, så `c.bridge`, så steiner, så `c.tree` for trærne, deretter `c.finish()`, og til slutt `c.forest()` og pynt. Legg ikke steiner nær lava eller på snarveien (bruk `c.lavaNear`).
 
-### Vulkanen: snarveien
+### Hisøya: snarveien
 
 Etter port 13 kan du velge den lange runden sør om vulkanen, eller en smal bro rett over lavaelva (skilt vises ved avkjøringen). Snarveien har to kasser midt på broa og gir 40 muttere ekstra («Modig snarvei!»). Faller du i lava, mister du 10 poeng og går tilbake til port 13. Testen `node tools/test-levels.js vulkan` kjører også snarveien.
 
@@ -153,7 +153,7 @@ Testen kjører banene som står i `index.html`, i samme rekkefølge, og varsler 
 
 ## Skjærgården: øyer, landsbyer og fergen
 
-Alle banene er øyer i samme skjærgård. «Kjør!» i menyen starter fri kjøring på Sandglow-øya (eller der du sist var); «Hurtigløp» kjører ett bestemt løp som før. På hver øy ligger en liten landsby med fergekai. Kjør om bord på fergen, velg øy, og fergen seiler (ca. 8 sekunder, hopp over med Enter). Overfarten koster 5 muttere. På øyene uten base finnes garasjen i pausemenyen; «Tau til kaia» på kartet setter deg tilbake i landsbyen.
+Alle banene er øyer i samme skjærgård. «Kjør!» i menyen starter fri kjøring på Tromøya (eller der du sist var); «Hurtigløp» kjører ett bestemt løp som før. På hver øy ligger en liten landsby med fergekai. Kjør om bord på fergen, velg øy, og fergen seiler (ca. 8 sekunder, hopp over med Enter). Overfarten koster 5 muttere. På øyene uten base finnes garasjen i pausemenyen; «Tau til kaia» på kartet setter deg tilbake i landsbyen.
 
 Slik blir en bane til en øy, uten at løypa endres:
 
@@ -162,7 +162,7 @@ Slik blir en bane til en øy, uten at løypa endres:
 | `size:120, coast:42` | Verden blir 120 bred, og alt utenfor r = 42 synker under havet. Den siste ringen innenfor er strand. Løypene ligger innenfor ±28 og er uendret. Baner uten vann får hav på nivå 0,3. |
 | `village:{at:[x,z], dir}` | Landsbyen: hus rundt et torg, lyktestolper, tønner, båter, FERGE-skilt, en plankebrygge på pæler ut over vannet, og fergedekket ytterst. `dir` (grader) peker mot havet, standard rett ut fra øyas midtpunkt. Bygges automatisk før `build(c)`. |
 
-I fri kjøring blir banens egen løype en startstrek (`c.course` lages automatisk for øyer som er løp), så du kan starte løpet ute i terrenget som på Sandglow-øya. Beste tid deles mellom Hurtigløp og fri kjøring.
+I fri kjøring blir banens egen løype en startstrek (`c.course` lages automatisk for øyer som er løp), så du kan starte løpet ute i terrenget som på Tromøya. Beste tid deles mellom Hurtigløp og fri kjøring.
 
 **Låste løyper:** `needs:{courses:3}` på en løype krever tre fullførte løyper på øya; `needs:{courses:5,nuts:200}` kan i tillegg låses opp for muttere. Skiltet og kartet viser hengelås. **Biler til salgs:** `price:600` på en bil i `data/cars.js` gjør at den må kjøpes i verkstedet på basen; `winch:true` gir den ekte vinsj.
 
@@ -172,7 +172,7 @@ I fri kjøring blir banens egen løype en startstrek (`c.course` lages automatis
 
 Fergerutene og plasseringen på skjærgårdskartet ligger i `data/archipelago.js` (`ISLANDS`, `ROUTES`). Kartet (K) har to faner: øya du er på, og skjærgården. Hver øy er fortsatt sin egen fil og kan endres og testes for seg: `node tools/test-levels.js sand`.
 
-## Åpen verden (Sandglow-øya)
+## Åpen verden (Tromøya)
 
 `data/levels/10-verden.js` er en **verden**, ikke et løp: fri kjøring med basen i midten og løyper spredt rundt. En verden er en vanlig banefil med noen ekstra felt:
 

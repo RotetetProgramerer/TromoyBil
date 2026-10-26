@@ -191,7 +191,7 @@ function decalTexture(){
   const c=document.createElement('canvas');c.width=256;c.height=128;const x=c.getContext('2d');
   x.fillStyle='#1d1c1a';x.beginPath();x.ellipse(128,64,124,60,0,0,Math.PI*2);x.fill();
   x.strokeStyle='#e3a62a';x.lineWidth=6;x.beginPath();x.ellipse(128,64,110,48,0,0,Math.PI*2);x.stroke();
-  x.fillStyle='#e3a62a';x.textAlign='center';x.font='42px "Saira Stencil One", Impact, sans-serif';x.fillText('SANDGLOW',128,72);
+  x.fillStyle='#e3a62a';x.textAlign='center';x.font='42px "Saira Stencil One", Impact, sans-serif';x.fillText('SKARE',128,72);
   x.font='600 17px "Barlow Condensed", Arial, sans-serif';x.fillText('EKSPEDISJON · 1:24',128,98);
   const t=new THREE.CanvasTexture(c);t.anisotropy=4;t.encoding=THREE.sRGBEncoding;return t;
 }
