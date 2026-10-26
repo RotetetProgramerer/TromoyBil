@@ -176,13 +176,13 @@ LEVELS.push(
     // --- bregner, blomster og underskog i jungelen; siv i sumpen ---
     const ferns=[],flowers=[],leaves=[],reeds=[];c.flowers=[];
     for(let i=0;i<5000&&ferns.length<480;i++){const x=-52+R()*46,z=-46+R()*64;if(!inJungle(x,z)||near(x,z,1.6)||lineD(STREAM,x,z)<2.6||c.pools.some(p=>Math.hypot(p.x-x,p.z-z)<p.r))continue;const s=.3+R()*.5;
-      ferns.push({x,y:H(x,z)-.02,z,sx:s*.9,sy:s*1.1,sz:s*.9,ry:R()*6,c:['#2f7a2c','#3e8f35','#1f6a2a','#58a03a'][i%4]});
+      ferns.push(c.plant('bregne',x,z,{s,palett:1,c:['#2f7a2c','#3e8f35','#1f6a2a','#58a03a'][i%4]}));
       if(R()<.4)leaves.push({x:x+(R()-.5)*.8,y:H(x,z)+.02,z:z+(R()-.5)*.8,sx:.28+R()*.2,sy:.6+R()*.6,sz:.1,rx:.5+R()*.6,ry:R()*6.28,c:['#2a7a3a','#3f9a4a','#1e6a30'][i%3],ord:'YXZ'});
-      if(R()<.22){const f={x:x+(R()-.5)*.4,y:H(x,z)+s*.9,z:z+(R()-.5)*.4};flowers.push({...f,sx:.07,sy:.07,sz:.07,c:['#e0405a','#f08a3a','#f2d24a','#d35aa8'][i%4]});c.flowers.push(f)}}
+      if(R()<.22){const f={x:x+(R()-.5)*.4,y:H(x,z)+s*.62,z:z+(R()-.5)*.4};flowers.push({...f,sx:.07,sy:.07,sz:.07,c:['#e0405a','#f08a3a','#f2d24a','#d35aa8'][i%4]});c.flowers.push(f)}}
     for(let i=0;i<4000&&reeds.length<700;i++){const x=SW[0]+(R()-.5)*2*(SW_R+3),z=SW[1]+(R()-.5)*2*(SW_R+3);const d=dSw(x,z);if(d>SW_R+2||near(x,z,1.5)||H(x,z)>def.water+.5)continue;
       reeds.push({x,y:H(x,z)-.02,z,sx:.045,sy:.7+R()*.8,sz:.045,rx:(R()-.5)*.4,rz:(R()-.5)*.4,c:['#6d8a3a','#8a9a4a','#5a6b2a'][i%3]});
       if(R()<.08){const f={x,y:H(x,z)+.9,z};c.flowers.push(f)}}   // øyenstikkere svirrer her
-    instanced(DG.fern,DM.tuft,ferns,c.decor);instanced(DG.leaf,DM.leaf,leaves,c.decor,false);instanced(DG.cone,DM.white,flowers,c.decor,false);instanced(DG.tuft,DM.tuft,reeds,c.decor,false);
+    c.plants();instanced(DG.leaf,DM.leaf,leaves,c.decor,false);instanced(DG.cone,DM.white,flowers,c.decor,false);instanced(DG.tuft,DM.tuft,reeds,c.decor,false);
     // --- tåke i sumpen og rundt toppen ---
     for(let i=0;i<40;i++){const a=R()*6.28,d=R()*SW_R;c.fx.push({type:'mist',x:SW[0]+Math.cos(a)*d,z:SW[1]+Math.sin(a)*d,y:.9+R()*.5,s:5+R()*5})}
     for(let i=0;i<36;i++){const a=R()*6.28,d=4+R()*9,x=M[0]+Math.cos(a)*d,z=M[1]+Math.sin(a)*d;c.fx.push({type:'mist',x,z,y:H(x,z)+.8+R()*.8,s:4+R()*5})}

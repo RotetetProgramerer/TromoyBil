@@ -27,8 +27,8 @@ LEVELS.push(
     c.finish();
     c.plants();   // kjempestammene (js/props/kjempestamme.js)
     const ferns=[];for(let i=0;i<700&&ferns.length<260;i++){const x=(R()-.5)*66,z=(R()-.5)*66;if(c.dist(x,z)<1.9||Math.abs(z-def.stream(x))<1.8||!c.onLand(x,z))continue;const s=.25+R()*.4;
-      ferns.push({x,y:H(x,z)-.02,z,sx:s*.9,sy:s*1.2,sz:s*.9,ry:R()*6,c:['#3f6b28','#58802f','#2f5a22'][i%3]})}
-    instanced(DG.fern,DM.tuft,ferns,c.decor);
+      ferns.push(c.plant('bregne',x,z,{s,c:['#3f6b28','#58802f','#2f5a22'][i%3]}))}
+    c.plants();   // bregnene (js/props/bregne.js)
     const cones=[];for(let i=0;i<180;i++){const x=(R()-.5)*66,z=(R()-.5)*66;if(Math.abs(z-def.stream(x))<1.6)continue;cones.push({x,y:H(x,z)+.05,z,sx:.07,sy:.11,sz:.07,rx:1.5,ry:R()*6,c:'#6b4a2c'})}
     instanced(DG.cone,DM.white,cones,c.decor);
     c.pebbles(400,['#6e6d60','#83806f'],.04,.1);

@@ -38,7 +38,7 @@ npx serve .
 
 ## Elementer og elementverkstedet
 
-Trær og andre elementer ligger i `js/props/`, én fil per element. Hver fil har innstillingene øverst (`params`) og to funksjoner: `place` (kollider, kalles når banen plasserer elementet) og `build` (selve delene, kalles etter `c.finish()` når bakken er ferdig). Banene bruker dem med `c.plant('palme',x,z,{h:3.5})`, eller `c.tree` og `c.spruce`.
+Trær og andre elementer ligger i `js/props/`, én fil per element. Hver fil har innstillingene øverst (`params`) og to funksjoner: `place` (kollider, kalles når banen plasserer elementet) og `build` (selve delene, kalles etter `c.finish()` når bakken er ferdig). Banene bruker dem med `c.plant('palme',x,z,{h:3.5})`, eller `c.tree`, `c.spruce`, `c.bushes` og `c.lamp`.
 
 Åpne `props.html` i nettleseren for å se ett element alene:
 
@@ -148,7 +148,7 @@ c.bonus(x,z,r,muttere,tekst) // belønning (muttere) første gang bilen kommer i
 c.steam(x,z)                 // liten dampsøyle (sprekk i vulkanen)
 c.tree(x,z,{h,r})            // regnskogstre med røtter, grener, krone, mose og lianer. Grener blir sitteplasser for dyr.
 c.forest()                   // bygger alle trærne. Kall etter c.finish().
-c.plant(navn,x,z,{...})      // et hvilket som helst element fra js/props/ ('palme', 'bytre', 'gran', 'kjempestamme' …)
+c.plant(navn,x,z,{...})      // et hvilket som helst element fra js/props/ ('palme', 'bytre', 'gran', 'kjempestamme', 'busk', 'bregne', 'lykt' …)
 c.plants()                   // bygger alle elementene som er plassert. Kall etter c.finish().
 c.ruts(t0,t1,dybde)          // hjulspor i stien mellom t0 og t1
 c.pond(x,z,r,dybde,{mud:true})  // søledam med brunt vann
@@ -227,7 +227,7 @@ Verktøy for byer i `build(c)`:
 | `c.stairs(x,z,retning,n,trinn,inntrinn,bredde,{level,land,wall})` | En trapp stemplet i absolutt høyde: `n` trinn à `trinn` opp fra `(x,z)` i retning `retning` (radianer, 0 = +z). Bakken inni fotavtrykket settes til trinnhøyden, så trappa aldri forsvinner under en terrasse. `level` er høyden ved foten (standard bakken der), `land` en flat avsats etter øverste trinn, `wall:true` gir murer med kollidere på sidene. |
 | `c.street(poly,{hw,drop,cross})` | En bygate: kjørebanen senkes `drop` (0,12) innenfor `hw`, så fortauet får kantstein på begge sider. `cross:[[x,z],...]` er fotgjengerfelt der gata kommer opp igjen (opphøyd gangfelt). Gater som krysser hverandre senkes bare én gang. Ingen utjevning: bakken må være flat fra før. |
 | `c.building(x,y,z,b,h,d,farge,ry,{fh,sign,roof})` | En bygning: boks med sokkel, flatt tak, vindusbånd per etasje (`fh` = etasjehøyde), dør og en firkantet kollider som følger fasaden. Fronten vender mot +z i boksens egen ramme. Tegnes på øykartet. |
-| `c.lamp(x,z,{h,ang})` | Gatelykt med stolpe og arm. Lyser om natten (nattløp). Duer sitter på den. |
+| `c.lamp(x,z,{h,ang,arm})` | Gatelykt med stolpe og arm (`js/props/lykt.js`). `arm:0` gir en kailykt. Lyser om natten (nattløp). Duer sitter på den. |
 | `c.cone(x,z)`, `c.barrier(x,z,retning)` | Trafikkjegle og sperrebukk som velter når bilen treffer dem. |
 | `shape(..., level)` og `disc(..., level)` | Stemplene kan nå få en absolutt høyde for h = 0, i stedet for å måle fra grunnterrenget. Bruk det på terrasser og gater (fartsdumper, ramper, opphøyde kryss). |
 | `c.road(poly,{bench:false})` | En vei uten utjevning av terrenget rundt. |

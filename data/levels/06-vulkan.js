@@ -141,10 +141,10 @@ LEVELS.push(
     // --- bregner, store blader, blomster og underskog ---
     const ferns=[],flowers=[],leaves=[];c.flowers=[];
     for(let i=0;i<2400&&ferns.length<420;i++){const x=(R()-.5)*64,z=(R()-.5)*64;if(rOf(x,z)<13.5||c.dist(x,z)<1.6||dShort(x,z)<1.5||c.lavaNear(x,z,1.2)||seaD(x,z)<12.5||lineD(RIVER,x,z)<2.6||onLedge(x,z)||c.pools.some(p=>Math.hypot(p.x-x,p.z-z)<p.r))continue;const s=.3+R()*.5;
-      ferns.push({x,y:H(x,z)-.02,z,sx:s*.9,sy:s*1.1,sz:s*.9,ry:R()*6,c:['#2f7a2c','#3e8f35','#1f6a2a','#58a03a'][i%4]});
+      ferns.push(c.plant('bregne',x,z,{s,palett:1,c:['#2f7a2c','#3e8f35','#1f6a2a','#58a03a'][i%4]}));
       if(R()<.4)leaves.push({x:x+(R()-.5)*.8,y:H(x,z)+.02,z:z+(R()-.5)*.8,sx:.28+R()*.2,sy:.6+R()*.6,sz:.1,rx:.5+R()*.6,ry:R()*6.28,c:['#2a7a3a','#3f9a4a','#1e6a30'][i%3],ord:'YXZ'});
-      if(R()<.22){const f={x:x+(R()-.5)*.4,y:H(x,z)+s*.9,z:z+(R()-.5)*.4};flowers.push({...f,sx:.07,sy:.07,sz:.07,c:['#e0405a','#f08a3a','#f2d24a','#d35aa8'][i%4]});c.flowers.push(f)}}
-    instanced(DG.fern,DM.tuft,ferns,c.decor);instanced(DG.leaf,DM.leaf,leaves,c.decor,false);instanced(DG.cone,DM.white,flowers,c.decor,false);
+      if(R()<.22){const f={x:x+(R()-.5)*.4,y:H(x,z)+s*.62,z:z+(R()-.5)*.4};flowers.push({...f,sx:.07,sy:.07,sz:.07,c:['#e0405a','#f08a3a','#f2d24a','#d35aa8'][i%4]});c.flowers.push(f)}}
+    c.plants();instanced(DG.leaf,DM.leaf,leaves,c.decor,false);instanced(DG.cone,DM.white,flowers,c.decor,false);
     c.pebbles(500,['#3a3631','#524b45','#2b2724'],.04,.11);
     c.tufts(60,['#4d7a2f','#6b9a3c']);
   }}

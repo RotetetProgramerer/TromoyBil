@@ -82,6 +82,9 @@ pre{margin:0;white-space:pre-wrap;word-break:break-all;background:var(--ink-2);b
 <script src="js/props/palme.js"></script>
 <script src="js/props/gran.js"></script>
 <script src="js/props/kjempestamme.js"></script>
+<script src="js/props/busk.js"></script>
+<script src="js/props/bregne.js"></script>
+<script src="js/props/lykt.js"></script>
 <!-- banene, bare for lyset og fargene deres -->
 <script src="data/levels/01-sand.js"></script>
 <script src="data/levels/02-stein.js"></script>
@@ -133,24 +136,25 @@ function buildGround(){if(ground){scene.remove(ground);ground.geometry.dispose()
 /* ---------- elementene ---------- */
 let group=null,helpers=null,carBox=null;
 const P=()=>PROPS[ui.kind].params;
-function current(){const p=P(),s=saved[ui.kind]||{},o={};for(const k in p){const v=p[k].v;o[k]=s[k]??(Array.isArray(v)?+((v[0]+v[1])/2).toFixed(3):v)}return o}
+function current(){const p=P(),s=saved[ui.kind]||{},o={};for(const k in p){const v=p[k].v;o[k]=s[k]??(Array.isArray(v)?(p[k].step>=1?Math.round((v[0]+v[1])/2):+((v[0]+v[1])/2).toFixed(3)):v)}return o}
 function rebuild(){
   if(group){scene.remove(group);group.traverse(o=>{if(o.isInstancedMesh)o.dispose&&o.dispose()})}
   if(helpers){scene.remove(helpers);helpers.traverse(o=>{if(o.geometry)o.geometry.dispose()})}
   group=new THREE.Group();helpers=new THREE.Group();scene.add(group,helpers);
-  const o=current(),n=ui.count,cols=Math.ceil(Math.sqrt(n)),env={H:groundH,rng:mulberry32(ui.seed),colliders:[],perches:[]},recs=[],out=propBatch();
+  const o=current(),n=ui.count,cols=Math.ceil(Math.sqrt(n)),env={H:groundH,rng:mulberry32(ui.seed),colliders:[],perches:[],fx:[]},recs=[],out=propBatch();
   for(let i=0;i<n;i++){const x=(i%cols-(cols-1)/2)*ui.space,z=(Math.floor(i/cols)-(Math.ceil(n/cols)-1)/2)*ui.space;
     // tilfeldig dreiing for hver når det er flere; ellers akkurat innstillingene
     const oi=n>1&&'ry' in o?Object.assign({},o,{ry:env.rng()*6.28}):o;recs.push(PROPS[ui.kind].place(x,z,oi,env))}
   for(const r of recs){env.rng=propRng(r.x,r.z,ui.seed);PROPS[ui.kind].build(r,env,out)}
   const ims=out.flush(group);let tris=0,inst=0;for(const im of ims){const g=im.geometry,t=(g.index?g.index.count:g.attributes.position.count)/3;tris+=t*im.count;inst+=im.count}
   $('stats').textContent=`${ims.length} instanserte mesher · ${inst} deler · ${Math.round(tris).toLocaleString('nb')} trekanter`;
-  // hjelpelinjer: rød ring = kollider (gul = vinsjefeste), gul kule = sitteplass for dyr, hvit ring = bakken der elementet står
+  // hjelpelinjer: rød ring = kollider (gul = vinsjefeste), gul kule = sitteplass for dyr, oransje kule = lyset om natta, hvit ring = bakken der elementet står
   if(ui.helpers){
     const ring=(x,z,r,colr,y)=>{const pts=[];for(let i=0;i<=40;i++){const a=i/40*6.283;pts.push(new THREE.Vector3(x+Math.cos(a)*r,(y??groundH(x+Math.cos(a)*r,z+Math.sin(a)*r))+.02,z+Math.sin(a)*r))}
       const l=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:colr,depthTest:false,transparent:true}));l.renderOrder=5;helpers.add(l)};
     for(const c of env.colliders)ring(c.x,c.z,c.r??Math.max(c.w,c.d)/2,c.anchor?0xffd23a:0xff4a3a);
     const sg=new THREE.SphereGeometry(.05,10,8);for(const p of env.perches){const m=new THREE.Mesh(sg,new THREE.MeshBasicMaterial({color:0xffe14a,depthTest:false}));m.position.set(p.x,p.y,p.z);m.renderOrder=6;helpers.add(m)}
+    for(const f of env.fx)if(f.type==='lamp'){const m=new THREE.Mesh(sg,new THREE.MeshBasicMaterial({color:0xff9a3a,depthTest:false}));m.position.set(f.x,f.y,f.z);m.scale.setScalar(1.6);m.renderOrder=6;helpers.add(m)}
     for(const r of recs)ring(r.x,r.z,.05,0xffffff)}
   if(carBox){scene.remove(carBox);carBox=null}
   if(ui.car){const x=Math.max(2.5,ui.space*.6);carBox=new THREE.Mesh(new THREE.BoxGeometry(1,.75,2),new THREE.MeshStandardMaterial({color:LIN('#E5A92B'),roughness:.6}));carBox.position.set(-x,groundH(-x,1.5)+.42,1.5);carBox.castShadow=true;scene.add(carBox)}
@@ -158,7 +162,7 @@ function rebuild(){
 
 function fmt(v){return+(+v).toFixed(3)}
 function writeCode(o){const p=P(),parts=[];for(const k in o){const v=p[k].v;if(!Array.isArray(v)&&fmt(v)===fmt(o[k]))continue;parts.push(k+':'+fmt(o[k]))}
-  const call=ui.kind==='jungeltre'?`c.tree(x,z,{${parts.join(',')}})`:ui.kind==='gran'?`c.spruce(x,z,{${parts.join(',')}})`:`c.plant('${ui.kind}',x,z,{${parts.join(',')}})`;
+  const call=ui.kind==='jungeltre'?`c.tree(x,z,{${parts.join(',')}})`:ui.kind==='gran'?`c.spruce(x,z,{${parts.join(',')}})`:ui.kind==='lykt'?`c.lamp(x,z,{${parts.join(',')}})`:`c.plant('${ui.kind}',x,z,{${parts.join(',')}})`;
   $('code').textContent=call+'\n\n// standardverdier i js/props/:\nparams:{'+Object.keys(o).map(k=>k+':'+fmt(o[k])).join(', ')+'}'}
 
 /* ---------- panelet ---------- */
@@ -167,9 +171,13 @@ function buildPanel(){
   $('info').textContent=PROPS[ui.kind].info||'';
   const o=current(),p=P();$('params').innerHTML='';
   for(const k in p){const d=p[k],l=document.createElement('label');l.className='row';
-    l.innerHTML=`<span>${d.navn||k}</span><output></output><input type="range" min="${d.min}" max="${d.max}" step="${d.step}">`;
-    const inp=l.querySelector('input'),out=l.querySelector('output');inp.value=o[k];out.textContent=fmt(o[k]);
-    inp.addEventListener('input',()=>{out.textContent=fmt(inp.value);(saved[ui.kind]=saved[ui.kind]||{})[k]=+inp.value;store.set('params',saved);rebuild()});
+    const set=v=>{(saved[ui.kind]=saved[ui.kind]||{})[k]=v;store.set('params',saved);rebuild()};
+    if(d.valg){   // en liste med navn (for eksempel fargepaletter); verdien er nummeret i lista
+      l.innerHTML=`<span>${d.navn||k}</span><span></span><select style="grid-column:1/3">${d.valg.map((n,i)=>`<option value="${i}">${n}</option>`).join('')}</select>`;
+      const sel=l.querySelector('select');sel.value=o[k];sel.addEventListener('change',()=>set(+sel.value))}
+    else{l.innerHTML=`<span>${d.navn||k}</span><output></output><input type="range" min="${d.min}" max="${d.max}" step="${d.step}">`;
+      const inp=l.querySelector('input'),out=l.querySelector('output');inp.value=o[k];out.textContent=fmt(o[k]);
+      inp.addEventListener('input',()=>{out.textContent=fmt(inp.value);set(+inp.value)})}
     $('params').appendChild(l)}}
 const bind=(id,key,fn,num=true)=>{const el=$(id),o=$(id+'O');if(el.type==='checkbox')el.checked=ui[key];else el.value=ui[key];if(o)o.textContent=ui[key];
   el.addEventListener(el.type==='range'?'input':'change',()=>{ui[key]=el.type==='checkbox'?el.checked:num?+el.value:el.value;if(o)o.textContent=ui[key];fn()})};

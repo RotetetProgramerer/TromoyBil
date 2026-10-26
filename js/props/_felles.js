@@ -27,6 +27,13 @@ PG.fin=(()=>{const A=[-.5,0],B=[-.5,1],C=[.5,0],P=[],q=(p,z)=>[p[0],p[1],z];
   for(const[a,b]of[[B,C],[A,B],[C,A]])P.push(...q(a,.5),...q(b,.5),...q(b,-.5),...q(a,.5),...q(b,-.5),...q(a,-.5));   // skråkant, innside, bunn
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.computeVertexNormals();return g})();
 
+// blad (palme, bregne): en lang stripe langs +X som stiger litt og så henger ned, brettet langs midtribben. Lengde 1, foten i origo.
+PG.frond=(()=>{const T=[0,.12,.3,.5,.72,1],P=[];
+  const spine=t=>[t,.62*t-1.0*t*t],wid=t=>.17*Math.pow(Math.sin(Math.PI*Math.min(1,t*1.08)),.6);
+  const pt=(t,side)=>{const[x,y]=spine(t),w=wid(t);return side?[x,y-w*.45,side*w]:[x,y,0]};
+  for(let i=0;i<T.length-1;i++){const a=T[i],b=T[i+1];for(const sd of[-1,1]){const A0=pt(a,0),A1=pt(a,sd),B0=pt(b,0),B1=pt(b,sd);P.push(...A0,...A1,...B1,...A0,...B1,...B0)}}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.computeVertexNormals();return g})();
+
 // samler deler per (geometri, materiale, skygge) og lager én InstancedMesh for hver gruppe
 function propBatch(){const m=new Map(),ids=new Map(),id=o=>ids.get(o)??(ids.set(o,ids.size+1),ids.size);return{
   add(geo,mat,o,shadow=true){const k=id(geo)+'|'+id(mat)+'|'+shadow;let b=m.get(k);if(!b)m.set(k,b={geo,mat,shadow,list:[]});b.list.push(o)},

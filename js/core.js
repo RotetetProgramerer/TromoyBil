@@ -231,9 +231,8 @@ function genLevel(def){
       {const[dx2,dz2]=at(0,d/2*1.01);c.box(dx2,y,dz2,.5,.8,.04,o.door||'#3a2a22',ry);if(o.sign){const[sx,sz]=at(0,d/2*1.02);c.box(sx,y+fh-.1,sz,Math.min(w*.7,2.2),.3,.04,o.sign,ry)}}
       const col2={x,z,w:w+.04,d:d+.04,ry,anchor:true,y:y+.5};c.colliders.push(col2);c.block(x,z,Math.hypot(w,d)/2+.5);return col2},
     // a street lamp: pole, arm and head. The head glows at night (c.fx 'lamp', see game.js). Birds may sit on top.
-    lamp(x,z,o={}){const y=o.y??H(x,z),h=o.h??1.7,arm=o.arm??.45,ang=o.ang??0,ax=Math.sin(ang)*arm,az=Math.cos(ang)*arm,col=o.col||'#3a3a3a';
-      c.cyl(x,y,z,.045,h,col);c.box(x+ax/2,y+h-.05,z+az/2,.05,.05,arm,col,ang);c.box(x+ax,y+h-.16,z+az,.26,.14,.26,'#fff0c0');c.box(x+ax,y+h-.02,z+az,.3,.04,.3,col);
-      c.colliders.push({x,z,r:.08,anchor:true,y:y+.6});c.fx.push({type:'lamp',x:x+ax,y:y+h-.1,z:z+az});c.perches.push({x,y:y+h+.03,z,kind:'post'});return{x,y:y+h,z}},
+    // js/props/lykt.js; it is built by c.plants() (after c.finish), so it stands on the finished ground
+    lamp(x,z,o={}){return c.plant('lykt',x,z,o)},
     // a traffic cone that tips over when the car hits it (cylinders only, so c.breakable works)
     cone(x,z,o={}){const y=o.y??H(x,z),ids=[c.cyl(x,y,z,.14,.03,'#2a2a2a'),c.cyl(x,y+.03,z,.075,.34,o.col||'#f26b1d'),c.cyl(x,y+.19,z,.08,.06,'#f4f4f0')];c.breakable(x,z,.13,ids);return ids},
     // a red-and-white barrier trestle across the way (also tips over). ang = direction of the bar.
@@ -268,8 +267,8 @@ function genLevel(def){
     plantList:[],
     plant(kind,x,z,o={}){const rec=PROPS[kind].place(x,z,o,c.env());rec.kind=kind;c.plantList.push(rec);return rec},
     // each plant is built with its own random stream from its position, so tuning one element in js/props/ never moves the bushes and stones placed after it
-    plants(){const out=propBatch(),env=c.env();for(const r of c.plantList){env.rng=propRng(r.x,r.z,def.seed);PROPS[r.kind].build(r,env,out)}out.flush(c.decor);c.plantList=[]},
-    env(){return{H,rng,colliders:c.colliders,perches:c.perches}},
+    plants(){if(!c._done)return;const out=propBatch(),env=c.env();for(const r of c.plantList){env.rng=propRng(r.x,r.z,def.seed);PROPS[r.kind].build(r,env,out)}out.flush(c.decor);c.plantList=[]},
+    env(){return{H,rng,colliders:c.colliders,perches:c.perches,fx:c.fx}},
     // a jungle tree (js/props/tre-jungel.js). Returns the tree (perches for animals are collected in c.perches)
     trees:[],perches:[],
     tree(x,z,o={}){const t=c.plant('jungeltre',x,z,o);c.trees.push(t);return t},
@@ -313,7 +312,7 @@ function genLevel(def){
       const houseO=(f,s,ry,i)=>house2(vx+ox*f+qx*s,vz+oz*f+qz*s,ry,i);
       houseO(2.6,-4.9,yawO+.35,0);houseO(3.4,-2.8,yawO,1);houseO(3.4,2.8,yawO,2);houseO(2.6,4.9,yawO-.35,3);house(1.3,4.2,yaw-1.5,4,true);
       // lamps, barrels, nets and a sign
-      for(const[f,s]of[[1,-3.4],[4.6,2.6],[-.6,-2.3]]){const[lx,lz]=at(f,s);c.cyl(lx,padH,lz,.05,1.5,'#3a3a3a');c.box(lx,padH+1.45,lz,.22,.16,.22,'#fff0c0');c.colliders.push({x:lx,z:lz,r:.1,anchor:true,y:padH+.6})}
+      for(const[f,s]of[[1,-3.4],[4.6,2.6],[-.6,-2.3]]){const[lx,lz]=at(f,s);c.plant('lykt',lx,lz,{y:padH,h:1.45,arm:0,hode:.85})}
       for(const[f,s,col]of[[.6,-4.6,'#5a7a8a'],[.9,-4.3,'#c8463a'],[-4.8,-3.6,'#8a6a3a']]){const[bx2,bz2]=at(f,s);c.cyl(bx2,padH,bz2,.17,.42,col);c.colliders.push({x:bx2,z:bz2,r:.2})}
       {const[sx,sz]=at(3.6,2.3);c.fx.push({type:'sign',x:sx,z:sz,ang:Math.atan2(-dx,-dz),text:'FERGE',sub:'kjør om bord'})}
       // the way out of the village: a gravel road from the square inland, levelled so the car never gets boxed in
@@ -390,10 +389,10 @@ function genLevel(def){
     finish(){for(let j=0;j<N;j++)for(let i=0;i<N;i++){const k=j*N+i;if(TCF[k])continue;const cc=surfColor(TS[k],-HALF+i*CELL,-HALF+j*CELL,n,def);TC[k*3]=cc[0];TC[k*3+1]=cc[1];TC[k*3+2]=cc[2]}c._done=true},
     pebbles(cnt,cols,smin,smax){const L=[];for(let i=0;i<cnt;i++){const x=(rng()-.5)*(WORLD-4),z=(rng()-.5)*(WORLD-4);if(def.water!=null&&H(x,z)<def.water+.02)continue;const s=smin+rng()*(smax-smin);
       L.push({x,y:H(x,z)+s*.2,z,sx:s,sy:s*.6,sz:s*(.8+rng()*.5),rx:rng()*3,ry:rng()*3,c:cols[i%cols.length]})}instanced(DG.peb,DM.white,L,c.decor,false)},
-    // bushes: low rounded clumps of two or three canopies, placed where ok(x,z) says yes
-    bushes(cnt,cols,ok){const L=[];for(let i=0;i<cnt*30&&L.length<cnt*3;i++){const x=(rng()-.5)*(WORLD-6),z=(rng()-.5)*(WORLD-6);if(c.dist(x,z)<2.2||(def.water!=null&&H(x,z)<def.water+.1)||(ok&&!ok(x,z)))continue;const s=.35+rng()*.35,n=2+(rng()<.5?1:0);
-        for(let k=0;k<n;k++){const a=rng()*6.28,d=k?s*.6:0;L.push({x:x+Math.cos(a)*d,y:H(x,z)+s*.45,z:z+Math.sin(a)*d,sx:s*(.9+rng()*.3),sy:s*.75,sz:s*(.9+rng()*.3),c:cols[(i+k)%cols.length]})}c.colliders.push({x,z,r:s*.7})}
-      instanced(DG.canopy,DM.leaf,L,c.decor)},
+    // bushes (js/props/busk.js): about 1.2·cnt bushes in the colours cols, placed where ok(x,z) says yes. Call after c.finish.
+    bushes(cnt,cols,ok){let n=0;for(let i=0;i<cnt*30&&n<cnt*1.2;i++){const x=(rng()-.5)*(WORLD-6),z=(rng()-.5)*(WORLD-6);if(c.dist(x,z)<2.2||(def.water!=null&&H(x,z)<def.water+.1)||(ok&&!ok(x,z)))continue;
+        c.plant('busk',x,z,{s:.35+rng()*.35,klumper:2+(rng()<.5?1:0),cols});n++}
+      c.plants()},
     // mushrooms: a stalk and a cap, in the shade of trees
     mushrooms(cnt,ok){const st=[],cp=[];for(let i=0;i<cnt*40&&st.length<cnt;i++){const x=(rng()-.5)*(WORLD-6),z=(rng()-.5)*(WORLD-6);if(c.dist(x,z)<1.5||(def.water!=null&&H(x,z)<def.water+.1)||(ok&&!ok(x,z)))continue;const h=.08+rng()*.1,y=H(x,z);
         st.push({x,y:y+h/2,z,sx:.025,sy:h,sz:.025,c:'#e9dcb9'});cp.push({x,y:y+h,z,sx:.07+rng()*.05,sy:.04,sz:.07+rng()*.05,c:['#c43b2f','#d9a93a','#8a6a3a','#e9dcb9'][i%4]})}
