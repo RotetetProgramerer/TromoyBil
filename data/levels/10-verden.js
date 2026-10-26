@@ -102,7 +102,7 @@ LEVELS.push(
       c.box(bx,y+1.2,bz-2.5,.9,.7,.05,'#1a262d');c.box(bx,y+2.3,bz-2.5,3.6,.5,.08,'#e5a92b');c.box(bx,y+2.3,bz-2.55,3.2,.3,.02,'#14120e');  // vindu og skilt
       c.box(bx+5.2,y,bz-.6,2.6,2.1,3.0,'#8a7f70');c.box(bx+5.2,y+2.1,bz-.6,2.9,.2,3.3,'#4a4038');c.box(bx+5.2,y+1.0,bz-2.12,1.2,.7,.05,'#1a262d');   // kontoret
       c.cyl(bx+7.6,y,bz+1.2,.09,7.5,'#9a9a96');c.box(bx+7.6,y+7.5,bz+1.2,.5,.5,.5,'#d9432f');for(let k=0;k<3;k++)c.box(bx+7.6,y+2+k*1.8,bz+1.2,1.4-k*.3,.05,.05,'#9a9a96');   // radiomast
-      for(const[mx,mz]of[[bx-9,bz-7.5],[bx+9,bz-7.5],[bx-9,bz-1],[bx+9,bz-1]]){c.cyl(mx,y,mz,.07,3.6,'#5a5a58');c.box(mx,y+3.5,mz,.6,.22,.3,'#2a2a2a');c.box(mx,y+3.42,mz,.5,.06,.22,'#fff3c0')}   // lysmaster
+      for(const[mx,mz]of[[bx-9,bz-7.5],[bx+9,bz-7.5],[bx-9,bz-1],[bx+9,bz-1]]){c.cyl(mx,y,mz,.07,3.6,'#5a5a58');c.box(mx,y+3.5,mz,.6,.22,.3,'#2a2a2a');c.box(mx,y+3.42,mz,.5,.06,.22,'#fff3c0');c.fx.push({type:'lamp',x:mx,y:y+3.4,z:mz})}   // lysmaster (lyser om natta)
       c.box(bx-3.2,y,bz-4.4,1.9,.12,3.2,'#4a4a48');for(const dz of[-1.2,1.2]){c.box(bx-3.2,y+.12,bz-4.4+dz,1.9,.08,.25,'#e5a92b')}for(const dx of[-.6,.6])for(const dz of[-1,1])c.cyl(bx-3.2+dx,y+.2,bz-4.4+dz,.08,.9,'#5a5a58');   // løftebukk
       const guy=(gx,gz,col,ry)=>{c.cyl(gx,y,gz,.09,.42,'#2c4a6b');c.cyl(gx,y+.4,gz,.13,.32,col);c.cyl(gx,y+.74,gz,.09,.17,'#d9a07a');c.box(gx,y+.9,gz,.22,.06,.22,'#e5a92b',ry);c.colliders.push({x:gx,z:gz,r:.18})};
       guy(bx-3.9,bz-6.4,'#e5a92b',.3);guy(bx+2.6,bz-5.2,'#d9432f',1.2);guy(bx+4.2,bz-3.6,'#2c4a6b',2.4);

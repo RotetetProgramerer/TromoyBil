@@ -17,5 +17,5 @@ PROPS.kjempestamme={
     for(let i=0;i<Math.round(t.stumper);i++){const a=R()*6.28,s=2.5+R()*8,b={x:t.x+Math.cos(a)*r*.6,y:y+s,z:t.z+Math.sin(a)*r*.6},v=dirVec(a,1.05+R()*.4),L=r*.5+R()*.6;
       out.add(DG.branch,DM.bark,stemBetween(b,{x:b.x+v.x*(r*.35+L),y:b.y+v.y*(r*.35+L),z:b.z+v.z*(r*.35+L)},r*.16,{c:barkD}))}
     if(R()<t.mose){const a=R()*6.28,ml=1.2+R()*2,d=r*.25;
-      out.add(DG.trunk,DM.tuft,{x:t.x+Math.cos(a)*d,y:y+ml/2,z:t.z+Math.sin(a)*d,sx:r*.82,sy:ml,sz:r*.82,c:mix('#3a5228','#4c6834',R())},false)}}
+      out.add(DG.trunk,DM.white,{x:t.x+Math.cos(a)*d,y:y+ml/2,z:t.z+Math.sin(a)*d,sx:r*.82,sy:ml,sz:r*.82,c:mix('#3a5228','#4c6834',R())},false)}}
 };

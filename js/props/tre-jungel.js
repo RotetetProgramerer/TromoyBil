@@ -32,7 +32,7 @@ PROPS.jungeltre={
       out.add(PG.fin,DM.bark,{x:t.x+Math.cos(a)*d,y:yb,z:t.z+Math.sin(a)*d,sx:L,sy:r*(2.2+R()*1.4),sz:r*.36,ry:-a,c:barkD})}
     // mose på den ene siden av stammen, langs samme akse og litt inn i den
     if(t.moss){const ml=th*.32,c0=at(ml/2+.02),d=r*.32;
-      out.add(PG.trunk,DM.tuft,Object.assign({x:c0.x+Math.cos(t.ry)*d,y:c0.y,z:c0.z+Math.sin(t.ry)*d,sx:r*.74,sy:ml,sz:r*.74,c:mix(this.MOSS[0],this.MOSS[1],R())},rot),false)}
+      out.add(PG.trunk,DM.white,Object.assign({x:c0.x+Math.cos(t.ry)*d,y:c0.y,z:c0.z+Math.sin(t.ry)*d,sx:r*.74,sy:ml,sz:r*.74,c:mix(this.MOSS[0],this.MOSS[1],R())},rot),false)}
     const blobs=[];
     for(const b of t.branches){const s=Math.min(b.hy,th*.92),bp=at(s),bv=dirVec(b.ang,Math.PI/2-b.tilt),L=b.len;
       const tip={x:bp.x+bv.x*L,y:bp.y+bv.y*L,z:bp.z+bv.z*L};
