@@ -112,7 +112,7 @@ function buildFerry(lv){ferryVis=null;const f=lv.ferry;if(!f){ferryDeckMesh=null
   if(ferryDeckMesh){g.attach(ferryDeckMesh);ferryDeckMesh=null}   // the plank deck built with the level comes along
   const hull=new THREE.MeshStandardMaterial({color:LIN('#3f5f78'),roughness:.6}),white=new THREE.MeshStandardMaterial({color:LIN('#eef0ea'),roughness:.5}),red=new THREE.MeshStandardMaterial({color:LIN('#c8463a'),roughness:.6});
   const B=(w,h,d,mat,x,y,z)=>{const m=new THREE.Mesh(boxGeo,mat);m.scale.set(w,h,d);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;g.add(m);return m};
-  B(4.6,.9,f.len+.9,hull,0,-.5,0);B(4.8,.06,f.len+1.1,white,0,-.08,0);                                   // hull and gunwale line
+  B(4.6,1.4,f.len+.9,hull,0,-.75,0);B(4.8,.06,f.len+1.1,white,0,-.08,0);   // hull (reaches 0,5 under the water, so it never lifts clear when it bobs) and gunwale line
   for(const sd of[-1,1])B(.5,.42,f.len-.2,white,sd*2.05,.17,0);                                           // bulwarks beside the deck
   B(.5,.42,3.4,white,0,.17,f.len/2+.2);                                                                  // stern wall (sea end)
   B(1.3,1.25,1.5,white,1.65,.8,f.len/2-1.5);B(1.1,.45,1.1,new THREE.MeshStandardMaterial({color:LIN('#1a262d'),roughness:.1,metalness:.6}),1.65,1.1,f.len/2-1.5);   // wheelhouse

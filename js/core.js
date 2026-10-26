@@ -91,6 +91,7 @@ const DG={
   fern:new THREE.ConeGeometry(1,1,6), cone:new THREE.SphereGeometry(1,6,5),
   canopy:new THREE.SphereGeometry(1,7,5), branch:new THREE.CylinderGeometry(.55,1,1,6), root:new THREE.BoxGeometry(1,1,1), leaf:new THREE.ConeGeometry(1,1,3,1,true)
 };
+DG.prism=new THREE.CylinderGeometry(1,1,1,3,1);   // triangular prism: apex at local z=1, base edge at z=-.5 (width 1.732)
 DG.branch.translate(0,.5,0); DG.leaf.translate(0,.5,0);
 DG.tuft.translate(0,.5,0); DG.fern.translate(0,.5,0);
 const DM={
@@ -184,7 +185,7 @@ function genLevel(def){
     // distance to the main line, and to every road and course registered so far (so rocks and trees keep clear of them too)
     xpts:[],dist:(x,z)=>{let m=1e9;for(let i=0;i<pts.length;i+=2){const dx=pts[i].x-x,dz=pts[i].z-z,d=dx*dx+dz*dz;if(d<m)m=d}const X=c.xpts;for(let i=0;i<X.length;i++){const dx=X[i].x-x,dz=X[i].z-z,d=dx*dx+dz*dz;if(d<m)m=d}return Math.sqrt(m)},
     nearGate:(x,z,m)=>c.gates.some(g=>Math.hypot(g.c.x-x,g.c.z-z)<m)||c.courses.some(k=>k.gates.some(g=>Math.hypot(g.c.x-x,g.c.z-z)<m)),
-    courses:[],roads:[],boxes:[],cyls:[],
+    courses:[],roads:[],boxes:[],cyls:[],prisms:[],
     // a road: levelled, painted, and kept clear of decor. poly=[[x,z],...]
     road(poly,o={}){const d=polyPts(poly,.5);c.xpts.push(...d);c.roads.push(poly);if(o.bench!==false)benchPts(polyPts(poly,.33),o.hw??1.3,o.blend??1.6);if(o.surf!=null)for(const p of d)paint(p.x,p.z,o.hw??1.3,o.surf,o.skip);return poly},
     // a course (an event inside an open world): its own line, gates and crates. Levelled like a road unless bench:false.
@@ -195,7 +196,7 @@ function genLevel(def){
     box(x,y,z,w,h,d,col,ry=0,o={}){c.boxes.push({x,y:y+h/2,z,sx:w,sy:h,sz:d,ry,rx:o.rx||0,rz:o.rz||0,c:col})},
     onLand:(x,z)=>H(x,z)>(def.water??-1e9)+.25&&(!def.coast||Math.hypot(x,z)<def.coast-6),
     cyl(x,y,z,r,h,col,o={}){c.cyls.push({x,y:y+h/2,z,sx:r,sy:h,sz:r,rx:o.rx||0,ry:o.ry||0,rz:o.rz||0,c:col});return c.cyls.length-1},
-    props(){for(const b of c.boxes)if(b.sx>=1&&b.sz>=1&&b.sy>=.8)c.footprints.push({x:b.x,z:b.z,w:b.sx,d:b.sz,ry:b.ry||0});c.propBoxes=instanced(DG.root,DM.white,c.boxes,c.decor);c.propCyls=instanced(DG.trunk,DM.white,c.cyls,c.decor);c.cylList=c.cyls;c.boxes=[];c.cyls=[]},
+    props(){for(const b of c.boxes)if(b.sx>=1&&b.sz>=1&&b.sy>=.8)c.footprints.push({x:b.x,z:b.z,w:b.sx,d:b.sz,ry:b.ry||0});c.propBoxes=instanced(DG.root,DM.white,c.boxes,c.decor);c.propCyls=instanced(DG.trunk,DM.white,c.cyls,c.decor);c.cylList=c.cyls;instanced(DG.prism,DM.white,c.prisms,c.decor);c.boxes=[];c.cyls=[];c.prisms=[]},
     footprints:[],   // big boxes (buildings), drawn on the island map
     // ---- town pieces (see README: «En by») ----
     // a staircase stamped at an absolute height: n steps of `rise` up, each `tread` deep, `w` wide, climbing from (x,z) in direction ang (radians, 0 = +z).
@@ -221,6 +222,8 @@ function genLevel(def){
       return poly},
     // a building: a box w×h×d with its bottom at y, its front towards +z in its own frame (rotated ry): plinth, flat roof with a lip and a roof box, window bands per floor, a door, and a box collider.
     building(x,y,z,w,h,d,col,ry=0,o={}){const fh=o.fh??1.2,floors=Math.max(1,Math.round(h/fh)),cs=Math.cos(ry),sn=Math.sin(ry),at=(lx,lz)=>[x+lx*cs+lz*sn,z-lx*sn+lz*cs];
+      // a stone foundation down to the ground where the ground under the footprint is lower than the floor (a terrace edge, a benched course)
+      {let m=1e9;for(const lx of[-w/2,0,w/2])for(const lz of[-d/2,0,d/2]){const[px,pz]=at(lx,lz);m=Math.min(m,H(px,pz))}if(m<y-.04)c.box(x,m-.05,z,w+.06,y-m+.05,d+.06,o.found||'#7d7974',ry)}
       c.box(x,y,z,w,h,d,col,ry);c.box(x,y,z,w+.08,.1,d+.08,o.plinth||'#55534f',ry);c.box(x,y+h,z,w+.16,.12,d+.16,o.roof||'#3f3d3a',ry);
       if(o.roofBox!==false){const[rx,rz]=at(w*.2,-d*.15);c.box(rx,y+h+.12,rz,Math.min(1.2,w*.35),.5,Math.min(1.0,d*.35),o.roofBoxCol||'#6a6866',ry)}
       const win=o.win||'#1a262d',wh=Math.min(.42,fh*.38),wy0=y+fh*.45;
@@ -304,7 +307,9 @@ function genLevel(def){
       // a house: walls, two roof slabs (ridge along the house), chimney, door, windows
       const house2=(hx,hz,ry,i,big)=>{const W=big?2.4:1.7,D=big?1.9:1.4,Hh=big?1.2:1.0,col=cols[i%cols.length],rc=roofs[i%roofs.length];
         c.box(hx,padH,hz,W,Hh,D,col,ry);c.box(hx,padH,hz,W+.1,.08,D+.1,'#3a3a3a',ry);
-        for(const sd of[-1,1]){const o2=sd*W*.25;c.box(hx+Math.cos(ry)*o2,padH+Hh+.2,hz-Math.sin(ry)*o2,W*.64,.07,D+.3,rc,ry,{rz:-sd*.62})}
+        // the roof slabs sit on the wall tops (before, the wall corners poked through), and the attic is a prism that closes the gables
+        for(const sd of[-1,1]){const o2=sd*W*.25;c.box(hx+Math.cos(ry)*o2,padH+Hh+.05+W*.179-.035,hz-Math.sin(ry)*o2,W*.64,.07,D+.3,rc,ry,{rz:-sd*.62})}
+        {const hr=W*.358;c.prisms.push({x:hx,y:padH+Hh+hr/3,z:hz,sx:W/1.732,sy:D,sz:hr/1.5,rx:-Math.PI/2,ry,ord:'YXZ',c:col})}
         c.box(hx+Math.cos(ry)*W*.3,padH+Hh+.2,hz-Math.sin(ry)*W*.3,.22,.55,.22,'#6b5a52',ry);c.box(hx+Math.sin(ry)*D/2,padH,hz+Math.cos(ry)*D/2,.42,.72,.04,'#3a2a22',ry);
         for(const sx2 of[-.45,.45])c.box(hx+Math.sin(ry)*D/2+Math.cos(ry)*sx2*W,padH+.45,hz+Math.cos(ry)*D/2-Math.sin(ry)*sx2*W,.32,.3,.03,'#1a262d',ry);c.colliders.push({x:hx,z:hz,r:Math.max(W,D)*.62,anchor:true,y:padH+.4})};
       // the four small houses flank the street out of the village (o.out), the big ferry office stands by the pier
@@ -321,7 +326,7 @@ function genLevel(def){
       const A=at(5.6,0),B=at(11.4,0);c.bridge(A[0],A[1],B[0],B[1],1.4,{sag:0,y0:padH+.02,y1:padH+.02,pier:true});
       for(let f=6.4;f<11.4;f+=1.6)for(const sd of[-1.25,1.25]){const[qx,qz]=at(f,sd);const bottom=Math.min(Hterr(qx,qz),w-.2);c.cyl(qx,bottom,qz,.09,padH-bottom+.1,'#4a3a2a')}
       // two rowing boats moored beside the pier
-      for(const[f,s,col]of[[8.2,2.6,'#c8463a'],[9.9,-2.7,'#4f7bb5']]){const[qx,qz]=at(f,s);c.box(qx,w-.08,qz,1.5,.34,.6,col,yaw+.2);c.box(qx,w+.22,qz,1.1,.04,.4,'#8a6a3a',yaw+.2)}
+      for(const[f,s,col]of[[8.2,2.6,'#c8463a'],[9.9,-2.7,'#4f7bb5']]){const[qx,qz]=at(f,s);c.box(qx,w-.08,qz,1.5,.34,.6,col,yaw+.2);c.box(qx,w+.23,qz,1.1,.04,.4,'#8a6a3a',yaw+.2)}
       // the ferry's car deck: drivable, flush with the pier. The hull itself is drawn by the game so it can sail.
       const F0=at(11.2,0),F1=at(18.0,0);const fd=c.bridge(F0[0],F0[1],F1[0],F1[1],1.55,{sag:0,y0:padH+.03,y1:padH+.03,pier:true,ferry:true});
       const fc=at(14.6,0);c.ferry={x:fc[0],z:fc[1],dir:a,dx,dz,y:padH+.04,len:6.8,hw:1.55,quay:{x:A[0],z:A[1]},pad:{x:vx,z:vz,h:padH},deck:fd};
@@ -413,7 +418,7 @@ function genLevel(def){
   if(c.pistes.length&&!c._pisteDressed)c.dressPistes();G.pistes=c.pistes;
   if(!c._done)c.finish();
   if(c.plantList.length)c.plants();
-  if(c.boxes.length||c.cyls.length)c.props();
+  if(c.boxes.length||c.cyls.length||c.prisms.length)c.props();
   // an island that is a race: the race line is also a course you can start from its portal while roaming
   if(def.village&&!def.world){const k=c.course({id:def.id,name:def.name,desc:def.desc,diff:def.diff,path:def.path,gates:def.gates,gateT:def.gateT,bench:false});k.main=true}
   c.start=def.start?{p:new V3(def.start[0],0,def.start[1]),tan:new V3(Math.sin(def.start[2]||0),0,Math.cos(def.start[2]||0))}:{p:c.P(0),tan:c.T(.004)};
