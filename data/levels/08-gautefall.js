@@ -92,7 +92,7 @@ LEVELS.push(
     c.flat(C[0],C[1],PLAT-.4,TOP,1.6);
     c.lift(LIFT_A,LIFT_B,{span:5});
     // --- parkeringsplassen: oppmerking, biler, billettluke og skistativ ---
-    for(let i=-3;i<=3;i++){const x=PARK[0]+i*1.15,z=PARK[1]-2.2;c.box(x+.575,ph+.005,z,.06,.01,1.6,'#f4f4f0')}
+    for(let i=-3;i<=3;i++){const x=PARK[0]+i*1.15,z=PARK[1]-2.2;c.box(x+.575,Math.min(H(x+.575,z-.8),H(x+.575,z+.8))+.002,z,.06,.012,1.6,'#f4f4f0')}
     for(const[x,col]of[[-2.9,'#c8463a'],[-.6,'#4f7bb5'],[1.7,'#e9dcb9'],[2.9,'#3a3a3a']]){const z=PARK[1]-2.2;c.box(x,ph,z,.9,.42,1.7,col);c.box(x,ph+.42,z+.1,.8,.3,.9,'#1a262d');c.colliders.push({x,z,w:.92,d:1.72,ry:0,anchor:true,y:ph+.4})}
     {const bx=PARK[0]+3.4,bz=PARK[1]+1.4;c.box(bx,ph,bz,1.3,1.1,1.0,'#b0533a');c.box(bx,ph+1.1,bz,1.5,.14,1.2,'#eef2f6');c.box(bx-.66,ph+.5,bz,.03,.35,.6,'#1a262d');c.colliders.push({x:bx,z:bz,w:1.32,d:1.02,ry:0,anchor:true,y:ph+.5})}
     for(let i=0;i<4;i++){const x=PARK[0]-3.6+i*.32,z=PARK[1]+1.2;c.box(x,ph,z,.04,.7,.08,['#d9432f','#2f6fd6','#f2c230','#3fae3a'][i])}c.box(PARK[0]-3.1,ph+.35,PARK[1]+1.2,1.4,.05,.12,'#5a6066');

@@ -22,5 +22,5 @@ PROPS.lykt={
     out.add(DG.root,DM.white,{x:hx,y:hc,z:hz,sx:.26*k,sy:.14*k,sz:.26*k,ry:t.ang,c:'#fff0c0'});
     out.add(DG.root,DM.white,{x:hx,y:hc+.09*k,z:hz,sx:.3*k,sy:.04*k,sz:.3*k,ry:t.ang,c:dark});
     (env.fx||[]).push({type:'lamp',x:hx,y:hc-.01,z:hz});
-    env.perches.push(t.arm>.02?{x:t.x,y:y+h+.03,z:t.z,kind:'post'}:{x:hx,y:hc+.11*k,z:hz,kind:'post'})}
+    env.perches.push(t.arm>.02?{x:t.x,y:y+h,z:t.z,kind:'post'}:{x:hx,y:hc+.11*k,z:hz,kind:'post'})}
 };

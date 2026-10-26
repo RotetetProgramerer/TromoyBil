@@ -79,12 +79,12 @@ function buildBody(cfg){
   if(X.includes('box')){bx(.4,.14,.3,M.blkC,-.1,ry+.08,rc+.22,g);bx(.42,.02,.32,M.steel,-.1,ry+.155,rc+.22,g)}
   if(X.includes('toolbox')){bx(.26,.1,.16,M.red,.12,ry+.06,rc+.2,g);bx(.27,.015,.17,M.blkC,.12,ry+.115,rc+.2,g)}
   if(X.includes('tent')){cyl(.07,.52,M.orange,0,ry+.08,rc+.25,g,'x',10);for(const dx of[-.18,.18])bx(.02,.16,.16,M.blkC,dx,ry+.08,rc+.25,g)}
-  if(X.includes('crates')){bx(.22,.14,.2,M.blue,-.2,ry+.08,rc-.18,g);bx(.2,.12,.22,M.green,.1,ry+.07,rc-.18,g);bx(.18,.1,.14,M.orange,.26,ry+.06,rc+.1,g)}
-  if(X.includes('tarp')){bx(.5,.1,.36,M.canvas,0,ry+.06,rc-.05,g);for(const dz of[-.12,.12])bx(.54,.012,.02,M.blkC,0,ry+.115,rc-.05+dz,g)}
+  if(X.includes('crates')){const r=cfg.spare==='rack';bx(.22,.14,.2,M.blue,r?.13:-.2,ry+.08,r?rc-.22:rc-.18,g);bx(.2,.12,.22,M.green,r?.13:.1,ry+.07,r?rc+.01:rc-.18,g);bx(.18,.1,.14,M.orange,r?.31:.26,ry+.06,r?rc-.12:rc+.1,g)}   // beside the spare when it lies on the rack
+  if(X.includes('tarp')){const tz=rc+.48;bx(.5,.1,.36,M.canvas,0,ry+.06,tz,g);for(const dz of[-.12,.12])bx(.54,.012,.02,M.blkC,0,ry+.115,tz+dz,g)}   // in front of the cans and the toolbox
   if(X.includes('spade'))spade(1);if(X.includes('axe'))axe(-1);
   // spare
   const sp=buildWheel(.2,1);sp.root.scale.set(.85,.85,.85);
-  if(cfg.spare==='rear'){sp.root.position.set(0,y0+.24,rz-.12);sp.root.rotation.y=Math.PI/2}
+  if(cfg.spare==='rear'){sp.root.position.set(0,y0+.24,rz-.21);sp.root.rotation.y=Math.PI/2;bx(.05,.05,.1,M.blkC,0,y0+.24,rz-.13,g)}   // behind the bumper bar, on a short bracket
   else if(cfg.spare==='hood'){sp.root.position.set(0,yT+.09,fz-hood/2);sp.root.rotation.z=Math.PI/2}
   else{sp.root.position.set(-.18,ry+.08,rc-.1);sp.root.rotation.z=Math.PI/2}
   g.add(sp.root);

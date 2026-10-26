@@ -20,6 +20,7 @@ data/cars.js          Bilene.                 ← legg til nye biler her
 data/levels/NN-id.js  Én fil per bane.         ← legg til nye baner her
 data/parts.js         Garasjedeler og lakkfarger.
 tools/test-levels.js  Autopilot som tester alle baner uten nettleser.
+tools/test-props.js   Finner pynt som svever over bakken uten noe under seg (node tools/test-props.js [bane]).
 manifest.json, sw.js  Gjør spillet til en PWA (installerbar, virker uten nett).
 icons/                Appikoner.
 ```

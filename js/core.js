@@ -369,7 +369,9 @@ function genLevel(def){
     dressPistes(){c._pisteDressed=true;const PC=['#3fae3a','#3fae3a','#2f6fd6','#d9432f','#1d1c1a'];
       for(const k of c.pistes){const col=PC[k.def.color??k.diff],L=k.len;
         for(let d=2.5;d<L-2.5;d+=3.2){const t=d/L,p=k.P(t),s=k.side(t);for(const sd of[-1,1]){const x=p.x+s.x*sd*(k.hw+.4),z=p.z+s.z*sd*(k.hw+.4),y=H(x,z);if(k.kickers.some(q=>Math.hypot(q.x-x,q.z-z)<1.5))continue;c.cyl(x,y-.05,z,.026,.8,col);c.cyl(x,y+.62,z,.03,.1,'#f2c230')}}
-        const s0=k.start.p,tn=k.start.tan,sd=k.side(0),hx=s0.x+sd.x*(k.hw+1.0)-tn.x*.4,hz=s0.z+sd.z*(k.hw+1.0)-tn.z*.4,hy=H(hx,hz),ry=Math.atan2(tn.x,tn.z);
+        const s0=k.start.p,tn=k.start.tan,sd=k.side(0),hx=s0.x+sd.x*(k.hw+1.0)-tn.x*.4,hz=s0.z+sd.z*(k.hw+1.0)-tn.z*.4,ry=Math.atan2(tn.x,tn.z),cs=Math.cos(ry),sn=Math.sin(ry);
+        let lo=1e9,hi=-1e9;for(const lx of[-.5,0,.5])for(const lz of[-.43,0,.43]){const g=H(hx+lx*cs+lz*sn,hz-lx*sn+lz*cs);lo=Math.min(lo,g);hi=Math.max(hi,g)}const hy=(lo+hi)/2+.15;   // dug into the slope on the uphill side, a foundation on the downhill side
+        if(hy-.15-lo>.03)c.box(hx,lo-.08,hz,1.04,hy-.15-lo+.1,.89,'#6a6662',ry);
         c.box(hx,hy-.15,hz,1.0,1.05,.85,'#b0533a',ry);c.box(hx,hy+.9,hz,1.2,.12,1.05,'#eef2f6',ry);c.box(hx-sd.x*.51,hy+.3,hz-sd.z*.51,.03,.32,.4,'#1a262d',ry);c.colliders.push({x:hx,z:hz,w:1.04,d:.9,ry,anchor:true,y:hy+.5})}},
     // a chairlift from A (bottom station) to B (top station): masts tall enough that the chairs clear the ground, and two stations with a
     // horizontal bullwheel under a roof. The cable and the chairs are drawn and moved by the game (js/ski.js) from G.lift.
@@ -381,12 +383,13 @@ function genLevel(def){
         if(N0.fixed)N1.y=(nd-N0.y*(1-u))/u+1e-3;else if(N1.fixed)N0.y=(nd-N1.y*u)/(1-u)+1e-3;else{N0.y+=nd-ly+1e-3;N1.y+=nd-ly+1e-3}}}if(!moved)break}
       for(let d=0;d<=len;d+=1)c.xpts.push({x:ax+ux*d,z:az+uz*d});
       // masts: a pole, a cross arm and a sheave train under each cable
-      for(const nd of nodes){if(nd.fixed)continue;const x=ax+ux*nd.d,z=az+uz*nd.d,gy=H(x,z);c.cyl(x,gy-.1,z,.09,nd.y-gy+.3,'#8a9096');c.box(x,nd.y+.12,z,2*off+.4,.09,.12,'#6d747a',ry);
-        for(const s of[-off,off])c.box(x+px*s,nd.y+.02,z+pz*s,.08,.07,.42,'#2f3336',ry);c.colliders.push({x,z,r:.16,anchor:true,y:gy+.6})}
+      for(const nd of nodes){if(nd.fixed)continue;const x=ax+ux*nd.d,z=az+uz*nd.d,gy=H(x,z);c.cyl(x,gy-.1,z,.055,nd.y-gy+.3,'#8a9096');c.box(x,nd.y+.12,z,2*off+.4,.09,.12,'#6d747a',ry);   // the pole is thin enough that the chairs' inner edge (0,075 from the middle) clears it
+        for(const s of[-off,off])c.box(x+px*s,nd.y,z+pz*s,.08,.12,.42,'#2f3336',ry);c.colliders.push({x,z,r:.16,anchor:true,y:gy+.6})}
       // stations: the bullwheel turns under a roof on four posts; a machine house beside the bottom one, a hut beside the top one
+      // the posts stand outside the chairs: a chair is 0,95 wide round the cable, so it reaches off+0,48 from the middle
       const station=(x,z,y,dir,house)=>{const gy=y-1.55;c.cyl(x,y-.05,z,off+.02,.07,'#c8463a');c.cyl(x,y-.6,z,.12,.6,'#5a6066');
-        for(const sa of[-1,1])for(const sb of[-1,1]){const qx=x+px*sa*(off+.45)+ux*sb*.75,qz=z+pz*sa*(off+.45)+uz*sb*.75;c.cyl(qx,gy-.05,qz,.05,1.95+.05,'#5a6066');c.colliders.push({x:qx,z:qz,r:.07})}
-        c.box(x,y+.4,z,2*off+1.3,.12,2.0,'#c8463a',ry);c.box(x,y+.52,z,2*off+1.1,.06,1.8,'#eef2f6',ry);
+        for(const sa of[-1,1])for(const sb of[-1,1]){const qx=x+px*sa*(off+.65)+ux*sb*.75,qz=z+pz*sa*(off+.65)+uz*sb*.75;c.cyl(qx,gy-.05,qz,.05,1.95+.05,'#5a6066');c.colliders.push({x:qx,z:qz,r:.07})}
+        c.box(x,y+.4,z,2*off+1.6,.12,2.0,'#c8463a',ry);c.box(x,y+.52,z,2*off+1.4,.06,1.8,'#eef2f6',ry);
         const hx=x+px*dir*(off+1.65),hz=z+pz*dir*(off+1.65);c.box(hx,gy-.1,hz,1.5,1.25,2.2,house,ry);c.box(hx,gy+1.15,hz,1.7,.14,2.4,'#eef2f6',ry);for(const s of[-.55,.55])c.box(hx-px*dir*.76+ux*s,gy+.45,hz-pz*dir*.76+uz*s,.03,.3,.4,'#1a262d',ry);
         c.colliders.push({x:hx,z:hz,w:1.54,d:2.24,ry,anchor:true,y:gy+.6})};
       station(ax,az,y0,-1,'#d9d2c0');station(bx,bz,y1,1,'#b0533a');
