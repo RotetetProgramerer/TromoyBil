@@ -5,7 +5,7 @@ require('./sim-shim.js');
 const fs=require('fs'),path=require('path'),vm=require('vm');
 const root=path.join(__dirname,'..');
 const load=f=>vm.runInThisContext(fs.readFileSync(path.join(root,f),'utf8'),{filename:f});
-load('js/core.js');load('js/skier.js');load('data/parts.js');load('data/cars.js');
+load('js/core.js');load('js/props.js');load('js/skier.js');load('data/parts.js');load('data/cars.js');load('data/vegetasjon.js');load('data/dyr.js');
 // same levels and order as the game: the <script> tags in index.html
 const levelFiles=[...fs.readFileSync(path.join(root,'index.html'),'utf8').matchAll(/<script src="(data\/levels\/[^"]+\.js)"/g)].map(m=>m[1]);
 for(const f of fs.readdirSync(path.join(root,'data/levels')).filter(f=>f.endsWith('.js')))if(!levelFiles.includes('data/levels/'+f))console.log('ADVARSEL: data/levels/'+f+' mangler i index.html og er ikke med i spillet');

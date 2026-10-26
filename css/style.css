@@ -133,6 +133,16 @@ kbd{font-family:var(--f-body);font-weight:700;border:1px solid rgba(242,232,208,
 .toast.bad{color:var(--signal)}
 .hint{position:fixed;z-index:12;left:50%;transform:translateX(-50%);bottom:calc(96px + env(safe-area-inset-bottom,0px));background:var(--signal);color:var(--ink);font-weight:700;padding:8px 14px;font-size:1.05rem;text-align:center;max-width:calc(100% - 32px)}
 .hint button{text-decoration:underline;font-weight:700}
+/* a start portal nearby: the car keeps driving, the player chooses to start */
+.offer{position:fixed;z-index:12;left:50%;transform:translateX(-50%);bottom:calc(116px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:14px;
+  background:rgba(20,18,14,.86);border-left:4px solid var(--sand);padding:8px 8px 8px 14px;max-width:calc(100% - 32px)}
+.offer .ot{display:flex;flex-direction:column;min-width:0}
+.offer .ot span{font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:var(--sand)}
+.offer .ot b{font-family:var(--f-display);font-size:1.25rem;color:var(--paper);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.offer .ot small{font-size:.85rem;color:var(--paper);opacity:.8}
+.offer .go{white-space:nowrap;padding:10px 16px}
+.offer kbd{font:inherit;font-size:.75em;opacity:.7;margin-left:4px}
+body.is-touch .offer kbd{display:none}
 
 /* ---------- touch ---------- */
 .touch{display:none}
