@@ -14,13 +14,17 @@ js/animals.js         Dyr (papegøyer, apekatter, sommerfugler, krabber) og den 
 js/ambience.js        Jungellyd laget med WebAudio (ingen lydfiler).
 js/skier.js           Fysikken for skiløperen i Gautefall (ingen DOM, testes uten nettleser).
 js/ski.js             Skianlegget i spillet: stolheisen, skiløperen, turen opp og ned, kamera og lyd.
+js/boatsim.js         Fysikken for motorbåtløpet: båtene, bøyene, piratene og vulkanen (ingen DOM, testes uten nettleser).
+js/boat.js            Motorbåtløpet fra marinaen på Tromøya: havet, øyene, båtene, delt skjerm, HUD, lyd og løp mot andre i rommet.
 js/net.js             Flerspiller: rom, romkode og de andre bilene.
 data/cars.js          Bilene.                 ← legg til nye biler her
 data/levels/NN-id.js  Én fil per bane.         ← legg til nye baner her
 data/parts.js         Garasjedeler og lakkfarger.
 data/vegetasjon.js    Trær og planter for jungel, subtropisk og arktisk.   ← legg til nye planter her
 data/dyr.js           Dyr for de samme tre miljøene (står i ro).          ← legg til nye dyr her
+data/boats.js         Havet og båtløpene fra marinaen.                    ← legg til nye båtløp her
 tools/test-levels.js  Autopilot som tester alle baner uten nettleser.
+tools/test-boats.js   Autopilot som kjører alle båtløpene uten nettleser.
 manifest.json, sw.js  Gjør spillet til en PWA (installerbar, virker uten nett).
 icons/                Appikoner.
 ```
@@ -248,6 +252,33 @@ Verktøy i `build(c)` for vinter og ski:
 
 Testen kjører også nedfartene med en autopilot på ski: `node tools/test-levels.js gautefall`. Hver løype skal vise `MÅL`, helst `kræsj 0` og `fast 0`. For hoppløypa vises lufttiden for hvert hopp og den hardeste landingen (over 8,2 er et fall).
 
+## Marinaen og båtløpet
+
+Nordvest på Tromøya ligger Captain Theis' marina: et naust med skilt, en brygge på pæler, bensinpumpe, livbøyer og båter ved brygga. En av dem er lakkert i samme farge som bilen. Veien dit går fra vestveien ved basen, langs kanten av jungelen. Kjør inn på den blå ruta, så kommer spørsmålet «Vil du kjøre båt?». JA: bilen blir stående, og du kommer ut på sjøen med båtmenyen.
+
+I båtmenyen velger du løp og om dere er én eller to spillere. To spillere deler skjermen (side om side, eller over hverandre på en høy skjerm) og tastaturet. Båten til spiller 1 har samme farge som bilen.
+
+| Løp | Vanskelighet | Bøyer | Mål |
+|---|---|---|---|
+| Rundt Tromøya | Lett | 7 i en stor runde rundt øya | Marinaen |
+| Skilsø-løpet | Middels | 4 på kryss og tvers | Brygga på Skilsø |
+| Vulkanløpet | Vanskelig (låses opp når du har fullført et annet båtløp) | 6 rundt Hisøya, mens vulkanen kaster lavabomber | Marinaen |
+
+Rund bøyene i rekkefølge (lyssøylen og kompasset viser neste) og fortøy ved brygga. Du må sakke farten der, ellers får du ikke lagt til. Turbotønnene gir fart. Piratskutene skyter på alt som beveger seg, og blir du truffet, spinner båten rundt. I Lett-modus er det færre pirater, og de sikter dårligere. Et sted ute i skjærgården ligger en skattekiste (50 ⚙, én gang).
+
+| Taster | En spiller | To spillere |
+|---|---|---|
+| Gass, brems/revers, sving | WASD eller piltastene | Spiller 1: WASD. Spiller 2: piltastene |
+| Pause | Esc eller P | Esc eller P |
+
+På mobil og nettbrett har hver spiller sine egne knapper: sving nede til venstre, gass og brems nede til høyre i sin del av skjermen. En håndkontroll per spiller virker også.
+
+Muttere: 5 per bøye, 3 per turbotønne, 20 for å fortøye, 15 hvis du aldri ble truffet, 60 første gang i mål i et løp og 20 for ny rekord (25 for å vinne mot andre). Beste tid og stjerner lagres per løp i `best['verden/baat/…']`. `par` i `data/boats.js` sier hvor fort du må være for tre og to stjerner.
+
+**Banefelt:** `marina:{at:[x,z],dir,out}` bygger marinaen (`c.marina` i `js/core.js`) før `build(c)`, på samme måte som `village`. `dir` (grader) peker ut mot sjøen, og standard er rett ut fra øyas midtpunkt. `out` er veien inn på øya. Banens egen vei fra resten av øya må ende der marinaveien begynner. Testen kjører den veien inn på den blå ruta.
+
+**Havet og løpene (`data/boats.js`):** Øyene ligger der de ligger på skjærgårdskartet (`pos` i `data/archipelago.js` ganger `SEA.span`), og Skilsø ligger i `SEA.extra`. Et løp har `buoys:[[x,z],…]` (nord er −z), `finish:'marina'` eller `'skilso'`, `pirates`, `par:[tre stjerner, to stjerner]`, eventuelt `needs:{races:1}` og `lava:true`. Kjør `node tools/test-boats.js` etter endringer: den sjekker at bøyene og etappene holder avstand til øyene og lar en autopilot kjøre hvert løp, uten pirater og med pirater fem ganger.
+
 ## Planter og dyr (`data/vegetasjon.js`, `data/dyr.js`)
 
 Hver plante og hvert dyr er en oppføring `PROPS.navn={navn,info,params,place,build}`. Prefikset i navnet forteller miljøet: `jungel_*`, `subtrop_*` og `arktis_*`.
@@ -280,6 +311,7 @@ Ny plante eller nytt dyr: kopier en oppføring. `place(x,z,o,env)` leser paramet
 - **Kobling:** [PeerJS](https://peerjs.com) lastes fra jsDelivr først når noen trykker «Lag rom» eller «Bli med». Verten registrerer romkoden hos den gratis PeerJS-tjenesten, og gjestene kobler seg direkte til verten med WebRTC. Verten sender meldingene videre til de andre. Ingen egen server trengs, så det virker fra GitHub Pages.
 - **Lokal test:** Kryss av for «Lokal test» i dialogen, eller åpne siden med `?local`. Da kobles faner i samme nettleser med `BroadcastChannel`, uten nett, men med nøyaktig samme romlogikk. Åpne to faner, lag rom i den ene og bli med i den andre.
 - **Mellom øyene:** Du ser bare biler på samme øy. Øykartet og minikartet viser vennene som prikker i deres farge, og skjærgårdskartet viser hvilken øy de er på. I pausemenyen kan du ta fergen rett til øya der en venn er (5 muttere). Når en venn reiser fra eller kommer til øya di, seiler fergen med dem.
+- **Båtløp:** Den som står i båtmenyen ved marinaen, kan invitere rommet. De andre får spørsmålet der de kjører, og blir med i lobbyen. Lederen velger løp og starter for alle. Alle styrer sin egen båt og ser de andres, og resultatlista fylles ut etter hvert som båtene fortøyer. Piratene skyter bare på båten på sin egen skjerm.
 - **Brudd:** En gjest som mister verten prøver å koble seg til igjen fem ganger. Forlater verten rommet, får gjestene beskjed og kjører videre alene. Det er ingen ny vert når verten går.
 
 Strenge nettverk, som enkelte skole- og jobbnett, kan blokkere direkte kobling mellom nettlesere. Da får man en melding om at koblingen ikke fikk kontakt.

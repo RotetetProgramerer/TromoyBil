@@ -341,6 +341,41 @@ function genLevel(def){
       const F0=at(11.2,0),F1=at(18.0,0);const fd=c.bridge(F0[0],F0[1],F1[0],F1[1],1.55,{sag:0,y0:padH+.03,y1:padH+.03,pier:true,ferry:true});
       const fc=at(14.6,0);c.ferry={x:fc[0],z:fc[1],dir:a,dx,dz,y:padH+.04,len:6.8,hw:1.55,quay:{x:A[0],z:A[1]},pad:{x:vx,z:vz,h:padH},deck:fd};
       c.village_=o;return c.ferry},
+    // a marina where you can borrow a motorboat (see README: «Marinaen og båtløpet»): a pad by the shore with a boathouse, a fuel pump,
+    // a plank pier on piles and boats moored beside it. Park on the blue square to be asked. o.at=[x,z] on the beach; o.dir (degrees) points
+    // out to sea (default: away from the island's centre), o.out is the way inland. The rental boat, life rings and flag are drawn by js/boat.js.
+    marina(o){const vx=o.at[0],vz=o.at[1],a=(o.dir??Math.atan2(vz,vx)/Math.PI*180)*Math.PI/180,dx=Math.cos(a),dz=Math.sin(a),px=-dz,pz=dx,w=def.water??0,yaw=Math.atan2(dx,dz);
+      const padH=w+.9,at=(f,s)=>[vx+dx*f+px*s,vz+dz*f+pz*s];c.flat(vx,vz,4.8,padH,3);c.block(vx,vz,6.5);for(let k=-5;k<=5;k+=2)for(let m=-5;m<=5;m+=2)if(Math.hypot(k,m)<5.5)c.xpts.push({x:vx+k,z:vz+m});
+      paint(vx,vz,4.6,S.GRAVEL);
+      // the way inland, levelled like the village road. The pad is steep towards the sea (blend 3), so the water is deep a few steps out.
+      const oa=(o.out??(a/Math.PI*180+180))*Math.PI/180,ox=Math.cos(oa),oz=Math.sin(oa);
+      c.road([[vx+ox*1.5,vz+oz*1.5],[vx+ox*7,vz+oz*7],[vx+ox*13,vz+oz*13]],{hw:1.4,blend:2.2,surf:S.GRAVEL});c.flat(vx,vz,4.8,padH,3);
+      // the pier: a straight plank deck on piles, with a stop at the end so the car does not drive into the sea
+      const S0=-1.2,A=at(4.4,S0),B=at(12.4,S0);c.bridge(A[0],A[1],B[0],B[1],1.0,{sag:0,y0:padH+.02,y1:padH+.02,pier:true});
+      for(let f=5.2;f<12.4;f+=1.6)for(const sd of[-.85,.85]){const[qx,qz]=at(f,S0+sd);const bottom=Math.min(Hterr(qx,qz),w-.2);c.cyl(qx,bottom,qz,.08,padH-bottom+.1,'#4a3a2a')}
+      {const[ex,ez]=at(12.25,S0);c.box(ex,padH,ez,2.0,.3,.16,'#d9432f',yaw);c.colliders.push({x:ex,z:ez,w:2.1,d:.3,ry:yaw})}
+      for(const f of[6.0,9.2])for(const sd of[-.92,.92]){const[qx,qz]=at(f,S0+sd);c.cyl(qx,padH,qz,.06,.16,'#1d1c1a')}   // bollards
+      // the boathouse: red walls, a dark roof, big doors towards the water and the sign over them on the land side
+      {const[hx,hz]=at(1.0,3.2),W=2.5,D=2.8,Hh=1.25;c.box(hx,padH,hz,W,Hh,D,'#b5432f',yaw);c.box(hx,padH,hz,W+.1,.08,D+.1,'#3a3a3a',yaw);
+        for(const sd of[-1,1]){const o2=sd*W*.25;c.box(hx+Math.cos(yaw)*o2,padH+Hh+.24,hz-Math.sin(yaw)*o2,W*.66,.08,D+.3,'#2f2a28',yaw,{rz:-sd*.62})}
+        c.box(hx+Math.sin(yaw)*D/2,padH,hz+Math.cos(yaw)*D/2,W*.7,Hh*.86,.05,'#5a3a22',yaw);c.box(hx+Math.sin(yaw)*D/2,padH+Hh*.86,hz+Math.cos(yaw)*D/2,W*.8,.08,.07,'#f2e8d0',yaw);
+        for(const sd of[-1,1])c.box(hx+Math.cos(yaw)*sd*W/2,padH+.5,hz-Math.sin(yaw)*sd*W/2,.03,.32,.5,'#1a262d',yaw);
+        c.colliders.push({x:hx,z:hz,w:W+.04,d:D+.04,ry:yaw,anchor:true,y:padH+.5})}
+      {const[sx,sz]=at(-1.0,3.2);c.fx.push({type:'sign',x:sx,z:sz,ang:Math.atan2(-dx,-dz),text:'CAPTAIN THEIS',sub:'båtutleie · motorbåtløp',w:1.9})}
+      // the fuel pump at the root of the pier, lamps, barrels
+      {const[fx,fz]=at(3.5,.7);c.box(fx,padH,fz,.34,.62,.26,'#d9432f',yaw);c.box(fx,padH+.62,fz,.3,.12,.22,'#1d1c1a',yaw);c.box(fx+Math.sin(yaw)*.14,padH+.34,fz+Math.cos(yaw)*.14,.18,.14,.03,'#f2e8d0',yaw);c.colliders.push({x:fx,z:fz,r:.24})}
+      for(const[f,s]of[[3.8,-2.5],[-2.6,-.4]]){const[lx,lz]=at(f,s);c.cyl(lx,padH,lz,.05,1.5,'#3a3a3a');c.box(lx,padH+1.45,lz,.22,.16,.22,'#fff0c0');c.colliders.push({x:lx,z:lz,r:.1,anchor:true,y:padH+.6})}
+      for(const[f,s,col]of[[-1.7,4.1,'#5a7a8a'],[-2.1,3.7,'#e5a92b']]){const[bx2,bz2]=at(f,s);c.cyl(bx2,padH,bz2,.17,.42,col);c.colliders.push({x:bx2,z:bz2,r:.2})}
+      // boats moored on the far side of the pier
+      for(const[f,col]of[[8.4,'#e9dcb9'],[10.7,'#4f7bb5']]){const[qx,qz]=at(f,S0+1.85);c.box(qx,w-.1,qz,.66,.36,1.8,col,yaw);c.box(qx,w+.26,qz,.6,.04,1.5,'#f2e8d0',yaw);c.box(qx+Math.sin(yaw)*.1,w+.3,qz+Math.cos(yaw)*.1,.34,.22,.24,'#1a262d',yaw)}
+      // the blue square: park here and you are asked whether you want to take the boat out
+      const Q=at(1.8,-3.0);c.box(Q[0],padH+.004,Q[1],1.9,.012,1.6,'#2f6fd6',yaw);
+      {const[sx,sz]=at(.4,-4.6);c.fx.push({type:'sign',x:sx,z:sz,ang:Math.atan2(-dx,-dz),text:'MARINA',sub:'kjør inn på den blå ruta'})}
+      // posts for the life rings and the flag (their colliders here, the rings and the flag in js/boat.js)
+      const post=(f,s,ry)=>{const[rx,rz]=at(f,s);c.colliders.push({x:rx,z:rz,r:.08});return{x:rx,z:rz,y:padH+.02,ry}};
+      c.marinaDef={x:vx,z:vz,dir:a,dx,dz,yaw,padH,water:w,ask:{x:Q[0],z:Q[1]},boat:(([bx,bz])=>({x:bx,z:bz}))(at(8.0,-3.4)),flag:post(-2.4,-2.8,yaw),
+        rings:[post(7.6,S0-.95,yaw+Math.PI/2),post(11.0,S0+.95,yaw-Math.PI/2),post(2.9,1.9,yaw)]};
+      return c.marinaDef},
     // ---- winter pieces (see README: «Gautefall: vinterøya og skianlegget») ----
     // a spruce with snow on its branches: a trunk and three or four stacked cones, each with a white cap. c.spruces() builds them all (after c.finish).
     spruceList:[],
@@ -430,6 +465,7 @@ function genLevel(def){
     c.gates.push({t,c:p,tan:tn,side:s,a:{x:p.x+s.x*1.25,z:p.z+s.z*1.25},b:{x:p.x-s.x*1.25,z:p.z-s.z*1.25},finish:k===NG})}
   G.waterAt=(x,z)=>{let w=-1e9;if(def.water!=null&&(!def.waterBand||def.waterBand(x,z)))w=def.water;for(const p of c.pools){if((x-p.x)*(x-p.x)+(z-p.z)*(z-p.z)<p.r*p.r&&p.level>w)w=p.level}return w};
   if(def.village)c.village(def.village);
+  if(def.marina)c.marina(def.marina);
   def.build(c);
   if(c.pistes.length&&!c._pisteDressed)c.dressPistes();G.pistes=c.pistes;
   if(!c._done)c.finish();
