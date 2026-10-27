@@ -16,7 +16,9 @@ function buildWheel(r,side){
   for(let i=0;i<5;i++){const a=i/5*Math.PI*2;cyl(.018,.03,M.blk,side*.1,Math.cos(a)*.085,Math.sin(a)*.085,spin,'x',6)}
   return{root,spin};
 }
-function buildBody(cfg){
+// the wheel for a car: the standard wheel, scaled up for a car with its own wheel size (cfg.wr radius, cfg.tireW tire width)
+function carWheel(cfg,side){const w=buildWheel(WR,side),k=(cfg.wr||WR)/WR;if(cfg.wr||cfg.tireW)w.spin.scale.set((cfg.tireW||.19)/.19,k,k);return w}
+function buildBody(cfg){if(cfg.style==='monster')return buildMonster(cfg);
   const g=new THREE.Group(),L=cfg.L,W=.92,y0=.08,lh=.34,gh=cfg.gh,hood=cfg.hood,yT=y0+lh,fz=L/2,rz=-L/2;
   bx(.5,.06,L*.86,M.blkC,0,-.02,0,g);
   bx(W,lh,L,M.yel,0,y0+lh/2,0,g);
@@ -96,4 +98,34 @@ function buildBody(cfg){
     bx(.17,.14,.12,M.shirt,sx*.2,yT+.02,gz1-.32,g)}
   return g;
 }
-
+/* ---------- the monster truck: a wide shell high over big wheels, fenders over the tyres, a short cab and bed, and the black chassis with shocks and bumpers underneath ---------- */
+function buildMonster(cfg){
+  const g=new THREE.Group(),L=cfg.L,wb=cfg.wb,tr=cfg.track||TRACK,yB=.42,fz=.95,rz=-.95,fw=tr/2+(cfg.tireW||.19)/2-.48;   // yB: the beltline over the fenders; fw: how far a fender reaches out past the shell
+  // chassis: the tub, skid plates, bumpers with struts, the shocks down to the axles
+  bx(.5,.1,1.9,M.blkC,0,-.1,0,g);for(const sz of[1,-1]){bx(.42,.03,.3,M.steel,0,-.15,sz*.95,g);bx(1.02,.08,.08,M.blkC,0,-.03,sz*(L/2-.05),g);for(const sx of[1,-1])bx(.04,.14,.18,M.blkC,sx*.22,-.02,sz*(L/2-.17),g)}
+  for(const sx of[1,-1])for(const wz of[wb/2,-wb/2])for(const dz of[-.07,.07]){const s=cyl(.03,.5,M.steel,sx*.44,.08,wz+dz,g,null,8);s.rotation.z=sx*.35;const b=cyl(.042,.22,M.red,sx*.4,.2,wz+dz,g,null,8);b.rotation.z=sx*.35}
+  // the shell: sides between the wheels, fenders over the tyres and steps between them, all in the paint
+  bx(.96,.3,1.9,M.yel,0,yB-.17,0,g);
+  for(const sx of[1,-1]){const fx=sx*(.48+fw/2);
+    for(const wz of[wb/2,-wb/2]){bx(fw,.04,.86,M.yel,fx,yB,wz,g);bx(.04,.07,.88,M.blkC,sx*(.48+fw),yB-.01,wz,g);for(const dz of[-.43,.43])bx(fw,.14,.04,M.yel,fx,yB-.07,wz+dz,g)}
+    bx(fw,.04,wb-.86,M.yel,fx,yB,0,g);bx(.04,.05,wb-.86,M.blkC,sx*(.48+fw),yB-.01,0,g);
+    // graphics on the flanks: a black stripe and three slashes, the sticker
+    bx(.012,.04,1.8,M.blkC,sx*.486,.18,0,g);for(let i=0;i<3;i++){const m=bx(.012,.2,.05,M.blkC,sx*.486,.3,-.55+i*.12,g);m.rotation.x=.6}
+    const p=new THREE.Mesh(new THREE.PlaneGeometry(.32,.16),decalMat);p.position.set(sx*.487,.3,.35);p.rotation.y=sx>0?Math.PI/2:-Math.PI/2;g.add(p)}
+  // hood, grille and lights
+  bx(.96,.1,.52,M.yel,0,yB+.05,fz-.26,g);bx(.5,.03,.36,M.blkC,0,yB+.11,fz-.28,g);   // the hood with a black scoop
+  bx(.8,.22,.02,M.blkC,0,.27,fz+.01,g);for(let i=0;i<4;i++)bx(.6,.012,.022,M.steel,0,.2+i*.045,fz+.016,g);
+  for(const sx of[1,-1]){cyl(.055,.03,M.lamp,sx*.32,.32,fz+.02,g,'z');bx(.06,.03,.015,M.amber,sx*.32,.2,fz+.016,g);bx(.06,.09,.015,M.tail,sx*.38,.32,rz-.008,g);
+    const beam=new THREE.Mesh(new THREE.ConeGeometry(.55,4,14,1,true),M.beam);beam.rotation.x=-Math.PI/2+.13;beam.position.set(sx*.32,.32-.26,fz+1.98);beam.castShadow=false;g.add(beam)}
+  // the cab: windows all round, a roof with four lamps on a bar
+  const cz0=-.3,cz1=.43,cl=cz1-cz0,cc=(cz0+cz1)/2,gh=.22,gy=yB+gh/2;
+  bx(.9,gh,cl,M.yel,0,gy,cc,g);bx(.94,.03,cl+.04,M.yel,0,yB+gh+.015,cc,g);
+  bx(.78,gh-.07,.012,M.glass,0,gy+.01,cz1+.006,g);bx(.7,gh-.09,.012,M.glass,0,gy+.01,cz0-.006,g);
+  for(const sx of[1,-1]){bx(.012,gh-.08,cl-.14,M.glass,sx*.456,gy+.01,cc,g);bx(.03,.06,.05,M.blkC,sx*.5,yB+.06,cz1-.04,g)}   // side windows and mirrors
+  bx(.6,.04,.04,M.blkC,0,yB+gh+.05,cz1-.06,g);for(let i=0;i<4;i++)cyl(.028,.025,M.lamp,-.21+i*.14,yB+gh+.06,cz1-.035,g,'z');
+  // the bed: floor, walls and tailgate
+  const bl=cz0-rz,bc=(cz0+rz)/2;bx(.9,.02,bl,M.blkC,0,yB+.01,bc,g);for(const sx of[1,-1])bx(.04,.1,bl,M.yel,sx*.46,yB+.05,bc,g);bx(.96,.1,.04,M.yel,0,yB+.05,rz+.02,g);
+  bx(.2,.1,.008,M.plate,0,.2,rz-.004,g);
+  const hd=new THREE.Mesh(new THREE.PlaneGeometry(.3,.15),decalMat);hd.rotation.x=-Math.PI/2;hd.position.set(0,yB+.101,fz-.12);g.add(hd);
+  return g;
+}

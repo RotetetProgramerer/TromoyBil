@@ -67,6 +67,14 @@ npx serve .
 | `snorkel` | `true` tegner snorkel uansett garasjenivå. |
 | `spare` | Reservehjul: `'rear'`, `'hood'` eller `'rack'`. |
 | `stats` | `[klatring, sving, stabilitet]` fra 1 til 5. Bare visning. |
+| `price` | Valgfritt. Bilen må kjøpes i garasjen for så mange muttere. |
+| `wr`, `track`, `tireW` | Valgfritt. Hjulradius (standard 0.24), sporvidde (0.9) og dekkbredde (0.19). Store hjul gir høyere bakkeklaring. |
+| `top` | Valgfritt. Toppfart i høy gir, 1 er som de andre. |
+| `col` | Valgfritt. Fargen bilen har når lakken er standard (Sandgul). |
+
+`style:'monster'` tegner en monstertruck i stedet for en vanlig crawler (`buildMonster` i `js/carmodel.js`), se Knøtt.
+
+Test en bil på alle banene: `CAR=knott node tools/test-levels.js`.
 
 Bilen dukker opp i menyen med en gang.
 

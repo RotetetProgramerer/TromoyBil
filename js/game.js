@@ -204,7 +204,7 @@ function buildCarVis(cfg){
   if(carVis){scene.remove(carVis.body);carVis.wheels.forEach(w=>scene.remove(w.root));carVis.axles.forEach(a=>scene.remove(a));
     carVis.body.traverse(o=>{if(o.geometry)o.geometry.dispose()})}
   const body=buildBody(cfg);scene.add(body);
-  const wheels=[];for(let i=0;i<4;i++){const w=buildWheel(WR,i%2===0?1:-1);scene.add(w.root);wheels.push(w)}
+  const wheels=[];for(let i=0;i<4;i++){const w=carWheel(cfg,i%2===0?1:-1);scene.add(w.root);wheels.push(w)}
   const axles=[];for(let i=0;i<2;i++){const a=new THREE.Group();const tube=new THREE.Mesh(new THREE.CylinderGeometry(.03,.03,1,8),M.blk);tube.castShadow=true;a.add(tube);
     const diff=new THREE.Mesh(new THREE.SphereGeometry(.075,12,10),M.blk);diff.castShadow=true;a.add(diff);a.userData.tube=tube;scene.add(a);axles.push(a)}
   const spots=[];for(const sx of[1,-1]){const s=new THREE.SpotLight(0xfff1cc,0,16,.55,.6,1.2);s.position.set(sx*.3,.3,cfg.L/2);const t=new THREE.Object3D();t.position.set(sx*.3,-.4,cfg.L/2+4);body.add(s,t);s.target=t;spots.push(s)}
@@ -443,7 +443,7 @@ function loadLevel(i){
 }
 function setCar(i){state.carIdx=i;store.set('car',CARS[i].id);const old=car,tune=tuneFrom(prof.parts);car=makeCar(CARS[i],tune);car.rope=null;car.assist=state.assist;car.speedScale=state.speed/100;if(old){car.low=old.low}
   applyPaint();buildCarVis(Object.assign({},CARS[i],{tune}));if(LV)resetToStart()}
-function applyPaint(){const p=PAINTS[prof.paint]||PAINTS[0];M.yel.color.set(p.c).convertSRGBToLinear();M.rim.color.set(prof.parts.weight>=2?'#b08a3a':'#e3a62a').convertSRGBToLinear();M.rim.metalness=prof.parts.weight>=2?.6:.2}
+function applyPaint(){const p=PAINTS[prof.paint]||PAINTS[0],own=!prof.paint&&CARS[state.carIdx].col;M.yel.color.set(own||p.c).convertSRGBToLinear();M.rim.color.set(prof.parts.weight>=2?'#b08a3a':'#e3a62a').convertSRGBToLinear();M.rim.metalness=prof.parts.weight>=2?.6:.2}
 function resetToStart(){const s=LV.start;placeCar(car,s.p.x,s.p.z,Math.atan2(s.tan.x,s.tan.z));state.checkpoint={x:s.p.x,z:s.p.z,h:Math.atan2(s.tan.x,s.tan.z)};camSnap=true}
 
 /* ---------- game flow ---------- */

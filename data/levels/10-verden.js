@@ -208,7 +208,7 @@ LEVELS.push(
     c.props();
     c.pebbles(1400,['#6f6a63','#8a847a','#4f4a44'],.04,.11);
     c.tufts(160,['#4d7a2f','#6b9a3c']);
-    c.bushes(90,['#3e7a34','#4f8f3c','#2f6a2c','#6a9a40'],(x,z)=>{const r=rM(x,z);return r>16&&!inDesert(x,z)&&dSw(x,z)>SW_R+2&&Math.hypot(x,z)<isl(x,z)-9&&surfAt(x,z)===S.GRASS});
+    c.bushes(90,['#3e7a34','#4f8f3c','#2f6a2c','#6a9a40'],(x,z)=>{const r=rM(x,z);return r>16&&!inDesert(x,z)&&dSw(x,z)>SW_R+2&&Math.hypot(x,z)<isl(x,z)-9&&surfAt(x,z)===S.GRASS},{soft:true});   // de grønne buskene kan du kjøre gjennom
     c.bushes(30,['#8a8a4a','#9a9a5a','#6a7a3a'],(x,z)=>inDesert(x,z)&&Math.hypot(x,z)<isl(x,z)-9);
     c.mushrooms(60,(x,z)=>inJungle(x,z));c.shells(220);
   }}
