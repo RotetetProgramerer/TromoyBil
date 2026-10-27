@@ -310,9 +310,12 @@ function bMakePlayers(n,names,num){const cols=bColors();
   if(BT.P.length!==n||BT.P.some((p,i)=>p.col!==cols[i]||p.num!==num+i)){for(const p of BT.P){BT.scene.remove(p.mesh);bDispose(p.mesh)}BT.P=[];
     for(let i=0;i<n;i++){const col=cols[i],mesh=bBoatMesh(col,num+i,col),cam=new THREE.PerspectiveCamera(58,1,1,B_FAR),pane=$('bpane'+i),q=s=>pane.querySelector(s);cam.layers.enable(i+1);BT.scene.add(mesh);
       BT.P.push({i,col,num:num+i,mesh,cam,name:'',b:makeBoat(0,0,0),camYaw:0,shake:{t:0,mag:0},vp:{x:0,y:0,w:1,h:1},baseFov:55,inp:null,warned:0,wk:0,time:null,from:new THREE.Vector3(),
-        ui:{pane,place:q('.bplace'),pname:q('.bname'),pl:q('.bpl'),speed:q('.bkn'),boost:q('.bboost i'),target:q('.btarget'),notice:q('.bnotice'),flash:q('.bflash'),compass:q('.bcompass').getContext('2d')}})}}
+        ui:{pane,place:q('.bplace'),pname:q('.bname'),pl:q('.bpl'),speed:q('.bkn'),pts:q('.bpts'),boost:q('.bboost i'),target:q('.btarget'),notice:q('.bnotice'),flash:q('.bflash'),compass:q('.bcompass').getContext('2d')}})}}
   BT.P.forEach((p,i)=>{if(p.name!==names[i]){p.name=names[i];bName(p.mesh,names[i])}p.ui.pname.textContent=names[i];p.ui.pl.textContent=BT.net?'Rom '+NET.code:n>1?'Spiller '+(i+1):'Kaptein'});
   BT.gates.forEach(g=>g.beams.forEach((bm,i)=>{if(BT.P[i])bm.material.color.set(BT.P[i].col)}))}
+// points in the race: 600 for every turbo barrel, 6000 for every nut the boat earns (the chest at sea and, once moored, the race's nuts)
+const BOAT_PTS={barrel:600,nut:6000};
+function bPoints(p,nuts=0){return p.b.barrels*BOAT_PTS.barrel+((p.chest||0)+nuts)*BOAT_PTS.nut}
 function bNotice(p,text,ms=1500){const n=p.ui.notice;n.textContent=text;n.style.opacity=1;clearTimeout(n._t);n._t=setTimeout(()=>n.style.opacity=0,ms)}
 // the race on the start line: the route, its buoys and barrels, the pirates and the boats. o.seed: the same pirates and barrels for everyone in an online race
 function bSetup(race,o={}){BT.race=race;BT.route=raceRoute(race);bGates(BT.route);
@@ -322,7 +325,7 @@ function bSetup(race,o={}){BT.race=race;BT.route=raceRoute(race);bGates(BT.route
   while(BT.pirVis.length<BT.pir.length){const m=bShipMesh();BT.scene.add(m);BT.pirVis.push(m)}
   for(const b of BT.balls)b.dead=true;BT.balls.length=0;bBalls();BT.vol=race.lava?makeVolcano():null;
   const N=BT.net;bMakePlayers(BT.two&&!N?2:1,bNames(),N&&N.racing?N.num:1);
-  BT.P.forEach((p,i)=>{const s=startSlot(BT.route,N&&N.racing?N.slot:i,N&&N.racing?N.slots:BT.P.length);p.b=makeBoat(s.x,s.z,s.a);p.camYaw=s.a;p.time=null;p.shake={t:0,mag:0};p.warned=0;p.mesh.visible=true});
+  BT.P.forEach((p,i)=>{const s=startSlot(BT.route,N&&N.racing?N.slot:i,N&&N.racing?N.slots:BT.P.length);p.b=makeBoat(s.x,s.z,s.a);p.camYaw=s.a;p.time=null;p.chest=0;p.shake={t:0,mag:0};p.warned=0;p.mesh.visible=true});
   for(const id in BT.docks)BT.docks[id].lid.rotation.x=0;
   BT.treasure.visible=!prof.boat.chest;BT.chestNow=false;
   BT.step=0;BT.time=0;BT.acc=0;BT.winner=null;BT.winT=0;BT.coins=false;BT.fireT=0;BT.result=false;BT.paused=false;BT.finDock=null;bLayout()}
@@ -351,7 +354,7 @@ function bStep(){BT.wave+=BSTEP;const racing=BT.phase==='race',B=BT.P.map(p=>p.b
   if(BT.vol&&racing){const e=stepVolcano(BT.vol,live,BT.balls,Math.random);if(e&&e.type==='erupt'){sndBoom(.6*bNear(BT.vol));for(const p of BT.P)if(Math.hypot(p.b.x-BT.vol.x,p.b.z-BT.vol.z)<1100)bNotice(p,'Vulkanen har utbrudd!',1600)}}
   for(const e of stepBalls(BT.balls,live)){if(e.type==='hit'){const p=BT.P.find(q=>q.b===e.t);if(p)bHit(p,e.b);continue}
     if(bNear(e.b)<=0)continue;fxSplash(bV(e.b.x,1,e.b.z));if(e.b.kind==='lava')for(let i=0;i<8;i++)bSpawn(bV(e.b.x,3,e.b.z),bV(brand(-.6,.6),brand(.6,1.4),brand(-.6,.6)),{color:0xff7a20,size:brand(2,4),life:30,gravity:.05,additive:true})}
-  if(racing){for(const e of stepBarrels(BT.barrels,live,BT.step)){if(e.type==='taken'){const p=BT.P.find(q=>q.b===e.b);fxSparkle(bV(e.br.x,4,e.br.z));sndCoin();if(p)bNotice(p,'Turbo!',1000)}else if(bNear(e.br)>0)fxSparkle(bV(e.br.x,4,e.br.z))}
+  if(racing){for(const e of stepBarrels(BT.barrels,live,BT.step)){if(e.type==='taken'){const p=BT.P.find(q=>q.b===e.b);fxSparkle(bV(e.br.x,4,e.br.z));sndCoin();if(p)bNotice(p,'Turbo! +'+BOAT_PTS.barrel+' poeng',1000)}else if(bNear(e.br)>0)fxSparkle(bV(e.br.x,4,e.br.z))}
     for(const p of BT.P){const e=boatCheck(p.b,BT.route);if(e)bProgress(p,e);bChestGrab(p)}}
   for(const p of BT.P){for(const e of p.b.ev)if(e.type==='bump'){p.shake={t:14,mag:e.mag};sndThud();sndCreak();if(e.what==='land')fxHit(bV(p.b.x,3,p.b.z),0xe8d9ae)}p.b.ev.length=0;bWake(p,p.b)}
   for(const r of BT.remote.values())if(r.live)bWake(r,r);
@@ -374,8 +377,8 @@ function bHit(p,ball){p.shake={t:22,mag:4};fxHit(bV(ball.x,Math.max(3,ball.y),ba
 function bProgress(p,e){const R=BT.route;if(e.type==='buoy'){sndGate();bNotice(p,p.b.gate<R.buoys.length?'Bøye '+p.b.gate+' ✓':'Kurs mot '+R.dock.to+'!',1400)}
   else if(e.type==='slow'){const now=performance.now();if(now-p.warned>1800){bNotice(p,'Sakk farten for å fortøye!',1200);p.warned=now}}
   else if(e.type==='finish')bFinish(p)}
-function bChestGrab(p){const T=BT.treasure;if(!T.visible||Math.hypot(p.b.x-SEA.chest[0],p.b.z-SEA.chest[1])>26)return;T.visible=false;prof.boat.chest=1;prof.nuts+=50;saveProf();BT.chestNow=true;
-  fxSparkle(T.position);fxSparkle(T.position);sndCoin();bNotice(p,'Skattekista! +50 ⚙',2400)}
+function bChestGrab(p){const T=BT.treasure;if(!T.visible||Math.hypot(p.b.x-SEA.chest[0],p.b.z-SEA.chest[1])>26)return;T.visible=false;prof.boat.chest=1;prof.nuts+=50;saveProf();BT.chestNow=true;p.chest=50;
+  fxSparkle(T.position);fxSparkle(T.position);sndCoin();bNotice(p,'Skattekista! +50 ⚙ · +'+fmtN(50*BOAT_PTS.nut)+' poeng',2400)}
 
 /* ---------- moored: the winner opens the chest on the dock, the result follows ---------- */
 function bFinish(p){p.time=BT.time;if(BT.phase!=='race')return;const N=BT.net;
@@ -399,12 +402,12 @@ function bShowResult(){BT.result=true;const race=BT.race,R=BT.route,onl=!!(BT.ne
   if(done){e+=20;el.push('i mål +20');if(!b.hits){e+=15;el.push('aldri truffet +15')}}
   if(done&&!prev){e+=60;el.push('første gang +60')}else if(isBest){e+=20;el.push('ny rekord +20')}
   if(place===1&&L.length>1){e+=25;el.push('vant +25')}
-  prof.nuts+=e;saveProf();BT.res={L,place,isBest,prev,stars};
+  prof.nuts+=e;saveProf();const pts=bPoints(p,e);BT.res={L,place,isBest,prev,stars,pts};
   $('rLevel').textContent='Captain Theis\' marina · '+race.name;
   $('rTitle').textContent=onl?(place===1?'Du vant!':done?place+'. plass':'Løpet er over'):two?w.name+' vant!':!b.hits?'Feilfri tur!':'I mål!';
   $('rTime').textContent=fmtTime(t);$('rPenL').textContent='Truffet';$('rPen').textContent=b.hits;$('rGatesL').textContent='Bøyer';$('rGates').textContent=b.gate+'/'+R.buoys.length;
   $('rStars').innerHTML=[0,1,2].map(i=>`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7-6.2-3.7-6.2 3.7 1.6-7L2 9.2l7.1-.6z" fill="${i<stars?'#E5A92B':'rgba(242,232,208,.15)'}"/></svg>`).join('');$('rStars').setAttribute('aria-label',stars+' av 3 stjerner');
-  bResultLog();$('rNuts').textContent='+'+fmtN(e);$('rNutsNote').textContent=el.join(' · ');
+  el.push(fmtN(pts)+' poeng');bResultLog();$('rNuts').textContent='+'+fmtN(e);$('rNutsNote').textContent=el.join(' · ');
   $('rNext').textContent=onl?'Tilbake til lobbyen':'Ny runde';$('rRetry').textContent='Velg løp';$('rRetry').hidden=onl;$('rMenu').textContent='Tilbake til bilen';$('rGarage').hidden=true;
   $('result').hidden=false;$('rNext').focus()}
 // the list under the result: the order (two players or online, it fills in as the others moor), turbo, hits, the chest, what the stars need
@@ -412,6 +415,7 @@ function bResultLog(){const R=BT.route,race=BT.race,S=BT.res,items=[];if(!S)retu
   if(S.L){const L=BT.net&&BT.net.racing?bPlaces():S.L;L.forEach((q,i)=>items.push(`<li><b>${i+1}. ${q.name}:</b> ${q.time!=null?fmtTime(q.time):'ikke i mål'} · ${q.gate}/${R.buoys.length} bøyer · ${q.barrels} turbo · truffet ${q.hits}</li>`))}
   else{const b=BT.P[0].b;items.push(`<li><b>Turbotønner:</b> ${b.barrels}</li>`,`<li><b>Truffet av piratene:</b> ${b.hits}${b.hits?'':', helt feilfritt'}</li>`)}
   if(BT.chestNow)items.push('<li><b>Skattekista funnet:</b> +50 ⚙</li>');
+  items.push(`<li><b>Poeng:</b> ${fmtN(S.pts)} (${BOAT_PTS.barrel} per turbotønne, ${fmtN(BOAT_PTS.nut)} per mutter)</li>`);
   items.push(`<li><b>Mål for stjerner:</b> ${fmtTime(race.par[0])} gir tre, ${fmtTime(race.par[1])} gir to</li>`);
   if(S.isBest&&S.prev)items.push('<li><b>Ny personlig rekord i dette løpet.</b></li>');$('rLog').innerHTML=items.join('')}
 function bResultReset(){$('rGarage').hidden=false;$('rRetry').hidden=false;$('rMenu').textContent='Til menyen';$('rPenL').textContent='Straff';$('rGatesL').textContent='Porter';$('rRetry').textContent='Prøv igjen'}
@@ -529,7 +533,7 @@ function bRender(){const W=innerWidth,H=innerHeight;renderer.setScissorTest(fals
 /* ---------- the HUD: place, compass, the next target, speed and turbo, the clock and the minimap ---------- */
 function bHUD(){const R=BT.route;if(!R)return;$('bclock').textContent=fmtTime(BT.time);const L=BT.net&&BT.net.racing||BT.P.length>1?bPlaces():null;
   for(const p of BT.P){const b=p.b,u=p.ui;u.place.hidden=!L;if(L)u.place.textContent=(L.findIndex(q=>q.p===p)+1)+'.';
-    u.speed.textContent=Math.round(Math.abs(b.speed)*BCFG.kts)+' kn';u.boost.style.width=Math.max(0,b.boost/BCFG.boostFrames*100)+'%';
+    u.speed.textContent=Math.round(Math.abs(b.speed)*BCFG.kts)+' kn';u.pts.textContent=fmtN(bPoints(p))+' poeng';u.boost.style.width=Math.max(0,b.boost/BCFG.boostFrames*100)+'%';
     const tg=boatTarget(b,R),dx=tg.x-b.x,dz=tg.z-b.z,buoy=b.gate<R.buoys.length;u.target.textContent=b.done?'I mål':(buoy?'Bøye '+(b.gate+1)+'/'+R.buoys.length:R.dock.name)+' · '+Math.round(Math.hypot(dx,dz))+' m';
     bCompass(p,Math.atan2(dx,-dz))}
   bMinimap()}

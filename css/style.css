@@ -281,7 +281,7 @@ body.is-touch .ski-help{bottom:calc(190px + env(safe-area-inset-bottom,0px))}
 #boatHud.won .bpane,#boatHud.won #bclock,#boatHud.won #bminiBox,#boatHud.won #bdiv,#boatHud.won #bPauseB{display:none}
 /* touch: steering in the left corner and gas and brake in the right corner of each player's part of the screen */
 .btouch{display:none}
-#boatHud:not(.fly) .fonly,#boatHud:not(.fly) .balt{display:none}.balt{display:block;font-size:.8rem;opacity:.85;margin-top:2px}
+#boatHud:not(.fly) .fonly,#boatHud:not(.fly) .balt,#boatHud.fly .bpts{display:none}.bpts{display:block;font-size:.8rem;opacity:.85;margin-top:2px}.balt{display:block;font-size:.8rem;opacity:.85;margin-top:2px}
 body.is-touch .btouch{display:block}
 .bt-steer,.bt-gas{position:absolute;bottom:calc(14px + env(safe-area-inset-bottom,0px));display:flex;gap:10px;align-items:flex-end;pointer-events:auto}
 .bt-steer{left:max(14px,env(safe-area-inset-left,0px))}
