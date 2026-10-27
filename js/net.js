@@ -186,7 +186,7 @@ function netMerge(root){root.updateMatrixWorld(true);const by=new Map(),olds=[];
   for(const g of new Set(olds))g.dispose();return out}
 function netMats(info){const own=m=>{const c=m.clone();if(Object.prototype.hasOwnProperty.call(c,'onBeforeCompile'))delete c.onBeforeCompile;return c};   // no mud shader: that one follows your own car
   const mats={yel:own(M.yel),blkC:own(M.blkC),tire:own(M.tire),rim:own(M.rim),lamp:own(M.lamp),tail:own(M.tail),beam:own(M.beam)};
-  mats.yel.color.set((PAINTS[info.paint]||PAINTS[0]).c).convertSRGBToLinear();const heavy=(info.parts.weight|0)>=2;mats.rim.color.set(heavy?'#b08a3a':'#e3a62a').convertSRGBToLinear();mats.rim.metalness=heavy?.6:.2;
+  const cc=CARS.find(c=>c.id===info.car);mats.yel.color.set(!info.paint&&cc&&cc.col||(PAINTS[info.paint]||PAINTS[0]).c).convertSRGBToLinear();const heavy=(info.parts.weight|0)>=2;mats.rim.color.set(heavy?'#b08a3a':'#e3a62a').convertSRGBToLinear();mats.rim.metalness=heavy?.6:.2;
   mats.lamp.emissive.set(0);mats.tail.emissive.set(0);mats.beam.opacity=0;return mats}
 function netSwap(root,mats){root.traverse(o=>{if(!o.isMesh)return;for(const k in mats)if(o.material===M[k]){o.material=mats[k];break}})}
 function netTag(name,col){const c=document.createElement('canvas');c.width=256;c.height=64;const x=c.getContext('2d');x.font='700 34px "Barlow Condensed",sans-serif';const w=Math.min(244,x.measureText(name).width+36);
@@ -196,7 +196,7 @@ function netBuildVis(p){netDropVis(p);if(typeof buildBody!=='function')return;
   const ci=Math.max(0,CARS.findIndex(c=>c.id===p.info.car)),tune=tuneFrom(p.info.parts),cfg=Object.assign({},CARS[ci],{tune}),mats=netMats(p.info);
   const root=new THREE.Group();root.visible=false;
   const raw=buildBody(cfg);netSwap(raw,mats);const body=netMerge(raw);root.add(body);
-  const wheels=[];for(let i=0;i<4;i++){const w=buildWheel(WR,i%2===0?1:-1);netSwap(w.root,mats);const spin=netMerge(w.spin);w.root.remove(w.spin);w.root.add(spin);root.add(w.root);wheels.push({root:w.root,spin})}
+  const wheels=[];for(let i=0;i<4;i++){const w=carWheel(cfg,i%2===0?1:-1);netSwap(w.root,mats);const spin=netMerge(w.spin);w.root.remove(w.spin);w.root.add(spin);root.add(w.root);wheels.push({root:w.root,spin})}
   const axles=[];for(let i=0;i<2;i++){const a=new THREE.Group(),tube=new THREE.Mesh(new THREE.CylinderGeometry(.03,.03,1,8),M.blk);tube.castShadow=true;a.add(tube);const diff=new THREE.Mesh(new THREE.SphereGeometry(.075,12,10),M.blk);diff.castShadow=true;a.add(diff);a.userData.tube=tube;root.add(a);axles.push(a)}
   const tag=netTag(p.name,netCol(p.slot));root.add(tag);
   const mounts=makeCar(CARS[ci],tune).wheels.map(w=>w.mount.clone());

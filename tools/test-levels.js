@@ -11,8 +11,10 @@ const levelFiles=[...fs.readFileSync(path.join(root,'index.html'),'utf8').matchA
 for(const f of fs.readdirSync(path.join(root,'data/levels')).filter(f=>f.endsWith('.js')))if(!levelFiles.includes('data/levels/'+f))console.log('ADVARSEL: data/levels/'+f+' mangler i index.html og er ikke med i spillet');
 levelFiles.forEach(load);
 const dt=1/240,only=process.argv[2];
+// CAR=<id> kjører testene med en annen bil enn Fjellrev, f.eks. CAR=knott node tools/test-levels.js
+const TCAR=CARS.find(c=>c.id===process.env.CAR)||CARS[1];
 // from the ferry deck, across the pier, through the village and up the road inland: the car must get out without falling or getting stuck
-function villageTest(def,lv){const f=lv.ferry,car=makeCar(CARS[1]);car.assist=false;car.low=true;const head=Math.atan2(-f.dx,-f.dz);placeCar(car,f.x,f.z,head);car.pos.y=f.y+.5;
+function villageTest(def,lv){const f=lv.ferry,car=makeCar(TCAR);car.assist=false;car.low=true;const head=Math.atan2(-f.dx,-f.dz);placeCar(car,f.x,f.z,head);car.pos.y=f.y+.5;
   const oa=(def.village.out??(f.dir/Math.PI*180+180))*Math.PI/180,ox=Math.cos(oa),oz=Math.sin(oa),goal={x:f.pad.x+ox*15,z:f.pad.z+oz*15};
   let best=1e9,fell=0,wp=0;const pts=[{x:f.pad.x+(f.quay.x-f.pad.x)*.5,z:f.pad.z+(f.quay.z-f.pad.z)*.5},{x:f.pad.x,z:f.pad.z},goal];
   for(let i=0;i<240*40;i++){const w=pts[wp],dx=w.x-car.pos.x,dz=w.z-car.pos.z,d=Math.hypot(dx,dz);if(d<1.2){wp++;if(wp>=pts.length)break;continue}
@@ -20,7 +22,7 @@ function villageTest(def,lv){const f=lv.ferry,car=makeCar(CARS[1]);car.assist=fa
     if(car.depth>0)fell++;if(car.up.y<.2){console.log(def.id.padEnd(14),'LANDSBY  FEIL: velt ved',car.pos.x.toFixed(1),car.pos.z.toFixed(1));return}}
   const dg=Math.hypot(goal.x-car.pos.x,goal.z-car.pos.z);console.log(def.id.padEnd(14),'LANDSBY ',wp>=pts.length?'OK  ':'FEIL','ut av landsbyen'+(wp>=pts.length?'':' (stoppet '+dg.toFixed(1)+' fra målet ved '+car.pos.x.toFixed(1)+','+car.pos.z.toFixed(1)+')'),'vann',fell)}
 // to the marina: along the level road that ends where the marina road starts, then the marina road, then onto the blue square
-function marinaTest(def,lv){const m=lv.marinaDef,car=makeCar(CARS[1]);car.assist=false;car.low=true;
+function marinaTest(def,lv){const m=lv.marinaDef,car=makeCar(TCAR);car.assist=false;car.low=true;
   const oa=(def.marina.out??(m.dir/Math.PI*180+180))*Math.PI/180,ox=Math.cos(oa),oz=Math.sin(oa),inland={x:m.x+ox*13,z:m.z+oz*13};
   const road=(def.roads||[]).find(r=>Math.hypot(r[r.length-1][0]-inland.x,r[r.length-1][1]-inland.z)<2),pts=[...(road||[]).slice(1).map(p=>({x:p[0],z:p[1]})),{x:m.x+ox*1.5,z:m.z+oz*1.5},m.ask];
   const from=road?{x:road[0][0],z:road[0][1]}:inland,nx=pts[0];placeCar(car,from.x,from.z,Math.atan2(nx.x-from.x,nx.z-from.z));for(let i=0;i<480;i++)stepCar(car,dt);
@@ -30,7 +32,7 @@ function marinaTest(def,lv){const m=lv.marinaDef,car=makeCar(CARS[1]);car.assist
     if(car.depth>0)fell++;if(car.up.y<.2){console.log(def.id.padEnd(14),'MARINA   FEIL: velt ved',car.pos.x.toFixed(1),car.pos.z.toFixed(1));return}}
   const ok=wp>=pts.length;console.log(def.id.padEnd(14),'MARINA  ',ok?'OK  ':'FEIL',(road?'veien og ':'')+'inn på den blå ruta'+(ok?' tid '+t.toFixed(0)+'s':' (stoppet ved '+car.pos.x.toFixed(1)+','+car.pos.z.toFixed(1)+')'),'vann',fell)}
 // drives the road to the airport (Trinnvik) and onto its blue square: lv.airportDef.from, then .route
-function airportTest(def,lv){const A=lv.airportDef,car=makeCar(CARS[1]);car.assist=false;car.low=true;const pts=A.route,nx=pts[0];placeCar(car,A.from.x,A.from.z,Math.atan2(nx.x-A.from.x,nx.z-A.from.z));for(let i=0;i<480;i++)stepCar(car,dt);
+function airportTest(def,lv){const A=lv.airportDef,car=makeCar(TCAR);car.assist=false;car.low=true;const pts=A.route,nx=pts[0];placeCar(car,A.from.x,A.from.z,Math.atan2(nx.x-A.from.x,nx.z-A.from.z));for(let i=0;i<480;i++)stepCar(car,dt);
   let fell=0,wp=0,t=0;
   for(let i=0;i<240*60;i++){const w=pts[wp],dx=w.x-car.pos.x,dz=w.z-car.pos.z,d=Math.hypot(dx,dz);if(d<(wp===pts.length-1?.7:1.2)){wp++;if(wp>=pts.length){t=i*dt;break}continue}
     const fw=car.fw,lf=car.lf,ang=Math.atan2(dx*lf.x+dz*lf.z,dx*fw.x+dz*fw.z);car.steer=Math.max(-.6,Math.min(.6,ang*1.5));car.throttle=1;stepCar(car,dt);
@@ -58,7 +60,7 @@ function skiTest(def,lv,k){const s=makeSkier(),run=makeSkiRun(k),tgt=SKI_TARGET[
 // drives one line (a level, or one course inside an open world) in both gears
 function drive(def,lv,line,label){
   for(const low of[true,false]){
-    const car=makeCar(CARS[1]);car.assist=false;car.low=low;const s=line.start;placeCar(car,s.p.x,s.p.z,Math.atan2(s.tan.x,s.tan.z));
+    const car=makeCar(TCAR);car.assist=false;car.low=low;const s=line.start;placeCar(car,s.p.x,s.p.z,Math.atan2(s.tan.x,s.tan.z));
     for(let i=0;i<480;i++)stepCar(car,dt);
     let pt=0,flips=0,maxDepth=-9,flood=0,drown=0,lava=0,gT={},evs=[],t=0,stuck=0,lastProg=0,jumps=0,air=0;
     for(let i=0;i<240*160;i++){
@@ -93,7 +95,7 @@ for(const def of LEVELS){
   // snarvei: kjører hvert punkt i def.shortcut (første og siste punkt er på hovedveien)
   if(def.shortcut){
     for(const low of[true,false]){
-      const car=makeCar(CARS[1]);car.assist=false;car.low=low;const sp=def.shortcut,a=sp[0],b=sp[1];placeCar(car,a[0],a[1],Math.atan2(b[0]-a[0],b[1]-a[1]));
+      const car=makeCar(TCAR);car.assist=false;car.low=low;const sp=def.shortcut,a=sp[0],b=sp[1];placeCar(car,a[0],a[1],Math.atan2(b[0]-a[0],b[1]-a[1]));
       for(let i=0;i<480;i++)stepCar(car,dt);
       let wi=1,flips=0,lava=0,t=0,ok=false;
       for(let i=0;i<240*90;i++){
