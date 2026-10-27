@@ -8,20 +8,22 @@
 const MAP={base:null,W:0,fog:null,FN:48,fogT:0,open:false,hover:null,mini:null,miniCtx:null,big:null,bigCtx:null,scale:1,pad:0};
 const MAPCOL={water:'#5f9fc4',waterDeep:'#3f7ea6',coast:'#2e3a44',paper:'#e9dcb9',road:'#6b4a2a',ink:'#2a241c',fog:'#cdbf9c'};
 const DIFFC=['#8bbb4a','#8bbb4a','#e5a92b','#d9432f'];
-const mapX=x=>(x+HALF)/WORLD*MAP.W, mapY=z=>(HALF-z)/WORLD*MAP.W;   // north (+z) is up
+// seen from above, as in the 3D view: north (+z) is up and east (−x) to the right. (+x to the right would show the island mirrored: a road
+// you turn left into would turn right on the map.) mapAng is the heading of a forward vector on the map, clockwise from up
+const mapX=x=>(HALF-x)/WORLD*MAP.W, mapY=z=>(HALF-z)/WORLD*MAP.W, mapAng=fw=>Math.atan2(-fw.x,fw.z);
 
 /* ---------- base layer ---------- */
 function buildMapBase(def){
   const W=MAP.W=512,c=document.createElement('canvas');c.width=c.height=W;const x=c.getContext('2d'),img=x.createImageData(W,W),d=img.data;
   const wl=def.water??-1e9,band=def.waterBand||(()=>true);
-  for(let v=0;v<W;v++)for(let u=0;u<W;u++){const wx=-HALF+(u+.5)/W*WORLD,wz=HALF-(v+.5)/W*WORLD;const fx=(wx+HALF)/CELL,fz=(wz+HALF)/CELL;
+  for(let v=0;v<W;v++)for(let u=0;u<W;u++){const wx=HALF-(u+.5)/W*WORLD,wz=HALF-(v+.5)/W*WORLD;const fx=(wx+HALF)/CELL,fz=(wz+HALF)/CELL;
     const i=Math.max(0,Math.min(N-1,Math.round(fx))),j=Math.max(0,Math.min(N-1,Math.round(fz))),k=j*N+i,h=TH[k],o=(v*W+u)*4;
     let r,g,b;
     if(h<wl&&band(wx,wz)){const dp=Math.min(1,(wl-h)/1.6);const A=hexRGB(MAPCOL.water),B=hexRGB(MAPCOL.waterDeep);r=A[0]+(B[0]-A[0])*dp;g=A[1]+(B[1]-A[1])*dp;b=A[2]+(B[2]-A[2])*dp}
     else{
       // terrain colour (linear) → sRGB-ish, shaded by slope like the 3D view, then tinted towards paper
       const s=(di,dj)=>TH[Math.min(N-1,Math.max(0,j+dj))*N+Math.min(N-1,Math.max(0,i+di))];
-      const nx=s(-1,0)-s(1,0),nz=s(0,-1)-s(0,1),ny=2*CELL,inv=1/Math.hypot(nx,ny,nz),light=Math.max(.55,Math.min(1.15,.86+(nx*.6+nz*.4)*inv*.9));
+      const nx=s(-1,0)-s(1,0),nz=s(0,-1)-s(0,1),ny=2*CELL,inv=1/Math.hypot(nx,ny,nz),light=Math.max(.55,Math.min(1.15,.86+(-nx*.6+nz*.4)*inv*.9));
       r=Math.pow(TC[k*3],1/2.2)*255*light;g=Math.pow(TC[k*3+1],1/2.2)*255*light;b=Math.pow(TC[k*3+2],1/2.2)*255*light;
       const P=hexRGB(MAPCOL.paper),t=.18;r=r*(1-t)+P[0]*t;g=g*(1-t)+P[1]*t;b=b*(1-t)+P[2]*t}
     d[o]=r;d[o+1]=g;d[o+2]=b;d[o+3]=255}
@@ -32,7 +34,7 @@ function buildMapBase(def){
   for(let v=1;v<W-1;v++)for(let u=1;u<W-1;u++){const w=isW(u,v);if(w===isW(u+1,v)&&w===isW(u,v+1)&&w===isW(u-1,v)&&w===isW(u,v-1))continue;const o=(v*W+u)*4;e[o]=46;e[o+1]=58;e[o+2]=68;e[o+3]=w?120:210}
   const ec=document.createElement('canvas');ec.width=ec.height=W;ec.getContext('2d').putImageData(edge,0,0);x.drawImage(ec,0,0);
   // buildings: grey footprints, so a town reads on the map
-  for(const b of(LV.footprints||[])){x.save();x.translate(mapX(b.x),mapY(b.z));x.rotate(b.ry);x.fillStyle='rgba(70,66,60,.78)';const w=b.w/WORLD*W,d=b.d/WORLD*W;x.fillRect(-w/2,-d/2,w,d);x.restore()}
+  for(const b of(LV.footprints||[])){x.save();x.translate(mapX(b.x),mapY(b.z));x.rotate(-b.ry);x.fillStyle='rgba(70,66,60,.78)';const w=b.w/WORLD*W,d=b.d/WORLD*W;x.fillRect(-w/2,-d/2,w,d);x.restore()}
   // roads and courses
   x.lineCap='round';x.lineJoin='round';
   for(const poly of(LV.roads||[])){x.strokeStyle='rgba(42,36,28,.55)';x.lineWidth=4.5;x.setLineDash([]);strokePoly(x,poly);x.strokeStyle='#c9a46a';x.lineWidth=2.4;x.setLineDash([7,5]);strokePoly(x,poly)}
@@ -47,16 +49,18 @@ function buildMapBase(def){
   for(const[lx,lz,txt]of(def.mapLabels||[])){x.save();x.translate(mapX(lx),mapY(lz));x.rotate(-.05);x.strokeStyle='rgba(233,220,185,.7)';x.lineWidth=4;x.strokeText(txt,0,0);x.fillText(txt,0,0);x.restore()}
   MAP.base=c;
   // fog: visited cells per world
-  const FN=MAP.FN;MAP.fog=new Uint8Array(FN*FN);const saved=store.get('fog:'+def.id,null);if(saved&&saved.length===FN*FN)for(let i=0;i<FN*FN;i++)MAP.fog[i]=saved[i]?1:0;
+  const FN=MAP.FN;MAP.fog=new Uint8Array(FN*FN);const saved=store.get('fog2:'+def.id,null),old=saved?null:store.get('fog:'+def.id,null);
+  if(saved&&saved.length===FN*FN)for(let i=0;i<FN*FN;i++)MAP.fog[i]=saved[i]?1:0;
+  else if(old&&old.length===FN*FN)for(let j=0;j<FN;j++)for(let i=0;i<FN;i++)MAP.fog[j*FN+i]=old[j*FN+FN-1-i]?1:0;   // fog saved while the map was mirrored
 }
 function hexRGB(h){return[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]}
 function strokePoly(x,poly){x.beginPath();poly.forEach((p,i)=>{const u=mapX(p[0]),v=mapY(p[1]);i?x.lineTo(u,v):x.moveTo(u,v)});x.stroke()}
 
 /* ---------- fog of war ---------- */
-function fogSee(wx,wz){const FN=MAP.FN,cs=WORLD/FN;let changed=false;const ci=Math.floor((wx+HALF)/cs),cj=Math.floor((HALF-wz)/cs),R=Math.ceil(9/cs);
-  for(let j=cj-R;j<=cj+R;j++)for(let i=ci-R;i<=ci+R;i++){if(i<0||j<0||i>=FN||j>=FN)continue;const cx=-HALF+(i+.5)*cs,cz=HALF-(j+.5)*cs;if(Math.hypot(cx-wx,cz-wz)>9)continue;const k=j*FN+i;if(!MAP.fog[k]){MAP.fog[k]=1;changed=true}}
+function fogSee(wx,wz){const FN=MAP.FN,cs=WORLD/FN;let changed=false;const ci=Math.floor((HALF-wx)/cs),cj=Math.floor((HALF-wz)/cs),R=Math.ceil(9/cs);
+  for(let j=cj-R;j<=cj+R;j++)for(let i=ci-R;i<=ci+R;i++){if(i<0||j<0||i>=FN||j>=FN)continue;const cx=HALF-(i+.5)*cs,cz=HALF-(j+.5)*cs;if(Math.hypot(cx-wx,cz-wz)>9)continue;const k=j*FN+i;if(!MAP.fog[k]){MAP.fog[k]=1;changed=true}}
   return changed}
-function updateFog(dt){if(!MAP.fog||!car)return;MAP.fogT-=dt;if(MAP.fogT>0)return;MAP.fogT=.5;if(fogSee(car.pos.x,car.pos.z))store.set('fog:'+LEVELS[state.levelIdx].id,Array.from(MAP.fog))}
+function updateFog(dt){if(!MAP.fog||!car)return;MAP.fogT-=dt;if(MAP.fogT>0)return;MAP.fogT=.5;if(fogSee(car.pos.x,car.pos.z))store.set('fog2:'+LEVELS[state.levelIdx].id,Array.from(MAP.fog))}
 // the fog is painted on a tiny canvas (one pixel per cell) and scaled up with smoothing, so its edges are soft
 function drawFog(x,W,alpha){const FN=MAP.FN;if(!MAP.fogCv){MAP.fogCv=document.createElement('canvas');MAP.fogCv.width=MAP.fogCv.height=FN+2}
   const fc=MAP.fogCv.getContext('2d'),img=fc.createImageData(FN+2,FN+2),d=img.data,C=hexRGB(MAPCOL.fog);
@@ -78,7 +82,7 @@ function initMaps(){MAP.mini=$('minimap');MAP.miniCtx=MAP.mini.getContext('2d');
 function updateMinimap(){const cv=MAP.mini;if(!MAP.base||!car||$('hud').hidden||!state.world||SKI.on){cv.hidden=true;return}cv.hidden=false;
   const S=cv.width,x=MAP.miniCtx,R=S/2,range=15,px=S/(range*2)/(MAP.W/WORLD);   // px: base-pixels → minimap pixels so that `range` world units fit in the radius
   x.clearRect(0,0,S,S);x.save();x.beginPath();x.arc(R,R,R-2,0,6.283);x.clip();x.fillStyle=MAPCOL.fog;x.fillRect(0,0,S,S);
-  const ang=Math.atan2(car.fw.x,car.fw.z);   // heading up
+  const ang=mapAng(car.fw);   // heading up
   x.translate(R,R);x.rotate(-ang);x.scale(px,px);x.translate(-mapX(car.pos.x),-mapY(car.pos.z));
   x.drawImage(MAP.base,0,0);drawFog(x,MAP.W,.8);
   x.restore();
@@ -111,7 +115,7 @@ function drawBigMap(){if(!MAP.open)return;if(MAP.tab==='arch')return drawArchipe
   if(LV.marinaDef)drawBoatIcon(x,mapX(LV.marinaDef.x)*sc,mapY(LV.marinaDef.z)*sc,10);
   (LV.secrets||[]).forEach((sc2,i)=>{if(!prof.secrets[secretKey(lvl,i)])return;x.save();x.translate(mapX(sc2.x)*sc,mapY(sc2.z)*sc);x.fillStyle='#e6b43a';x.strokeStyle='#5a3a1a';x.lineWidth=1.2;x.beginPath();x.arc(0,0,5,0,6.283);x.fill();x.stroke();x.fillStyle='#5a3a1a';x.beginPath();x.arc(0,0,1.8,0,6.283);x.fill();x.restore()});
   if(typeof netDots==='function')for(const d of netDots())drawFriend(x,mapX(d.x)*sc,mapY(d.z)*sc,d.col,7,d.name);
-  drawCar(x,mapX(car.pos.x)*sc,mapY(car.pos.z)*sc,Math.atan2(car.fw.x,car.fw.z),9);
+  drawCar(x,mapX(car.pos.x)*sc,mapY(car.pos.z)*sc,mapAng(car.fw),9);
   // compass
   x.save();x.translate(sz-36,sz-36);x.fillStyle='rgba(233,220,185,.85)';x.beginPath();x.arc(0,0,24,0,6.283);x.fill();x.strokeStyle=MAPCOL.ink;x.lineWidth=1.5;x.stroke();x.fillStyle='#d9432f';x.beginPath();x.moveTo(0,-20);x.lineTo(5,0);x.lineTo(-5,0);x.closePath();x.fill();x.fillStyle=MAPCOL.ink;x.beginPath();x.moveTo(0,20);x.lineTo(5,0);x.lineTo(-5,0);x.closePath();x.fill();x.font='700 11px "Barlow Condensed",sans-serif';x.textAlign='center';x.fillText('N',0,-26);x.restore()}
 // a little ferry: hull and wheelhouse

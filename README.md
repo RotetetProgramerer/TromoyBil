@@ -254,7 +254,7 @@ Testen kjører også nedfartene med en autopilot på ski: `node tools/test-level
 
 ## Marinaen og båtløpet
 
-Nordvest på Tromøya ligger Captain Theis' marina: et naust med skilt, en brygge på pæler, bensinpumpe, livbøyer og båter ved brygga. En av dem er lakkert i samme farge som bilen. Veien dit går fra vestveien ved basen, langs kanten av jungelen. Kjør inn på den blå ruta, så kommer spørsmålet «Vil du kjøre båt?». JA: bilen blir stående, og du kommer ut på sjøen med båtmenyen.
+Nordøst på Tromøya ligger Captain Theis' marina: et naust med skilt, en brygge på pæler, bensinpumpe, livbøyer og båter ved brygga. En av dem er lakkert i samme farge som bilen. Veien dit går fra østveien ved basen, langs kanten av jungelen. Kjør inn på den blå ruta, så kommer spørsmålet «Vil du kjøre båt?». JA: bilen blir stående, og du kommer ut på sjøen med båtmenyen.
 
 I båtmenyen velger du løp og om dere er én eller to spillere. To spillere deler skjermen (side om side, eller over hverandre på en høy skjerm) og tastaturet. Båten til spiller 1 har samme farge som bilen.
 

@@ -1,5 +1,5 @@
 // Tromøya: åpen verden (120 × 120). Fri kjøring med basen i midten og sju løyper spredt rundt på øya.
-// Biomer: regnskog i vest, sump i sørvest, strand i sør, canyon/ørken i øst, snøfjell i nord. Bekken renner fra tjernet
+// Biomer: regnskog i øst, sump i sørøst, strand i sør, canyon/ørken i vest, snøfjell i nord. Bekken renner fra tjernet
 // på fjellet, over fossen, gjennom canyonen og ut i havet. Løypene registreres med c.course(...) og testes hver for seg:
 //   node tools/test-levels.js verden
 (function(){
@@ -17,7 +17,7 @@ const SW=[-24,-22], SW_R=12;                                       // sumpen
 const dSw=(x,z)=>Math.hypot(x-SW[0],z-SW[1]);
 const inDesert=(x,z)=>x>14&&z>-30&&rM(x,z)>21;
 const inJungle=(x,z)=>x<-10&&z<16&&rM(x,z)>22&&dSw(x,z)>SW_R+2;
-// bekken: tjern på fjellet → foss → canyon (oase) → havet i øst
+// bekken: tjern på fjellet → foss → canyon (oase) → havet i vest
 const TARN=polM(8.5,22);
 const STREAM=[TARN,polM(10.2,20),polM(12,17),polM(13.4,14),polM(15.6,12),polM(18.5,8),[20,22],[27,17],[33,11],[38,2],[44,-5],[50,-11],[56,-15]];
 const CLIFF=(x,z)=>{const r=rM(x,z),a=aM(x,z);return smt((13.6-r)/1.4)*smt((r-12)/1.0)*smt((a-2)/8)*smt((26-a)/8)};
@@ -44,12 +44,12 @@ const CH=[
 // hovedveiene fra basen ut til løypene
 const ROADS=[
  [[0,-10],[0,-1],[0,6]],                     // nord: Toppturen
- [[-6,-8],[-14,-8],[-22,-8]],                // vest: Jungelstien
- [[-5,-11],[-10,-17],[-14,-22]],             // sørvest: Sumpen
+ [[-6,-8],[-14,-8],[-22,-8]],                // øst: Jungelstien
+ [[-5,-11],[-10,-17],[-14,-22]],             // sørøst: Sumpen
  [[1,-13],[-2,-28],[-6,-34],[-8,-38]],        // sør: stranden
- [[7,-9],[16,-13],[24,-20]],                  // øst: canyonen
+ [[7,-9],[16,-13],[24,-20]],                  // vest: canyonen
  [[29,-34],[31,-29],[28,-24],[24,-20]],        // kystveien mellom stranden og canyonen
- [[-12,-8],[-13,-2],[-16,5],[-20,11],[-23.5,16.5],[-26.5,22.1]],   // nordvest: langs jungelen til marinaen
+ [[-12,-8],[-13,-2],[-16,5],[-20,11],[-23.5,16.5],[-26.5,22.1]],   // nordøst: langs jungelen til marinaen
 ];
 
 LEVELS.push(
@@ -148,7 +148,7 @@ LEVELS.push(
       const red=inDesert(x,z);rock(x,z,r,h*(rr<16?1.1:red?.9:.6),{ang:R()*6.3,ax,surf:rr<11?S.SNOW:red?S.REDROCK:S.ROCK});if(r>1.0)c.anchor(x,z)}
     for(let i=0;i<30;i++){const t=.3+R()*.68,p=topp.P(t),s=topp.side(t),b=(R()-.5)*2.2;if(topp.nearGate(p.x,p.z,1.4)||lineD(STREAM,p.x,p.z)<4)continue;rock(p.x+s.x*b,p.z+s.z*b,.3+R()*.3,.14+R()*.18,{ang:R()*6.3})}
     for(let i=0;i<10;i++){const t=.8+R()*.17,p=topp.P(t),tn=topp.T(t);if(topp.nearGate(p.x,p.z,1.4))continue;rock(p.x+tn.x*(R()-.5),p.z+tn.z*(R()-.5),.9+R()*.6,.06+R()*.05,{ang:topp.ang(t)+1.57,ax:2.2,sharp:1.2,nz:.15,surf:S.SNOW})}
-    // --- trær: regnskog i vest, før finish ---
+    // --- trær: regnskog i øst, før finish ---
     const slope=(x,z)=>Math.abs(H(x+.5,z)-H(x-.5,z))+Math.abs(H(x,z+.5)-H(x,z-.5));
     const trunkOK=(x,z,r,minPath)=>!(near(x,z,minPath)||c.nearGate(x,z,2.2)||Math.hypot(x,z)>isl(x,z)-8||lineD(STREAM,x,z)<3.2||c.pools.some(p=>Math.hypot(p.x-x,p.z-z)<p.r+1.2)||c.trees.some(t=>Math.hypot(t.x-x,t.z-z)<r+t.r+1.6)||slope(x,z)>.4);
     for(let i=0;i<9000&&c.trees.length<150;i++){const x=-50+R()*44,z=-44+R()*60;if(!inJungle(x,z)||!trunkOK(x,z,.3,2.4))continue;c.tree(x,z,{h:4.5+R()*4,r:.2+R()*.18})}
