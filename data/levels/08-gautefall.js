@@ -28,14 +28,14 @@ const GREEN=(()=>{const L=[],n=4,r0=5,r1=23.4,A=r=>-Math.min(66,Math.acos(Math.m
 // Slalåmbakken: tolv porter som svinger fra side til side ned sørvestsiden
 const SLALOM=(()=>{const L=[polC(4.7,-138)],n=9;for(let i=1;i<=n;i++){const u=i/n,r=4.7+u*17.6,d=-124-38*u+(i<n?(i%2?1:-1)*1.1/r/DEG:0);L.push(polC(r,d))}return L})();
 const PISTES=[
- {id:'fri',name:'Familiebakken',kind:'fri',diff:1,color:1,hw:1.9,blend:1.3,desc:'Slake svinger i sikksakk ned østsiden. Fin for å lære å svinge.',par:[23,28],
+ {id:'fri',name:'Familiebakken',kind:'fri',diff:1,color:1,hw:1.9,blend:1.3,desc:'Slake svinger i sikksakk ned vestsiden. Fin for å lære å svinge.',par:[23,28],
   path:GREEN,gates:[GREEN[3],GREEN[9],GREEN[15],GREEN[21],GREEN[GREEN.length-1]]},
- {id:'slalom',name:'Slalåmbakken',kind:'slalom',diff:2,color:2,hw:2.4,desc:'Røde og blå porter på skrå ned sørvestsiden. Bom koster 5 sekunder.',par:[13,17],
+ {id:'slalom',name:'Slalåmbakken',kind:'slalom',diff:2,color:2,hw:2.4,desc:'Røde og blå porter på skrå ned sørøstsiden. Bom koster 5 sekunder.',par:[13,17],
   path:SLALOM,gates:SLALOM.slice(1)},
  {id:'utfor',name:'Utforløypa',kind:'utfor',diff:3,color:3,hw:2.2,desc:'Fra toppen i en lang bue over hele nordsiden. Bratt, rask og med is i svingene.',par:[7.8,9.5],
   path:[polC(4.6,22),polC(6.5,42),polC(8.5,62),polC(10.5,82),polC(12.5,100),polC(14.5,116),polC(16.5,128),polC(18.5,138),polC(20.6,146),polC(23,150)],
   gates:[polC(8.5,62),polC(12.5,100),polC(16.5,128),polC(23,150)],ice:[[.3,.38],[.62,.7]]},
- {id:'hopp',name:'Big Jumps',kind:'hopp',diff:3,color:4,hw:2.4,desc:'Ned vestsiden med tre store hopp. Snurr i lufta med ← og →, men land med skiene rett fram.',par:[650,350],
+ {id:'hopp',name:'Big Jumps',kind:'hopp',diff:3,color:4,hw:2.4,desc:'Ned østsiden med tre store hopp. Snurr i lufta med ← og →, men land med skiene rett fram.',par:[650,350],
   path:[polC(4.6,184),polC(9,183),polC(13.5,181),polC(18,179),polC(22.5,178),polC(26,180),polC(27.6,184)],
   gates:[polC(13.5,181),polC(22.5,178),polC(27.6,184)],jumps:[.22,.5,.77]},
 ];
@@ -43,7 +43,7 @@ const PISTES=[
 const CH=[
  {id:'isvann',name:'Isvannet',diff:2,gates:8,desc:'Rundt og over det islagte vannet. Nesten ikke grep: rolig på gassen og styr tidlig.',
   path:[[-19.5,-14],[-22,-17.5],[-27,-18],[-30.5,-14],[-30,-8.5],[-26,-6],[-21.5,-8],[-23,-12],[-27,-12.5]],hw:1.3,bench:false},
- {id:'skog',name:'Granskogen',diff:1,gates:8,desc:'Snødekt skogsvei mellom tunge grantrær på østsiden av øya.',
+ {id:'skog',name:'Granskogen',diff:1,gates:8,desc:'Snødekt skogsvei mellom tunge grantrær på vestsiden av øya.',
   path:[[13,-24],[20,-24],[27,-19],[31,-11],[30,-3],[26,3],[21,1]],surf:S.SNOW,hw:1.3},
  {id:'nord',name:'Nordkysten',diff:2,gates:10,needs:{courses:1},desc:'Langs kysten på nordsiden av fjellet, der vinden har blåst isen blank.',
   path:[[-33.5,4],[-33,14],[-27,24],[-17,31],[-5,35],[6,34],[17,29],[25,21],[29,11]],surf:S.SNOW,hw:1.3},
@@ -108,7 +108,7 @@ LEVELS.push(
       if(Math.hypot(x,z)>isl(x,z)-7||r<PLAT+3||hh>TOP-2.4||c.dist(x,z)<3.2||!c.free(x,z,.6)||Math.hypot(x-LAKE[0],z-LAKE[1])<LAKE_R+1.4||Math.hypot(x-PARK[0],z-PARK[1])<PARK_R+3)continue;
       const dens=.25+.75*smt((hh-2)/2)*smt((TOP-3-hh)/3)+(x>12&&z<5?.5:0);if(R()>dens)continue;c.spruce(x,z,{h:1.3+R()*1.8*(1-smt((hh-8)/4)*.5)})}
     // --- gullmutterne ---
-    c.secret(3.2,10.2,'Bak toppstua');c.secret(-25,-12,'Midt på Isvannet');{const p=polC(16,140);c.secret(p[0],p[1],'Under fjellveggen i nordvest')}c.secret(30,-6,'Dypt i granskogen');c.secret(LIFT_A[0]+1.6,LIFT_A[1]+2.6,'Bak bunnstasjonen');
+    c.secret(3.2,10.2,'Bak toppstua');c.secret(-25,-12,'Midt på Isvannet');{const p=polC(16,140);c.secret(p[0],p[1],'Under fjellveggen i nordøst')}c.secret(30,-6,'Dypt i granskogen');c.secret(LIFT_A[0]+1.6,LIFT_A[1]+2.6,'Bak bunnstasjonen');
     c.dressPistes();
     c.finish();
     c.spruces();
