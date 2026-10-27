@@ -10,7 +10,7 @@
 const BT={on:false,phase:'',fade:null,built:false,scene:null,cam:null,dir:null,sky:null,sun:null,water:null,wu:null,foam:[],torches:[],lamps:[],clouds:[],gulls:[],parts:[],
   smokers:[],docks:{},treasure:null,gates:[],gateGrp:null,barrels:[],barVis:[],pir:[],pirVis:[],balls:[],ballVis:[],vol:null,W:null,
   race:null,route:null,two:false,P:[],acc:0,step:0,time:0,wave:0,goAt:0,beat:0,introT:0,winner:null,winT:0,fireT:0,coins:false,result:false,paused:false,
-  snd:null,gullT:3,remote:new Map(),net:null,invite:null,sendT:0,hudT:0,marina:null,focus:new THREE.Vector3()};
+  snd:null,gullT:3,isl:[],remote:new Map(),net:null,invite:null,sendT:0,hudT:0,marina:null,focus:new THREE.Vector3()};
 const B_SUN=new THREE.Vector3(.45,.55,.7).normalize(),B_FOG=new THREE.Color(0xbfe0f0),B_FAR=2600;   // the fog has hidden everything by 2100, so the cameras stop at 2600 and the sky sits inside that
 const brand=(a,b)=>a+Math.random()*(b-a);
 const bHead=(a,o=new THREE.Vector3())=>o.set(-Math.sin(a),0,-Math.cos(a)),bRight=(a,o=new THREE.Vector3())=>o.set(Math.cos(a),0,-Math.sin(a));
@@ -57,6 +57,7 @@ function buildSea(){if(BT.built)return;BT.built=true;if(!BTEX)BTEX=bMakeTex();
   for(const id in SEA.docks)BT.docks[id]=bDock(seaDock(id));
   bTreasure();
   for(let i=0;i<24;i++)bCloud(R);for(let i=0;i<16;i++)bGull(R);
+  if(typeof fAirportSea==='function')fAirportSea();   // Trinnvik's airport (js/plane.js)
   BT.W={islands:seaIslands(),hulls:BT.pir,bound:SEA.bound}}
 // a smaller shadow map with low graphics (the setting in the menu)
 function bShadowSize(){const sz=state.gfx==='hi'?2048:1024,sh=BT.dir.shadow;if(sh.mapSize.x===sz)return;sh.mapSize.set(sz,sz);if(sh.map){sh.map.dispose();sh.map=null}}
@@ -107,10 +108,11 @@ function bIsland(I,R){const g=new THREE.Group(),r=I.r,look=I.look;g.position.set
   else if(look==='skilso')top=bSkilso(g,I,R);
   // rocks along the shore
   if(look!=='by'){const n=4+Math.floor(R()*5);for(let i=0;i<n;i++){const a=R()*Math.PI*2,k=bRock(5+R()*10,R,look==='vulkan'?0x3e3a38:0x6f6a66);k.position.set(Math.cos(a)*r*(.92+R()*.1),0,Math.sin(a)*r*(.92+R()*.1));g.add(k)}}
-  BT.scene.add(g);bFoam(I.x,I.z,r);const lab=bLabel(I.name.toUpperCase());lab.position.set(I.x,top+60,I.z);BT.scene.add(lab)}
-// Tromøya: the island you came from, in small. The grass, the desert and the mesas in the east, the jungle in the west, the snow mountain,
-// the base, the village by the ferry, palms along the beaches, and Captain Theis' boathouse by the dock in the north-west (bDock).
-function bTromoya(g,I,R){const r=I.r,k=r/52,P=(x,z)=>[x*k,-z*k];
+  BT.scene.add(g);BT.isl.push({I,g});bFoam(I.x,I.z,r);const lab=bLabel(I.name.toUpperCase());lab.position.set(I.x,top+60,I.z);BT.scene.add(lab)}
+// Tromøya: the island you came from, in small. The grass, the desert and the mesas in the west, the jungle in the east, the snow mountain,
+// the base, the village by the ferry, palms along the beaches, and Captain Theis' boathouse by the dock in the north-east (bDock).
+// P turns the island's own coordinates into the sea's: east is −x on the island and +x at sea, north +z on the island and −z at sea.
+function bTromoya(g,I,R){const r=I.r,k=r/52,P=(x,z)=>[-x*k,-z*k];
   bAdd(g,new THREE.CylinderGeometry(r-34,r-14,10,15),bStd(0x5a9a3c),0,5,0);
   bAdd(g,new THREE.CylinderGeometry(r*.42,r*.5,10.4,9),bStd(0xd9b878),r*.42,5.2,r*.05,false);
   for(const[x,z,rr,h]of[[28,-24,4,3.2],[36,-18,5,4],[44,-8,4.5,3.6],[42,4,5,4.4],[32,-6,3.2,2.6],[46,14,4,3.4]]){const[px,pz]=P(x,z),hh=h*5+6;bAdd(g,new THREE.CylinderGeometry(rr*k*.8,rr*k,hh,7),bStd(0xb5572f),px,10+hh/2,pz)}
@@ -276,7 +278,7 @@ function bSndUpdate(){const S_=bSnd();if(!S_)return;const t=AC.currentTime,on=BT
   S_.eng.forEach((e,i)=>{const p=BT.P[i];if(e.p)e.p.pan.value=BT.P.length>1?(i?.6:-.6):0;if(!p||!run){e.g.gain.setTargetAtTime(0,t,.15);return}
     const b=p.b,sp=Math.abs(b.speed),thr=p.inp?p.inp.gas:0,base=38+sp*42+thr*10+(b.boost>0?18:0);
     e.o.frequency.setTargetAtTime(base,t,.06);e.o2.frequency.setTargetAtTime(base*.5,t,.06);e.f.frequency.setTargetAtTime(380+sp*450+thr*250,t,.08);e.g.gain.setTargetAtTime((.035+sp*.025+thr*.02)*vc,t,.15)})}
-const bSndOk=()=>!!(BT.on&&state.sound&&bSnd());
+const bSndOk=()=>!!((BT.on||(typeof FL!=='undefined'&&FL.on))&&state.sound&&bSnd());   // the flight (js/plane.js) uses the bangs and chimes too
 function bEnv(n,t0,a,peak,d){n.gain.setValueAtTime(.0001,t0);n.gain.linearRampToValueAtTime(peak,t0+a);n.gain.exponentialRampToValueAtTime(.0001,t0+a+d)}
 function bNoise(t,dur,type,freq,peak,a,d,f2){const C=AC,n=C.createBufferSource();n.buffer=BT.snd.nb;const f=C.createBiquadFilter();f.type=type;f.frequency.setValueAtTime(freq,t);if(f2)f.frequency.exponentialRampToValueAtTime(f2,t+dur);
   const g=C.createGain();bEnv(g,t,a,peak,d);n.connect(f);f.connect(g);g.connect(BT.snd.fx);n.start(t);n.stop(t+dur+.05);return f}
@@ -428,7 +430,7 @@ function boatAnswer(k,yes){
   if(k==='boat'){if(yes)boatStart();else{state.mode='play';state.askCool='boat';toast('Kjør videre når du vil')}return}
   if(k==='boatInvite'){const v=BT.invite;state.mode='play';if(yes&&v)boatStart(v);else{if(v)bNetSend({t:'Bl',id:v.id});BT.invite=null}}}
 // out to the boat: the screen goes dark, the sea comes up with the boat menu. join: an invitation to accept on the way
-function boatStart(join){if(BT.on||BT.fade)return;initAudio();if(AC&&AC.state==='suspended')AC.resume();state.mode='boat';car.vel.set(0,0,0);car.w.set(0,0,0);car.throttle=0;setOffer(null);
+function boatStart(join){if(BT.on||BT.fade||(typeof FL!=='undefined'&&(FL.on||FL.fade)))return;initAudio();if(AC&&AC.state==='suspended')AC.resume();state.mode='boat';car.vel.set(0,0,0);car.w.set(0,0,0);car.throttle=0;setOffer(null);
   $('fade').classList.add('on');BT.fade={t:0,hold:.2,cb:()=>{buildSea();bShadowSize();BT.on=true;BT.two=!!store.get('boatTwo',false);$('hud').hidden=true;$('hint').hidden=true;$('boatHud').hidden=false;if(join&&join.id)bNetJoin(join);bMenu()}}}
 function boatExit(){if(BT.fade||!BT.on)return;bNetLeave(true);$('fade').classList.add('on');
   BT.fade={t:0,hold:.2,cb:()=>{BT.on=false;BT.phase='';BT.result=false;BT.paused=false;bRemoteClear();if(BT.snd)BT.snd.master.gain.setTargetAtTime(0,AC.currentTime,.1);$('boatHud').hidden=true;$('boatMenu').hidden=true;$('boatPause').hidden=true;$('bcount').hidden=true;if(!$('result').hidden){$('result').hidden=true;bResultReset()}
@@ -471,20 +473,22 @@ function updateBoat(dt){
   const now=performance.now();
   if(!BT.paused){if(BT.phase==='intro'||BT.phase==='count')bCountdown(now);BT.acc+=dt;let n=0;while(BT.acc>=BSTEP&&n<8){bStep();BT.acc-=BSTEP;n++}if(n>=8)BT.acc=0;if(BT.phase==='won')bWon(dt)}
   bAnimate(dt,now);bCameras(dt,now);if(['intro','count','race','won'].includes(BT.phase)){BT.hudT-=dt;if(BT.hudT<=0){BT.hudT=1/30;bHUD()}}
-  bNetTick(dt);bSndUpdate();bRender();return true}
-function bAnimate(dt,now){const t=now*.001,f60=dt*60;BT.wu.uTime.value=BT.wave;
+  bNetTick(dt);if(typeof seaSend==='function'&&BT.P[0]&&BT.phase)seaSend('b',BT.P[0].b,dt);bSndUpdate();bRender();return true}
+// the sea itself: waves, foam, torches and lamps, clouds and gulls (the flight in js/plane.js uses this too)
+function bWorldAnim(dt,now){const t=now*.001,f60=dt*60;BT.wu.uTime.value=BT.wave;
   for(const f of BT.foam){const s=Math.sin(t*1.6+f.ph);f.m.material.opacity=.22+.18*s;f.m.scale.set(1+.03*s,1+.03*s,1)}
   for(const tf of BT.torches)tf.material.emissiveIntensity=.9+Math.random()*.7;
   for(const l of BT.lamps){if(l.lamp)l.lamp.material.emissiveIntensity=1.2+Math.sin(t*3)*.6;if(l.flag)bFlag(l.flag,t,1.2)}
   for(const c of BT.clouds){c.position.x+=c.userData.drift*f60;if(c.position.x>2100)c.position.x=-2100}
-  for(const s of BT.gulls){s.a+=s.speed*.004*f60;const x=Math.cos(s.a)*s.rad,z=Math.sin(s.a)*s.rad;s.g.position.set(x,s.g.position.y,z);s.g.lookAt(Math.cos(s.a+.1)*s.rad,s.g.position.y,Math.sin(s.a+.1)*s.rad);const fl=Math.sin(t*9+s.ph);s.l.rotation.z=fl*.5;s.r.rotation.z=-fl*.5}
+  for(const s of BT.gulls){s.a+=s.speed*.004*f60;const x=Math.cos(s.a)*s.rad,z=Math.sin(s.a)*s.rad;s.g.position.set(x,s.g.position.y,z);s.g.lookAt(Math.cos(s.a+.1)*s.rad,s.g.position.y,Math.sin(s.a+.1)*s.rad);const fl=Math.sin(t*9+s.ph);s.l.rotation.z=fl*.5;s.r.rotation.z=-fl*.5}}
+function bAnimate(dt,now){const t=now*.001,f60=dt*60;bWorldAnim(dt,now);
   BT.barVis.forEach((m,i)=>{const br=BT.barrels[i];m.visible=br.on;m.position.y=2.5+bWave(br.x,br.z,BT.wave);m.rotation.y+=.01*f60;m.rotation.x=Math.sin(t+br.phase)*.15});
   const game=['intro','count','race'].includes(BT.phase);
   BT.gates.forEach((g,gi)=>{for(const l of g.lamps)l.material.emissiveIntensity=1+Math.sin(t*4+gi)*.6;g.beams.forEach((bm,pi)=>{const p=BT.P[pi];bm.visible=game&&!!p&&p.b.gate===gi&&!p.b.done;bm.material.opacity=.22+.12*Math.sin(t*3)})});
   BT.P.forEach(p=>bPose(p.mesh,p.b,t,p.i));
   BT.pirVis.forEach((m,i)=>{const p=BT.pir[i];m.visible=!!p;if(!p)return;m.position.set(p.x,bWave(p.x,p.z,BT.wave)+2,p.z);m.rotation.y=p.a;m.rotation.z=Math.sin(t*1.3+p.bob)*.05;if(bNear(p)>.2)bSails(m,p.state==='patrol'?.5:.9,t+p.bob)});
   if(BT.treasure.visible){BT.treasure.position.y=1+bWave(SEA.chest[0],SEA.chest[1],BT.wave)*.8;BT.treasure.rotation.y=Math.sin(t*.7)*.3;BT.treasure.children[BT.treasure.children.length-1].material.opacity=.45+.25*Math.sin(t*3)}
-  bRemoteDraw(now,t);
+  bRemoteDraw(now,t);if(typeof seaDraw==='function')seaDraw(now,t);
   BT.gullT-=dt;if(BT.gullT<=0){BT.gullT=brand(3,9);if(Math.random()<.7)sndGull()}}
 function bPose(m,b,t,i){const sp=Math.abs(b.speed),plane=Math.min(1,sp/1.6);m.position.set(b.x,bWave(b.x,b.z,BT.wave)+1.4+plane*.7+Math.sin(t*7+i)*.08*plane,b.z);m.rotation.y=b.a;
   m.rotation.x=.075*Math.max(-.4,Math.min(1,b.speed/1.2))+Math.sin(t*1.4+b.z*.01)*.035;m.rotation.z=b.turnVis*.17*Math.min(1,sp)+Math.sin(t*1.1+b.x*.01)*.035;bFlag(m.userData.cloth,t+i,b.speed);
@@ -547,7 +551,7 @@ function bMinimap(){const cv=$('bmini'),c=cv.getContext('2d'),w=cv.width,h=cv.he
   c.fillStyle='#E5A92B';for(const br of BT.barrels)if(br.on){const[u,v]=M(br.x,br.z);c.beginPath();c.arc(u,v,2.2,0,6.283);c.fill()}
   c.fillStyle='#14120E';for(const p of BT.pir){const[u,v]=M(p.x,p.z);c.beginPath();c.arc(u,v,3.5,0,6.283);c.fill()}
   const arrow=(x,z,a,col)=>{const[u,v]=M(x,z);c.save();c.translate(u,v);c.rotate(-a);c.fillStyle=col;c.strokeStyle='#fff';c.lineWidth=1.5;c.beginPath();c.moveTo(0,-8);c.lineTo(5.5,5.5);c.lineTo(0,3);c.lineTo(-5.5,5.5);c.closePath();c.fill();c.stroke();c.restore()};
-  for(const r of BT.remote.values())if(r.live)arrow(r.x,r.z,r.a,netCol(r.slot));for(const p of BT.P)arrow(p.b.x,p.b.z,p.b.a,p.col);
+  for(const r of BT.remote.values())if(r.live)arrow(r.x,r.z,r.a,netCol(r.slot));if(typeof SEA_O!=='undefined')for(const o of SEA_O.values())if(o.live)arrow(o.x,o.z,o.a,o.col);for(const p of BT.P)arrow(p.b.x,p.b.z,p.b.a,p.col);   // SEA_O: the others at sea (js/plane.js)
   c.fillStyle='#14120E';c.font='700 12px "Barlow Condensed", sans-serif';c.fillText('N',w/2,12)}
 
 /* ---------- racing the others in a «Kjør sammen» room ---------- */

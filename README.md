@@ -16,6 +16,8 @@ js/skier.js           Fysikken for skiløperen i Gautefall (ingen DOM, testes ut
 js/ski.js             Skianlegget i spillet: stolheisen, skiløperen, turen opp og ned, kamera og lyd.
 js/boatsim.js         Fysikken for motorbåtløpet: båtene, bøyene, piratene og vulkanen (ingen DOM, testes uten nettleser).
 js/boat.js            Motorbåtløpet fra marinaen på Tromøya: havet, øyene, båtene, delt skjerm, HUD, lyd og løp mot andre i rommet.
+js/planesim.js        Flyfysikken: avgang, flyging, landing, krasj og ringene (ingen DOM, testes uten nettleser).
+js/plane.js           Flyturene fra flyplassen på Trinnvik: flyet, flyplassen ute på havet, HUD, lyd, og båtene og flyene til de andre i rommet.
 js/net.js             Flerspiller: rom, romkode og de andre bilene.
 data/cars.js          Bilene.                 ← legg til nye biler her
 data/levels/NN-id.js  Én fil per bane.         ← legg til nye baner her
@@ -23,8 +25,10 @@ data/parts.js         Garasjedeler og lakkfarger.
 data/vegetasjon.js    Trær og planter for jungel, subtropisk og arktisk.   ← legg til nye planter her
 data/dyr.js           Dyr for de samme tre miljøene (står i ro).          ← legg til nye dyr her
 data/boats.js         Havet og båtløpene fra marinaen.                    ← legg til nye båtløp her
+data/flights.js       Flyplassen på havet og flyturene med ringer.        ← legg til nye flyturer her
 tools/test-levels.js  Autopilot som tester alle baner uten nettleser.
 tools/test-boats.js   Autopilot som kjører alle båtløpene uten nettleser.
+tools/test-flights.js Autopilot som flyr alle flyturene og lander på rullebanen, uten nettleser.
 manifest.json, sw.js  Gjør spillet til en PWA (installerbar, virker uten nett).
 icons/                Appikoner.
 ```
@@ -279,6 +283,33 @@ Muttere: 5 per bøye, 3 per turbotønne, 20 for å fortøye, 15 hvis du aldri bl
 
 **Havet og løpene (`data/boats.js`):** Øyene ligger der de ligger på skjærgårdskartet (`pos` i `data/archipelago.js` ganger `SEA.span`), og Skilsø ligger i `SEA.extra`. Et løp har `buoys:[[x,z],…]` (nord er −z), `finish:'marina'` eller `'skilso'`, `pirates`, `par:[tre stjerner, to stjerner]`, eventuelt `needs:{races:1}` og `lava:true`. Kjør `node tools/test-boats.js` etter endringer: den sjekker at bøyene og etappene holder avstand til øyene og lar en autopilot kjøre hvert løp, uten pirater og med pirater fem ganger.
 
+## Flyplassen og flyturene
+
+Øst på Trinnvik ligger Trinnvik lufthavn, på en fylling ut i sjøen. Der er det rullebane nord–sør med kantlys, terminal, tårn, hangar og vindpose, og et småfly i samme farge som bilen. Flyplassveien går fra enden av Promenaden langs stranda. Kjør inn på den blå ruta ved flyet, så kommer spørsmålet «Vil du fly?». JA: bilen blir stående, og flyet står klart på rullebanen ute i skjærgården. Det er det samme havet, de samme øyene og den samme skalaen som i båtløpet.
+
+| Tur | Vanskelighet | Ringer |
+|---|---|---|
+| Fly fritt | – | Ingen. Fly dit du vil og land når du er ferdig. |
+| Rundt Trinnvik | Lett | 7 i en runde rundt byøya |
+| Over Tromøya | Middels | 9, nordover rundt snøfjellet og hjem |
+| Vulkanflyget | Vanskelig (låses opp når du har fullført en annen tur) | 10, helt nord til Hisøya og hjem forbi Skilsø |
+
+| Taster | På bakken | I lufta |
+|---|---|---|
+| W eller ↑ | Gass (hold, så letter flyet) | Stig |
+| S eller ↓ | Brems | Synk |
+| A/D eller ←/→ | Styr | Sving (flyet krenger) |
+| Mellomrom | – | Full fart |
+| Pause | Esc eller P | Esc eller P |
+
+På mobil og nettbrett er det sving nede til venstre og stig, synk og full fart (⚡) nede til høyre. Lander du rolig med vingene vannrett, ruller flyet videre, og du kan ta av igjen. Treffer du sjøen eller en øy, starter du på nytt ved siste ring (eller på rullebanen). Bakken under flyet finnes ved å sende en stråle rett ned gjennom øyene, så husene og fjellene er like harde som de ser ut.
+
+Muttere: 5 per ring, 20 for å komme i mål, 15 uten krasj, 60 første gang og 20 for ny rekord. Beste tid lagres i `best['trinnvik/fly/…']`.
+
+**Banefelt:** Flyplassen bygges i `build(c)` i `data/levels/07-trinnvik.js`, som setter `c.airportDef` (den blå ruta, flyet, vindposen og veien dit). `landExtra(x,z)` på banen (0–1) sier hvor det er fylt ut land utenfor kysten, så sjøen ikke tar det. Testen kjører flyplassveien inn på den blå ruta.
+
+**Havet og turene (`data/flights.js`):** `AIRPORT` er flyplassen sett fra sjøen, målt fra midten av Trinnvik. En tur har `rings:[[x,høyde,z],…]` (nord er −z), `par:[tre stjerner, to stjerner]` og eventuelt `needs:{flights:1}`. Kjør `node tools/test-flights.js` etter endringer. Den sjekker at ringene og etappene holder høyde over øyene, lar en autopilot fly hver tur, og lander på rullebanen.
+
 ## Planter og dyr (`data/vegetasjon.js`, `data/dyr.js`)
 
 Hver plante og hvert dyr er en oppføring `PROPS.navn={navn,info,params,place,build}`. Prefikset i navnet forteller miljøet: `jungel_*`, `subtrop_*` og `arktis_*`.
@@ -312,6 +343,7 @@ Ny plante eller nytt dyr: kopier en oppføring. `place(x,z,o,env)` leser paramet
 - **Lokal test:** Kryss av for «Lokal test» i dialogen, eller åpne siden med `?local`. Da kobles faner i samme nettleser med `BroadcastChannel`, uten nett, men med nøyaktig samme romlogikk. Åpne to faner, lag rom i den ene og bli med i den andre.
 - **Mellom øyene:** Du ser bare biler på samme øy. Øykartet og minikartet viser vennene som prikker i deres farge, og skjærgårdskartet viser hvilken øy de er på. I pausemenyen kan du ta fergen rett til øya der en venn er (5 muttere). Når en venn reiser fra eller kommer til øya di, seiler fergen med dem.
 - **Båtløp:** Den som står i båtmenyen ved marinaen, kan invitere rommet. De andre får spørsmålet der de kjører, og blir med i lobbyen. Lederen velger løp og starter for alle. Alle styrer sin egen båt og ser de andres, og resultatlista fylles ut etter hvert som båtene fortøyer. Piratene skyter bare på båten på sin egen skjerm.
+- **Båter og fly:** Alle som er ute på sjøen, sender hvor de er (meldingen `Bv`, 10 ganger i sekundet). Den som flyr, ser båtene til de andre, og den som kjører båt, ser flyene, med navneskilt over. Begge vises også på minikartet.
 - **Brudd:** En gjest som mister verten prøver å koble seg til igjen fem ganger. Forlater verten rommet, får gjestene beskjed og kjører videre alene. Det er ingen ny vert når verten går.
 
 Strenge nettverk, som enkelte skole- og jobbnett, kan blokkere direkte kobling mellom nettlesere. Da får man en melding om at koblingen ikke fikk kontakt.

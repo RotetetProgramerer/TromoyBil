@@ -29,6 +29,13 @@ function marinaTest(def,lv){const m=lv.marinaDef,car=makeCar(CARS[1]);car.assist
     const fw=car.fw,lf=car.lf,ang=Math.atan2(dx*lf.x+dz*lf.z,dx*fw.x+dz*fw.z);car.steer=Math.max(-.6,Math.min(.6,ang*1.5));car.throttle=1;stepCar(car,dt);
     if(car.depth>0)fell++;if(car.up.y<.2){console.log(def.id.padEnd(14),'MARINA   FEIL: velt ved',car.pos.x.toFixed(1),car.pos.z.toFixed(1));return}}
   const ok=wp>=pts.length;console.log(def.id.padEnd(14),'MARINA  ',ok?'OK  ':'FEIL',(road?'veien og ':'')+'inn på den blå ruta'+(ok?' tid '+t.toFixed(0)+'s':' (stoppet ved '+car.pos.x.toFixed(1)+','+car.pos.z.toFixed(1)+')'),'vann',fell)}
+// drives the road to the airport (Trinnvik) and onto its blue square: lv.airportDef.from, then .route
+function airportTest(def,lv){const A=lv.airportDef,car=makeCar(CARS[1]);car.assist=false;car.low=true;const pts=A.route,nx=pts[0];placeCar(car,A.from.x,A.from.z,Math.atan2(nx.x-A.from.x,nx.z-A.from.z));for(let i=0;i<480;i++)stepCar(car,dt);
+  let fell=0,wp=0,t=0;
+  for(let i=0;i<240*60;i++){const w=pts[wp],dx=w.x-car.pos.x,dz=w.z-car.pos.z,d=Math.hypot(dx,dz);if(d<(wp===pts.length-1?.7:1.2)){wp++;if(wp>=pts.length){t=i*dt;break}continue}
+    const fw=car.fw,lf=car.lf,ang=Math.atan2(dx*lf.x+dz*lf.z,dx*fw.x+dz*fw.z);car.steer=Math.max(-.6,Math.min(.6,ang*1.5));car.throttle=1;stepCar(car,dt);
+    if(car.depth>0)fell++;if(car.up.y<.2){console.log(def.id.padEnd(14),'FLYPLASS FEIL: velt ved',car.pos.x.toFixed(1),car.pos.z.toFixed(1));return}}
+  const ok=wp>=pts.length;console.log(def.id.padEnd(14),'FLYPLASS',ok?'OK  ':'FEIL','veien og inn på den blå ruta'+(ok?' tid '+t.toFixed(0)+'s':' (stoppet ved '+car.pos.x.toFixed(1)+','+car.pos.z.toFixed(1)+')'),'vann',fell)}
 // skis one piste with an autopilot: aims a little way down the line, brakes above a target speed, never spins in the air
 const SKI_TARGET={fri:4,slalom:4.2,utfor:8.5,hopp:7.5};
 function skiTest(def,lv,k){const s=makeSkier(),run=makeSkiRun(k),tgt=SKI_TARGET[k.kind]||5;placeSkier(s,k.start.p.x,k.start.p.z,Math.atan2(k.start.tan.x,k.start.tan.z));
@@ -78,6 +85,7 @@ for(const def of LEVELS){
   const lv=genLevel(def);
   if(lv.ferry)villageTest(def,lv);
   if(lv.marinaDef)marinaTest(def,lv);
+  if(lv.airportDef)airportTest(def,lv);
   for(const k of(lv.pistes||[]))skiTest(def,lv,k);
   if(def.world){for(const k of lv.courses)drive(def,lv,k,def.id+'/'+k.id);continue}   // an open world: every course on its own
   drive(def,lv,lv,def.id);

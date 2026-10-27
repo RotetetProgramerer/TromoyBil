@@ -99,12 +99,12 @@
     <div class="btop">
       <div class="bbox bwho"><span class="bplace" hidden>1.</span><span><small class="bpl">Kaptein</small><span class="bname">Spiller 1</span></span></div>
       <div class="bmid"><div class="bbox bcomp"><canvas class="bcompass" width="540" height="64" aria-hidden="true"></canvas></div><div class="bbox btarget">Bøye 1</div></div>
-      <div class="bbox bspeed"><small>Fart</small><b class="bkn">0 kn</b><div class="bboost"><i></i></div></div>
+      <div class="bbox bspeed"><small>Fart</small><b class="bkn">0 kn</b><small class="balt"></small><div class="bboost"><i></i></div></div>
     </div>
     <div class="bnotice" aria-live="polite"></div>
     <div class="btouch">
       <div class="bt-steer"><button class="tb" data-t="left" aria-label="Sving til venstre"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><button class="tb" data-t="right" aria-label="Sving til høyre"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button></div>
-      <div class="bt-gas"><button class="tb big" data-t="gas" aria-label="Gass"><svg viewBox="0 0 24 24"><path d="M5 15l7-7 7 7"/></svg></button><button class="tb" data-t="rev" aria-label="Brems og revers"><svg viewBox="0 0 24 24"><path d="M5 9l7 7 7-7"/></svg></button></div>
+      <div class="bt-gas"><button class="tb fonly" data-t="jump" aria-label="Full fart"><svg viewBox="0 0 24 24"><path d="M13 3L5 14h6l-1 7 8-11h-6z"/></svg></button><button class="tb big" data-t="gas" aria-label="Gass"><svg viewBox="0 0 24 24"><path d="M5 15l7-7 7 7"/></svg></button><button class="tb" data-t="rev" aria-label="Brems og revers"><svg viewBox="0 0 24 24"><path d="M5 9l7 7 7-7"/></svg></button></div>
     </div>
   </div>
   <div class="bpane" id="bpane1" hidden>
@@ -174,6 +174,7 @@
       <dt>Mus</dt><dd>Dra for å se rundt, rull eller klyp for zoom</dd>
       <dt>På ski</dt><dd>Gautefall: ← → sving, ↓ plog, ↑ stake, mellomrom hopp</dd>
       <dt>Med båt</dt><dd>Marinaen på Tromøya: WASD eller piltastene. To spillere deler tastaturet.</dd>
+      <dt>Med fly</dt><dd>Flyplassen på Trinnvik: W/↑ gass og stig, S/↓ sink og brems, A/D eller ←/→ sving, mellomrom full fart.</dd>
     </dl>
   </div>
 </section>
@@ -293,6 +294,7 @@
       <li><b>Bruk mutterne</b> i verkstedet på basen: dekk, fjæring, motor, lakk og en ny bil.</li>
       <li><b>Finn gullmutterne</b> (fem per øy) og ta fergen fra landsbyen til de andre øyene.</li>
       <li><b>Kjør båtløp</b> fra Captain Theis' marina nordøst på øya: parker på den blå ruta.</li>
+      <li><b>Fly</b> fra flyplassen øst på Trinnvik: parker på den blå ruta ved flyet.</li>
       <li><b>Sitter du fast?</b> Lavt gir (G), vinsj (R) eller «Hent bilen» i pausemenyen (Esc).</li>
     </ul>
     <button class="go" id="helpOk">Kjør!</button>
@@ -318,6 +320,34 @@
       <button class="ghost" id="rRetry">Prøv igjen</button>
       <button class="ghost" id="rMenu">Til menyen</button>
     </div>
+  </div>
+</section>
+
+<!-- THE FLIGHT MENU AND THE PAUSE IN THE AIR (js/plane.js); the flight uses the boat HUD's first pane -->
+<section class="overlay dialog" id="flyMenu" hidden>
+  <div class="sheet mp boat">
+    <p class="eyebrow">Trinnvik lufthavn</p>
+    <h2>Rundflyging</h2>
+    <p class="note">Hold gass nedover rullebanen, så letter flyet. Fly gjennom ringene i rekkefølge, eller fly fritt over øyene. Lander du rolig med vingene vannrett, ruller du videre. Treffer du sjøen eller en øy, starter du på nytt ved siste ring.</p>
+    <div class="alist" id="fmList"></div>
+    <p class="note" id="fmKeys"></p>
+    <button class="go" id="fmGo">Ta av</button>
+    <button class="ghost" id="fmBack">Tilbake til bilen</button>
+  </div>
+</section>
+<section class="overlay dialog" id="flyPause" hidden>
+  <div class="sheet">
+    <h2>Pause</h2>
+    <button class="go" id="fpResume">Fortsett</button>
+    <div class="row"><button class="ghost" id="fpRestart">Start på nytt</button><button class="ghost" id="fpMenu">Velg tur</button></div>
+    <div class="row"><button class="ghost" id="fpCar">Tilbake til bilen</button><button class="ghost" id="fpSound">Lyd: på</button></div>
+    <ul class="log">
+      <li><b>På bakken:</b> W eller ↑ gir gass, S eller ↓ bremser, A/D eller ←/→ styrer.</li>
+      <li><b>I lufta:</b> W eller ↑ stiger, S eller ↓ synker, A/D eller ←/→ svinger. Mellomrom gir full fart.</li>
+      <li><b>Ringene:</b> fly gjennom dem i rekkefølge. Kompasset og minikartet viser hvor neste er.</li>
+      <li><b>Lande:</b> kom rolig ned med vingene vannrett, gjerne på rullebanen. Brems med S eller ↓.</li>
+      <li><b>De andre:</b> i «Kjør sammen» ser du båtene og flyene til de andre i rommet.</li>
+    </ul>
   </div>
 </section>
 
@@ -364,6 +394,7 @@
 <script src="js/props.js"></script>
 <script src="js/skier.js"></script>
 <script src="js/boatsim.js"></script>
+<script src="js/planesim.js"></script>
 <script src="js/animals.js"></script>
 <script src="js/ambience.js"></script>
 <script src="js/map.js"></script>
@@ -373,6 +404,7 @@
 <script src="data/cars.js"></script>
 <script src="data/archipelago.js"></script>
 <script src="data/boats.js"></script>
+<script src="data/flights.js"></script>
 <script src="data/vegetasjon.js"></script>
 <script src="data/dyr.js"></script>
 <script src="data/levels/01-sand.js"></script>
@@ -390,6 +422,7 @@
 <script src="js/world.js"></script>
 <script src="js/ski.js"></script>
 <script src="js/boat.js"></script>
+<script src="js/plane.js"></script>
 <script src="js/net.js"></script>
 <script>startGame()</script>
 <script>if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js').catch(()=>{});</script>
