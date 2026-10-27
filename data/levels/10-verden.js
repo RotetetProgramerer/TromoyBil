@@ -28,17 +28,17 @@ const GLACIER=(x,z)=>{const r=rM(x,z),a=aM(x,z);return smt((a-62)/6)*smt((120-a)
 const CH=[
  {id:'jungel',name:'Jungelstien',diff:1,gates:8,desc:'Gjørmesti under urgamle trær. Papegøyer og aper følger med.',
   path:[[-22,-8],[-27,-12],[-33,-8],[-38,0],[-34,7],[-27,6],[-21,1],[-18,-3]],surf:S.DIRT,skip:S.MUD},
- {id:'sump',name:'Sumpen',diff:2,gates:8,needs:{courses:1},desc:'Dyp gjørme, siv og tåke. Hold farten oppe, ellers synker du.',
+ {id:'sump',name:'Sumpen',diff:2,gates:8,desc:'Dyp gjørme, siv og tåke. Hold farten oppe, ellers synker du.',
   path:[[-14,-22],[-19,-27],[-24,-31],[-30,-27],[-32,-20],[-27,-15],[-20,-17]],surf:S.MUD,hw:1.3},
  {id:'strand',name:'Strandsprinten',diff:1,gates:10,desc:'Høyt gir langs vannkanten, med tre hopp. Måkene letter når du kommer.',
   path:[[-8,-38],[0,-40],[8,-39],[16,-40],[24,-38],[29,-34]],surf:S.SAND},
- {id:'canyon',name:'Canyonkrabbingen',diff:3,gates:10,needs:{courses:3},desc:'Rød stein, trange passasjer og en oase. Lavt gir og tålmodighet.',
+ {id:'canyon',name:'Canyonkrabbingen',diff:3,gates:10,desc:'Rød stein, trange passasjer og en oase. Lavt gir og tålmodighet.',
   path:[[24,-20],[30,-16],[34,-9],[39,-2],[36,6],[30,3],[26,-5],[22,-12]],surf:S.GRAVEL,hw:1.1},
- {id:'is',name:'Issvingen',diff:2,gates:10,needs:{courses:3},desc:'Ned isbreen på nordsiden og opp igjen gjennom snøen. Glatt som såpe. Avkjøring fra Toppturen.',
+ {id:'is',name:'Issvingen',diff:2,gates:10,desc:'Ned isbreen på nordsiden og opp igjen gjennom snøen. Glatt som såpe. Avkjøring fra Toppturen.',
   path:[polM(17.6,66),polM(19,74),polM(21.5,82),polM(22.6,92),polM(22.2,102),polM(21.4,110),polM(20.6,116),polM(18.6,118),polM(17.2,112),polM(17,102)],hw:1.3},
- {id:'topp',name:'Toppturen',diff:3,gates:14,needs:{courses:5,nuts:200},desc:'Spiralveien til toppen: over hengebroa ved fossen, gjennom snøen og opp på selve tinden.',
+ {id:'topp',name:'Toppturen',diff:3,gates:14,desc:'Spiralveien til toppen: over hengebroa ved fossen, gjennom snøen og opp på selve tinden.',
   path:(()=>{const p=[[0,6]];for(let d=-80;d<=380;d+=12){const r=20-15.2*(d+80)/460;p.push(polM(r,d))}p.push(polM(2.5,400),polM(1,440));return p})(),hw:1.3,blend:1.8},
- {id:'natt',name:'Nattløpet',diff:2,gates:8,night:true,needs:{courses:1},desc:'En kort runde rundt basen etter mørkets frembrudd. Lysene på!',
+ {id:'natt',name:'Nattløpet',diff:2,gates:8,night:true,desc:'En kort runde rundt basen etter mørkets frembrudd. Lysene på!',
   path:[[6,-13],[12,-17],[9,-25],[0,-27],[-8,-21],[-5,-15],[1,-13]],surf:S.GRAVEL},
 ];
 // hovedveiene fra basen ut til løypene

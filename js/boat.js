@@ -19,7 +19,6 @@ const bStd=(c,o)=>new THREE.MeshStandardMaterial(Object.assign({color:c,flatShad
 function bAdd(g,geo,mat,x,y,z,cast=true){const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.castShadow=cast;m.receiveShadow=true;g.add(m);return m}
 const boatKey=r=>'verden/baat/'+r.id;
 const boatDone=()=>BOAT_RACES.filter(r=>best[boatKey(r)]).length;
-function boatLock(r){const n=r.needs&&r.needs.races;if(!n)return null;const done=BOAT_RACES.filter(q=>q!==r&&best[boatKey(q)]).length;return done>=n?null:'Fullfør '+(n>1?n+' andre båtløp':'et annet båtløp')+' først'}
 
 /* ---------- textures ---------- */
 let BTEX=null;
@@ -439,14 +438,14 @@ function boatStart(join){if(BT.on||BT.fade||(typeof FL!=='undefined'&&(FL.on||FL
 function boatExit(){if(BT.fade||!BT.on)return;bNetLeave(true);$('fade').classList.add('on');
   BT.fade={t:0,hold:.2,cb:()=>{BT.on=false;BT.phase='';BT.result=false;BT.paused=false;bRemoteClear();if(BT.snd)BT.snd.master.gain.setTargetAtTime(0,AC.currentTime,.1);$('boatHud').hidden=true;$('boatMenu').hidden=true;$('boatPause').hidden=true;$('bcount').hidden=true;if(!$('result').hidden){$('result').hidden=true;bResultReset()}
     renderer.setScissorTest(false);renderer.setViewport(0,0,innerWidth,innerHeight);state.mode='play';state.askCool='boat';camSnap=true;showHud();toast('Tilbake ved bilen')}}}
-const bSelRace=()=>{const id=BT.net?BT.net.race:store.get('boatRace','rundt');let r=BOAT_RACES.find(q=>q.id===id);if(!r||(!BT.net&&boatLock(r)))r=BOAT_RACES[0];return r};
+const bSelRace=()=>{const id=BT.net?BT.net.race:store.get('boatRace','rundt');let r=BOAT_RACES.find(q=>q.id===id);if(!r)r=BOAT_RACES[0];return r};
 // the boat menu: the boats wait on the start line while the camera circles them
 function bMenu(){BT.result=false;BT.paused=false;$('result').hidden=true;$('boatPause').hidden=true;$('bcount').hidden=true;$('boatHud').classList.add('menu');$('boatHud').classList.remove('won');bRemoteClear();
   const N=BT.net;if(N){N.racing=false;BT.phase='lobby';bNetSend({t:'Br',id:N.id,ready:1})}else BT.phase='menu';
   bSetup(bSelRace());bMenuRender();$('boatMenu').hidden=false;const f=$('bmGo');if(!f.hidden)f.focus()}
 function bMenuRender(){const N=BT.net,lead=!N||N.lead===NET.me,sel=bSelRace();
-  $('bmRaces').innerHTML=BOAT_RACES.map(r=>{const b=best[boatKey(r)],lock=!N&&boatLock(r),st=b?'★'.repeat(b.s)+'☆'.repeat(3-b.s):'☆☆☆';
-    return`<button data-race="${r.id}" aria-pressed="${r===sel}"${lock?' class="lk"':''}${lead?'':' disabled'}><span><span class="nm"><i class="pdot" style="background:${DIFFCOL[r.diff]}"></i>${r.name}${lock?' 🔒':''}</span><span class="sub">${lock?lock+'.':r.desc}${b?' Beste: '+fmtTime(b.t)+'.':''}</span></span><span class="pr">${st}</span></button>`}).join('');
+  $('bmRaces').innerHTML=BOAT_RACES.map(r=>{const b=best[boatKey(r)],st=b?'★'.repeat(b.s)+'☆'.repeat(3-b.s):'☆☆☆';
+    return`<button data-race="${r.id}" aria-pressed="${r===sel}"${lead?'':' disabled'}><span><span class="nm"><i class="pdot" style="background:${DIFFCOL[r.diff]}"></i>${r.name}</span><span class="sub">${r.desc}${b?' Beste: '+fmtTime(b.t)+'.':''}</span></span><span class="pr">${st}</span></button>`}).join('');
   const touch=document.body.classList.contains('is-touch'),names=bNames(),cols=bColors();
   $('bmSeg').hidden=!!N;$('bm1').setAttribute('aria-pressed',!BT.two);$('bm2').setAttribute('aria-pressed',BT.two);$('bmP2').hidden=!BT.two||!!N;$('bmName0').disabled=!!N;
   $('bmName0').value=names[0];$('bmName1').value=names[1];$('bmChip0').style.background=cols[0];$('bmChip1').style.background=cols[1];
@@ -625,7 +624,7 @@ function bMarinaAnim(){const M=BT.marina;if(!M)return;const t=performance.now()*
 
 function initBoat(){
   $('bmRaces').addEventListener('click',e=>{const b=e.target.closest('[data-race]');if(!b||b.disabled)return;const r=BOAT_RACES.find(q=>q.id===b.dataset.race);if(!r)return;
-    if(!BT.net&&boatLock(r)){toast(boatLock(r),true);return}if(BT.net){BT.net.race=r.id;bNetList()}else store.set('boatRace',r.id);bSetup(r);bMenuRender()});
+    if(BT.net){BT.net.race=r.id;bNetList()}else store.set('boatRace',r.id);bSetup(r);bMenuRender()});
   $('bm1').onclick=()=>{BT.two=false;store.set('boatTwo',false);bSetup(bSelRace());bMenuRender()};$('bm2').onclick=()=>{BT.two=true;store.set('boatTwo',true);bSetup(bSelRace());bMenuRender()};
   for(const i of[0,1]){const el=$('bmName'+i);el.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter'){e.preventDefault();el.blur();$('bmGo').click()}});el.addEventListener('change',()=>{bSaveNames();bMakePlayers(BT.P.length,bNames(),1)})}
   $('bmGo').onclick=()=>{if(BT.phase!=='menu'&&BT.phase!=='lobby')return;bSaveNames();if(BT.net){if(BT.net.lead===NET.me)bNetStart();return}boatBegin({race:bSelRace()})};
