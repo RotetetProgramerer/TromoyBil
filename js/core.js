@@ -112,8 +112,8 @@ function surfColor(s,x,z,n,def){
     case S.SAND:return mix('#b58a46','#d2ab66',v*.7+w*.3);
     case S.ROCK:{const b=col(def.rockCol||'#9a948a'),f=.76+w*.32+v*.12;return[b[0]*f,b[1]*f,b[2]*f]}
     case S.GRAVEL:return mix('#776f62','#a1998b',v*.5+w*.5);
-    case S.DIRT:return mix('#5b412b','#80603f',v*.6+w*.4);
-    case S.GRASS:return mix('#4b6629','#7f9441',v*.7+w*.3);
+    case S.DIRT:return def.dirtCol?mix(def.dirtCol[0],def.dirtCol[1],v*.6+w*.4):mix('#5b412b','#80603f',v*.6+w*.4);   // def.dirtCol/grassCol: the level's own colours (red earth and golden grass on Løveøya)
+    case S.GRASS:return def.grassCol?mix(def.grassCol[0],def.grassCol[1],v*.7+w*.3):mix('#4b6629','#7f9441',v*.7+w*.3);
     case S.MUD:return mix('#3c2f22','#574431',w);
     case S.BOG:return mix('#2a2016','#3f3024',w*.6+v*.4);
     case S.BARK:return mix('#47321f','#6c4b31',w);

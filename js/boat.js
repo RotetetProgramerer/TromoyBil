@@ -105,6 +105,11 @@ function bIsland(I,R){const g=new THREE.Group(),r=I.r,look=I.look;g.position.set
     const br=bAdd(g,new THREE.BoxGeometry(14,3,30),bStd(0x7b4e2c),0,11.5,0);br.rotation.y=.5;
     around(20,r*.25,r*.78,(x,z,i)=>{const s=6+R()*5;bAdd(g,new THREE.IcosahedronGeometry(s,0),bStd([0x2d6b2a,0x3b7f33,0x4a8f3a][i%3]),x,10+s,z);bAdd(g,new THREE.CylinderGeometry(1,1.4,s,5),bStd(0x4a3826),x,10+s*.4,z)});
     bHouse(g,r*.35,10,-r*.3,16,10,12,0xc8463a,.4);top=40}
+  else if(look==='savanne'){bAdd(g,new THREE.CylinderGeometry(r-18,r-6,8,13),bStd(0xc9a85a),0,4,0);   // Løveøya: golden grass, the kopje, flat-topped acacias, a baobab and the waterhole
+    for(let i=0;i<7;i++){const a=R()*6.3,d=R()*r*.16,k=bRock(10+R()*12,R,[0xa8927c,0x9a8470,0xb8a28a][i%3]);k.position.set(-r*.35+Math.cos(a)*d,12+R()*10,-r*.05+Math.sin(a)*d);g.add(k)}
+    around(16,r*.15,r*.78,(x,z)=>{const s=.8+R()*.6;bAdd(g,new THREE.CylinderGeometry(.9*s,1.3*s,12*s,5),bStd(0x5a4636),x,8+6*s,z);bAdd(g,new THREE.CylinderGeometry(9*s,7*s,2.4*s,9),bStd(0x6f8a3a),x,8+12.5*s,z)});
+    bAdd(g,new THREE.CylinderGeometry(6,8,18,8),bStd(0x9a8678),r*.15,17,-r*.45);bAdd(g,new THREE.IcosahedronGeometry(7,0),bStd(0x6a8a3a),r*.15,29,-r*.45);
+    bAdd(g,new THREE.CylinderGeometry(r*.2,r*.2,.6,16),bStd(0x5a7a5c,{flatShading:false,roughness:.2}),r*.3,8.2,r*.05,false);top=60}
   else if(look==='skilso')top=bSkilso(g,I,R);
   // rocks along the shore
   if(look!=='by'){const n=4+Math.floor(R()*5);for(let i=0;i<n;i++){const a=R()*Math.PI*2,k=bRock(5+R()*10,R,look==='vulkan'?0x3e3a38:0x6f6a66);k.position.set(Math.cos(a)*r*(.92+R()*.1),0,Math.sin(a)*r*(.92+R()*.1));g.add(k)}}
