@@ -445,9 +445,9 @@ function genLevel(def){
     finish(){for(let j=0;j<N;j++)for(let i=0;i<N;i++){const k=j*N+i;if(TCF[k])continue;const cc=surfColor(TS[k],-HALF+i*CELL,-HALF+j*CELL,n,def);TC[k*3]=cc[0];TC[k*3+1]=cc[1];TC[k*3+2]=cc[2]}c._done=true},
     pebbles(cnt,cols,smin,smax){const L=[];for(let i=0;i<cnt;i++){const x=(rng()-.5)*(WORLD-4),z=(rng()-.5)*(WORLD-4);if(def.water!=null&&H(x,z)<def.water+.02)continue;const s=smin+rng()*(smax-smin);
       L.push({x,y:H(x,z)+s*.2,z,sx:s,sy:s*.6,sz:s*(.8+rng()*.5),rx:rng()*3,ry:rng()*3,c:cols[i%cols.length]})}instanced(DG.peb,DM.white,L,c.decor,false)},
-    // bushes: low rounded clumps of two or three canopies, placed where ok(x,z) says yes
-    bushes(cnt,cols,ok){const L=[];for(let i=0;i<cnt*30&&L.length<cnt*3;i++){const x=(rng()-.5)*(WORLD-6),z=(rng()-.5)*(WORLD-6);if(c.dist(x,z)<2.2||(def.water!=null&&H(x,z)<def.water+.1)||(ok&&!ok(x,z)))continue;const s=.35+rng()*.35,n=2+(rng()<.5?1:0);
-        for(let k=0;k<n;k++){const a=rng()*6.28,d=k?s*.6:0;L.push({x:x+Math.cos(a)*d,y:H(x,z)+s*.45,z:z+Math.sin(a)*d,sx:s*(.9+rng()*.3),sy:s*.75,sz:s*(.9+rng()*.3),c:cols[(i+k)%cols.length]})}c.colliders.push({x,z,r:s*.7})}
+    // bushes: low rounded clumps of two or three canopies, placed where ok(x,z) says yes. o.soft: no collider, the car drives through them
+    bushes(cnt,cols,ok,o={}){const L=[];for(let i=0;i<cnt*30&&L.length<cnt*3;i++){const x=(rng()-.5)*(WORLD-6),z=(rng()-.5)*(WORLD-6);if(c.dist(x,z)<2.2||(def.water!=null&&H(x,z)<def.water+.1)||(ok&&!ok(x,z)))continue;const s=.35+rng()*.35,n=2+(rng()<.5?1:0);
+        for(let k=0;k<n;k++){const a=rng()*6.28,d=k?s*.6:0;L.push({x:x+Math.cos(a)*d,y:H(x,z)+s*.45,z:z+Math.sin(a)*d,sx:s*(.9+rng()*.3),sy:s*.75,sz:s*(.9+rng()*.3),c:cols[(i+k)%cols.length]})}if(!o.soft)c.colliders.push({x,z,r:s*.7})}
       instanced(DG.canopy,DM.leaf,L,c.decor)},
     // mushrooms: a stalk and a cap, in the shade of trees
     mushrooms(cnt,ok){const st=[],cp=[];for(let i=0;i<cnt*40&&st.length<cnt;i++){const x=(rng()-.5)*(WORLD-6),z=(rng()-.5)*(WORLD-6);if(c.dist(x,z)<1.5||(def.water!=null&&H(x,z)<def.water+.1)||(ok&&!ok(x,z)))continue;const h=.08+rng()*.1,y=H(x,z);
