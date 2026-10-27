@@ -71,10 +71,16 @@ npx serve .
 | `wr`, `track`, `tireW` | Valgfritt. Hjulradius (standard 0.24), sporvidde (0.9) og dekkbredde (0.19). Store hjul gir høyere bakkeklaring. |
 | `top` | Valgfritt. Toppfart i høy gir, 1 er som de andre. |
 | `col` | Valgfritt. Fargen bilen har når lakken er standard (Sandgul). |
+| `tireWr` | Valgfritt. Dekkbredde bak, hvis den er annerledes enn foran. |
+| `ride` | Valgfritt. Hjulene sitter så mye høyere under karosseriet, så bilen blir lavere og får mindre bakkeklaring. |
+| `susp` | Valgfritt. Fjæringsvei, 1 er som de andre. Mindre gir kortere og stivere fjæring (sportsbil). |
+| `pow` | Valgfritt. Motorkraft, 1 er som de andre. Mer kraft gir raskere akselerasjon, helt til dekkene spinner. |
 
 `style:'monster'` tegner en monstertruck i stedet for en vanlig crawler (`buildMonster` i `js/carmodel.js`), se Knøtt.
 
-Test en bil på alle banene: `CAR=knott node tools/test-levels.js`.
+`style:'sport'` tegner en sportsbil med glatt karosseri (`buildSport` i `js/carmodel.js`), se Porsche 911 Turbo. Formen kommer fra tabellen `SP911`: ekte mål i millimeter, én rad per tverrsnitt fra nesen og bakover (bunn, bredde, skjermer, vinduslinje, tak). Bilen skaleres så akselavstanden blir `wb`. `gh` bestemmer hvor taket er når bilen ligger opp ned, og kan være negativt for en lav bil.
+
+Test en bil på alle banene: `CAR=knott node tools/test-levels.js` (eller `CAR=turbo`).
 
 Bilen dukker opp i menyen med en gang.
 

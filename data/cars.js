@@ -9,6 +9,9 @@
 //  valgfritt: wr hjulradius (standard .24)  track sporvidde (standard .9)  tireW dekkbredde (standard .19)
 //             top toppfart i høy gir (1 = som de andre)  col fargen bilen har når lakken er standard (Sandgul)
 //             style 'monster' tegner en monstertruck (js/carmodel.js buildMonster)
+//             style 'sport' tegner en sportsbil (js/carmodel.js buildSport)   tireWr dekkbredde bak (standard som foran)
+//             ride hjulene sitter så mye høyere under karosseriet (lavere bil)   susp fjæringsvei (1 = som de andre, mindre er kortere og stivere)
+//             pow motorkraft (1 = som de andre)   gh styrer også hvor taket er når bilen velter
 CARS.push(
 {id:'kobbe',name:'Kobbe',kind:'Kort 2-dørs',L:1.62,wb:1.08,mass:9.2,gh:.31,hood:.42,win:1,style:'box',snorkel:true,spare:'rear',stats:[3,5,3],extras:['spade','axe','cans2'],
    desc:'Kort akselavstand. Snur nesten på stedet, men vipper lettere bakover i bratte bakker.'},
@@ -23,5 +26,9 @@ CARS.push(
 // monstertruck inspirert av en 1:18 elektrisk basher, skalert ned til 1:24: 20 cm lang, 15 cm bred, 6,3 cm høye dekk og 2,5 cm bakkeklaring
 {id:'knott',name:'Knøtt',kind:'Monstertruck 4WD',L:2.35,wb:1.47,mass:9.6,gh:.1,hood:.5,win:1,style:'monster',spare:'none',stats:[3,4,3],price:500,
    wr:.37,track:1.41,tireW:.33,top:1.15,col:'#3f9a1e',
-   desc:'Liten elektrisk monstertruck med store dekk og høy bakkeklaring. Rask i høy gir og bred mellom hjulene, men tyngdepunktet ligger høyt.'}
+   desc:'Liten elektrisk monstertruck med store dekk og høy bakkeklaring. Rask i høy gir og bred mellom hjulene, men tyngdepunktet ligger høyt.'},
+// Porsche 911 Turbo (992) i 1:24: 18,9 cm lang, 7,9 cm bred, 5,4 cm høy, 10,2 cm akselavstand og 5 mm bakkeklaring. Karosseriet er tegnet etter ekte mål i js/carmodel.js (SP911)
+{id:'turbo',name:'Porsche 911 Turbo',kind:'Sportsbil 4WD',L:2.22,wb:1.2,mass:10,gh:-.104,hood:.5,win:2,style:'sport',spare:'none',stats:[1,4,5],price:1500,
+   wr:.18,track:.78,tireW:.125,tireWr:.155,ride:.064,susp:.5,top:1.6,pow:1.8,col:'#c8102e',
+   desc:'Lav og bred sportsbil med firehjulstrekk og turbo. Raskest av alle i høy gir og ligger som limt i svingene, men har nesten ingen bakkeklaring: hold deg på veien, for steiner, gjørme og dypt vann er ikke noe for den.'}
 );

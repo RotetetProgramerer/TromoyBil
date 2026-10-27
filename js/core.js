@@ -484,6 +484,8 @@ function genLevel(def){
 /* ---------- cars ---------- */
 const CARS=[]; // fylles av data/cars.js
 const TRAVEL=.22, WR=.24, TRACK=.9, MOUNT_Y=-.02;
+// where the wheel centres sit under the body when the car stands still (the model of a car with its own ride height is drawn from this)
+const restWheelY=cfg=>MOUNT_Y+(cfg.ride||0)-.6*TRAVEL*(cfg.susp||1);
 const SAMPLES=[[-.8,0],[-.5,0],[-.2,0],[0,0],[.2,0],[.5,0],[.8,0],[0,.07],[0,-.07]];
 // PARTS og PAINTS ligger i data/parts.js
 function tuneFrom(parts){const g=k=>parts[k]||0,t=g('tyres'),s=g('susp'),mo=g('motor'),w=g('weight'),ge=g('gear');
@@ -492,11 +494,11 @@ function tuneFrom(parts){const g=k=>parts[k]||0,t=g('tyres'),s=g('susp'),mo=g('m
 const TUNE0=tuneFrom({});
 
 function makeCar(cfg,tune){
-  tune=tune||TUNE0;
+  tune=tune||TUNE0;const k=cfg.susp||1;if(k!==1)tune=Object.assign({},tune,{travel:tune.travel*k});   // susp: shorter and stiffer springs (a sports car)
   const m=cfg.mass,L=cfg.L,tr=cfg.track||TRACK,W=Math.max(.92,tr),car={cfg,m,tune,wr:cfg.wr||WR,pos:new V3(),vel:new V3(),q:new Q4(),w:new V3(),steer:0,throttle:0,low:true,assist:true,speedScale:1,
     depth:-1,I:new V3(m/12*(.55*.55+L*L)*1.1,m/12*(W*W+L*L)*1.1,m/12*(W*W+.55*.55)*1.6),wheels:[],pts:[],up:new V3(0,1,0),fw:new V3(0,0,1),lf:new V3(1,0,0)};
-  car.K=m*9.8/4/(.4*TRAVEL);car.C=2*Math.sqrt(car.K*m/4)*[.5,.65,.8,.9][tune.lv?tune.lv.susp:0];
-  for(const fz of[1,-1])for(const sx of[1,-1])car.wheels.push({mount:new V3(sx*tr/2,MOUNT_Y+(tune.travel-TRAVEL)-tune.lift,fz*cfg.wb/2),front:fz>0,left:sx>0,comp:0,prev:0,had:false,contact:false,center:new V3(),spin:0,vl:0,slip:0,surf:0,P:new V3()});
+  car.K=m*9.8/4/(.4*TRAVEL*k);car.C=2*Math.sqrt(car.K*m/4)*[.5,.65,.8,.9][tune.lv?tune.lv.susp:0];
+  for(const fz of[1,-1])for(const sx of[1,-1])car.wheels.push({mount:new V3(sx*tr/2,MOUNT_Y+(cfg.ride||0)+(tune.travel-TRAVEL*k)-tune.lift,fz*cfg.wb/2),front:fz>0,left:sx>0,comp:0,prev:0,had:false,contact:false,center:new V3(),spin:0,vl:0,slip:0,surf:0,P:new V3()});
   const roof=.08+.34+cfg.gh+.12;
   for(const sx of[1,-1]){for(const sz of[1,-1]){car.pts.push(new V3(sx*.44,-.06,sz*L*.47),new V3(sx*.42,roof,sz*L*.42),new V3(sx*.42,.03,sz*(L/2+.09)),new V3(sx*.47,.3,sz*L*.3))}}
   car.pts.push(new V3(0,-.14,0),new V3(0,-.13,cfg.wb*.3),new V3(0,-.13,-cfg.wb*.3));
@@ -516,7 +518,7 @@ function stepCar(car,dt){
   const up=car.up.set(0,1,0).applyQuaternion(q),fw=car.fw.set(0,0,1).applyQuaternion(q),lf=car.lf.set(1,0,0).applyQuaternion(q);
   _f.set(0,-g*m,0);_tq.set(0,0,0);
   const TU=car.tune||TUNE0,TRV=TU.travel;
-  const low=car.low,vmax=(low?1.7*TU.vlow:5.6*TU.vhigh*(car.cfg.top||1))*(car.speedScale||1),WRc=car.wr,fmot=(low?.62:.15)*TU.fmot*m*g,vt=car.throttle*vmax,gripMul=(car.assist?1.12:1)*TU.grip;
+  const low=car.low,vmax=(low?1.7*TU.vlow:5.6*TU.vhigh*(car.cfg.top||1))*(car.speedScale||1),WRc=car.wr,fmot=(low?.62:.15)*TU.fmot*(car.cfg.pow||1)*m*g,vt=car.throttle*vmax,gripMul=(car.assist?1.12:1)*TU.grip;
   const dy=Math.max(.35,up.y);
   for(const wh of car.wheels){
     _M.copy(wh.mount).applyQuaternion(q).add(car.pos);
