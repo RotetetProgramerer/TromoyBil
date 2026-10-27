@@ -21,6 +21,13 @@ const rectIn=(R,x,z,e)=>smt((x-R.x0+e)/(2*e))*smt((R.x1-x+e)/(2*e))*smt((z-R.z0+
 const inR=(R,x,z)=>x>=R.x0&&x<=R.x1&&z>=R.z0&&z<=R.z1;
 const upper=(x,z)=>Math.max(rectIn(UP,x,z,.25),rectIn(BAKKEN,x,z,.25)*clamp((z-BAKKEN.z0)/5.1));
 const dPH=(x,z)=>Math.hypot(x-PH[0],z-PH[1]);
+// flyplassen øst på øya (js/plane.js): fylt ut i sjøen, rullebanen nord–sør, oppstillingsplassen med terminal, tårn og hangar.
+// Flyplassveien går fra enden av Promenaden langs stranda; den ligger også på fylling der stranda er smal.
+const AIR={x0:-57,x1:-36,z0:-34,z1:16}, AIRH=1.05;
+const RWY={x0:-53.2,x1:-48.4,z0:-31,z1:13}, APRON={x0:-46.5,x1:-38.5,z0:-16,z1:-1.5};
+const AIRVEI=[[-8,-30.5],[-14,-34.2],[-22,-35.2],[-30,-32.2],[-36,-27.2],[-40,-21.8],[-41.6,-16.8]];
+const lineD=(L,x,z)=>{let m=1e9;for(let i=0;i<L.length-1;i++){const a=L[i],b=L[i+1],ex=b[0]-a[0],ez=b[1]-a[1],L2=ex*ex+ez*ez||1e-9;let t=((x-a[0])*ex+(z-a[1])*ez)/L2;t=t<0?0:t>1?1:t;m=Math.min(m,Math.hypot(x-a[0]-ex*t,z-a[1]-ez*t))}return m};
+const airLand=(x,z)=>Math.max(rectIn(AIR,x,z,1.2),smt((2.8-lineD(AIRVEI,x,z))/1.2)*smt((Math.hypot(x,z)-33)/3));
 const inCity=(x,z)=>(x>-17&&x<14&&z>-20&&z<6)||upper(x,z)>.5||(x>-30&&x<-11&&z>-29&&z<-6)||(x>12&&x<31.5&&z>1&&z<24);
 // ---------- gatene ----------
 const RING=[[-11,-14],[12,-14],[12,3],[-11,3],[-11,-14]];
@@ -75,8 +82,8 @@ LEVELS.push(
   dark:(x,z)=>smt(1-Math.hypot((x-26.5)/2.6,(z-21.1)/1.7)),
   biome:(x,z)=>{const R=Math.hypot(x,z),park=smt((10-Math.hypot(x+23,z-9))/6),city=smt((22-Math.hypot(x,z+4))/9)*(1-park);
     return{beach:smt((R-30)/5),city,stadium:rectIn(PITCH,x,z,2.5),site:smt((6-Math.hypot(x-15.5,z-25.5))/3),jungle:park*.25,swamp:0,snow:0}},
-  path:[[0,-13],[2,-11],[0,-9],[-2,-11],[0,-13]], challenges:CH, village:{at:[26.2,-26.2]},
-  mapLabels:[[0,-5,'Torget'],[-2,18,'Øvre by'],[-2,32,'Utsikten'],[-20,-19,'Skateparken'],[-24,9,'Byparken'],[21.5,15,'Stadion'],[22,-8,'P-huset'],[15,25.5,'Byggetomta'],[27,-25,'Havna'],[2,-31,'Promenaden'],[31,-14,'Kaia']],
+  path:[[0,-13],[2,-11],[0,-9],[-2,-11],[0,-13]], challenges:CH, village:{at:[26.2,-26.2]}, landExtra:airLand,
+  mapLabels:[[0,-5,'Torget'],[-2,18,'Øvre by'],[-2,32,'Utsikten'],[-20,-19,'Skateparken'],[-24,9,'Byparken'],[21.5,15,'Stadion'],[22,-8,'P-huset'],[15,25.5,'Byggetomta'],[27,-25,'Havna'],[2,-31,'Promenaden'],[31,-14,'Kaia'],[-47,-3,'Flyplassen']],
   animals:{pigeons:14,gulls:{at:[4,-35.5],n:7},crabs:6,crabsAt:[-3,-36],fish:[{at:[-16.5,19],r:2,n:2},{at:[-4,-42],r:5,n:3},{at:[36,-30],r:4,n:2}],
     rabbits:[{at:[-22,10],r:6,n:5}],butterflies:20,rats:[{at:[32,-10.5],r:1.5,n:3},{at:[14,25],r:3,n:3}],cats:[{at:[-4,-18.5],r:5,n:2},{at:[-13,-5],r:4,n:1}]},
   boulder:{trigger:[22.5,14.7],from:[17,16.4],to:[28,13],speed:4.5,r:.35,col:'#f4f4f0',msg:'⚽ Ballen!'},
@@ -87,8 +94,10 @@ LEVELS.push(
     {const d=Math.hypot(x-AMF[0],z-AMF[1]);if(d<AMF_R){const i=Math.min(3,Math.floor((AMF_R-d)/.56));h-=d<1.76?.68:.17*(i+1)}}   // amfiet: fire seterader ned til scenen
     {const d=Math.hypot(x-BOWL[0],z-BOWL[1]);if(d<BOWL_R)h-=.8*(1-(d/BOWL_R)**2);else if(d<BOWL_R+.35)h+=.08}        // bollen med coping
     h-=.10*rectIn(PITCH,x,z,.15);                                                   // gresset ligger under ringen rundt banen
+    {const w=airLand(x,z);if(w>0)h+=(AIRH-h)*w}                                    // flyplassen og veien dit: flatt, på fylling ut i sjøen
     return h},
-  surf(x,z,n){const u=upper(x,z);if(u>.03&&u<.97)return S.ROCK;                   // terrassemurene
+  surf(x,z,n){if(inR(RWY,x,z)||inR(APRON,x,z))return S.ASPHALT;if(rectIn(AIR,x,z,.6)>.5)return S.GRASS;   // flyplassen
+    const u=upper(x,z);if(u>.03&&u<.97)return S.ROCK;                   // terrassemurene
     if(Math.hypot(x-UTS[0],z-UTS[1])<UTS_R)return S.ROCK;                          // utsiktsplatået er steinlagt
     const d=dPH(x,z);if(d<PH_TOP)return S.ASPHALT;if(d<PH_R)return S.GRAVEL;       // P-huset: takdekke og betongkjegle (veien males asfalt)
     if(inR(PITCH,x,z))return S.GRASS;if(inR(SITE,x,z))return S.GRAVEL;
@@ -203,6 +212,25 @@ LEVELS.push(
     const lamps=[[-9,-16.4],[-4,-16.4],[1,-16.4],[6,-16.4],[10.5,-16.4],[-13.4,-12.5],[-13.4,-7],[-13.4,-1.5],[-9,5.3],[3.2,5.3],[9,5.3],[14.3,-11.8],[17.6,-19.3],[23,-19.6],[28,-16.4],[31.5,-16.5],
       [14.3,-20.5],[13.8,-24],[8.6,-30.2],[2,-33.6],[-5,-33],[-9.6,-30],[-9.5,13.6],[-3.6,13.6],[1,13.3],[11.3,13.4],[4.3,15.5],[7.7,17.9],[-5,22],[1,24],[-4,32.5],[-15.5,-.5],[-18.5,-4.5],[-27.5,7],[-21.5,17.5],[-12.6,23.2],[-24.5,22.8],[-31,-13],[-17,-32.3],[-10,-20],[9.6,21.4],[29.6,-13.6],[33,-19.8],[-4.5,26.5]];
     for(const[lx,lz]of lamps)c.lamp(lx,lz,{ang:Math.atan2(-lx,-(lz+4))});
+    // --- flyplassen (js/plane.js tegner flyet, vindposen og ser etter den blå ruta) ---
+    c.road(AIRVEI,{hw:1.3,blend:2,surf:S.ASPHALT});
+    cellsIn(AIR.x0,AIR.z0,AIR.x1,AIR.z1,(k,px,pz)=>{if(inR(RWY,px,pz))setC(k,mix('#3a3d40','#45484b',G.noise(px*2,pz*2)));else if(inR(APRON,px,pz))setC(k,mix('#8a8a86','#9a9994',G.noise(px*2,pz*2)));else if(rectIn(AIR,px,pz,.6)>.5)setC(k,mix('#6f9a48','#7fa852',G.noise(px*.6,pz*.6)))});
+    {const cx=(RWY.x0+RWY.x1)/2,y=AIRH+.004;for(let z=RWY.z0+5;z<RWY.z1-4;z+=3.2)c.box(cx,y,z,.18,.012,1.6,'#f4f4f0');   // midtlinja
+      for(const zz of[RWY.z0+1.2,RWY.z1-1.2])for(let k=-3;k<=3;k++)if(k)c.box(cx+k*.6,y,zz,.3,.012,1.8,'#f4f4f0');            // terskelfeltene i begge ender
+      for(let z=RWY.z0;z<=RWY.z1;z+=4)for(const sx of[RWY.x0-.25,RWY.x1+.25])c.cyl(sx,AIRH,z,.06,.12,z<RWY.z0+1||z>RWY.z1-1?'#d9432f':'#fff3c0')}   // kantlys
+    // terminalen med vinduer mot plassen, tårnet og hangaren med porten mot rullebanen
+    c.box(-38.9,AIRH,-9.5,2.6,1.7,7,'#e9dcb9');c.box(-38.9,AIRH+1.7,-9.5,2.8,.12,7.2,'#3f4a52');c.box(-40.22,AIRH+.55,-9.5,.05,.6,6.2,'#1a262d');c.box(-40.22,AIRH,-9.5,.06,.95,1.2,'#5a6066');
+    c.colliders.push({x:-38.9,z:-9.5,w:2.64,d:7.04,ry:0,anchor:true,y:AIRH+.6});
+    c.fx.push({type:'sign',x:-40.4,z:-13.6,ang:-Math.PI/2,text:'TRINNVIK LUFTHAVN',sub:'rundflyging over skjærgården',w:2.1});
+    c.cyl(-44.5,AIRH,-21,.5,3.2,'#f2e8d0');c.box(-44.5,AIRH+3.2,-21,1.4,.75,1.4,'#1a262d');c.box(-44.5,AIRH+3.95,-21,1.6,.12,1.6,'#d9432f');c.colliders.push({x:-44.5,z:-21,r:.55,anchor:true,y:AIRH+.6});
+    c.box(-42.4,AIRH,6.5,5.4,2.3,6,'#8a9096');for(const sd of[-1,1])c.box(-42.4+sd*1.4,AIRH+2.55,6.5,3.0,.1,6.3,'#5a6066',0,{rz:sd*.33});c.box(-45.12,AIRH,6.5,.05,1.9,4.4,'#3a3f44');c.box(-45.15,AIRH+1.95,6.5,.07,.12,4.6,'#e5a92b');
+    c.colliders.push({x:-42.4,z:6.5,w:5.44,d:6.04,ry:0,anchor:true,y:AIRH+.6});
+    c.cyl(-55.4,AIRH,-27,.04,1.7,'#e9e6df');c.colliders.push({x:-55.4,z:-27,r:.08});c.colliders.push({x:-43.6,z:-8.4,r:1.3});   // vindposen, flyet
+    c.box(-41.8,AIRH+.004,-12.9,1.9,.012,1.6,'#2f6fd6');   // den blå ruta: parker her, så får du spørsmålet
+    c.fx.push({type:'sign',x:-44.6,z:-15.4,ang:Math.PI,text:'FLYPLASS',sub:'kjør inn på den blå ruta'});
+    for(const[lx,lz]of[[-37.6,-17.5],[-37.6,-2],[-46.8,-1]])c.lamp(lx,lz,{ang:Math.atan2(-lx-42,-(lz+9))});
+    c.airportDef={x:-42.5,z:-9,y:AIRH,ask:{x:-41.8,z:-12.9},plane:{x:-43.6,z:-8.4,yaw:-Math.PI/2},sock:{x:-55.4,z:-27},rwy:RWY,
+      route:[...AIRVEI.slice(1).map(p=>({x:p[0],z:p[1]})),{x:-41.8,z:-12.9}],from:{x:AIRVEI[0][0],z:AIRVEI[0][1]}};
     // --- gullmutterne ---
     c.secret(25.6,-5.3,'På taket av P-huset');c.secret(BOWL[0],BOWL[1],'Bunnen av Bollen');c.secret(1,30.5,'Utsikten');c.secret(AMF[0],AMF[1],'På scenen i Amfiet');c.secret(-7,-38.6,'Ytterst på moloen');
     c.finish();
