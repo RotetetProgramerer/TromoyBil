@@ -164,7 +164,8 @@ const M={
   blue:new THREE.MeshStandardMaterial({color:0x3a6fb0,roughness:.6}),
   canvas:new THREE.MeshStandardMaterial({color:0x8a8470,roughness:1}),
   wood:new THREE.MeshStandardMaterial({color:0x8a6a3a,roughness:.9}),
-  trim:new THREE.MeshStandardMaterial({color:0xd8d2c0,roughness:.6})
+  trim:new THREE.MeshStandardMaterial({color:0xd8d2c0,roughness:.6}),
+  cal:new THREE.MeshStandardMaterial({color:0xf2c21b,roughness:.35})   // brake calipers on the sports car
 };
 Object.values(M).forEach(m=>m.color.convertSRGBToLinear());Object.values(DM).forEach(m=>m.color.convertSRGBToLinear());
 // mud, snow, dust and water on the car: a small shader addition on the paint and the black parts.
@@ -204,7 +205,7 @@ function buildCarVis(cfg){
   if(carVis){scene.remove(carVis.body);carVis.wheels.forEach(w=>scene.remove(w.root));carVis.axles.forEach(a=>scene.remove(a));
     carVis.body.traverse(o=>{if(o.geometry)o.geometry.dispose()})}
   const body=buildBody(cfg);scene.add(body);
-  const wheels=[];for(let i=0;i<4;i++){const w=carWheel(cfg,i%2===0?1:-1);scene.add(w.root);wheels.push(w)}
+  const wheels=[];for(let i=0;i<4;i++){const w=carWheel(cfg,i%2===0?1:-1,i>1);scene.add(w.root);wheels.push(w)}
   const axles=[];for(let i=0;i<2;i++){const a=new THREE.Group();const tube=new THREE.Mesh(new THREE.CylinderGeometry(.03,.03,1,8),M.blk);tube.castShadow=true;a.add(tube);
     const diff=new THREE.Mesh(new THREE.SphereGeometry(.075,12,10),M.blk);diff.castShadow=true;a.add(diff);a.userData.tube=tube;scene.add(a);axles.push(a)}
   const spots=[];for(const sx of[1,-1]){const s=new THREE.SpotLight(0xfff1cc,0,16,.55,.6,1.2);s.position.set(sx*.3,.3,cfg.L/2);const t=new THREE.Object3D();t.position.set(sx*.3,-.4,cfg.L/2+4);body.add(s,t);s.target=t;spots.push(s)}
