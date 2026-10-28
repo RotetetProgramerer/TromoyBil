@@ -410,6 +410,8 @@ Ny plante eller nytt dyr: kopier en oppføring. `place(x,z,o,env)` leser paramet
 
 ## Kaimanøya: jungeløya
 
+Kaimanøya ligger nord i skjærgården, mellom Froland og Hisøya. Fergen går dit fra Tromøya, Froland og Hisøya (Froland og Hisøya har ikke lenger egen rute, fergen stopper på Kaimanøya). Fra sjøen, i båtløpene og flyturene, ser den ut som en skogøy.
+
 `data/levels/09-kaiman.js` er en verden med tett regnskog, tre elver og mye gjørme. Storelva faller fra tjernet på Apeberget i nord, over fossen og ut i havet i vest; Sølebekken renner inn i den fra nordvest. Østelva begynner i en kilde øst for berget og renner ned i mangrovedeltaet i sørøst. Gjørmesletta ligger i sørvest og tempelruinen i nordøst. Fra kaia går veien til leiren midt på øya, der veiviseren peker ut til løypene:
 
 | Løype | Vanskelighet | Hva |
