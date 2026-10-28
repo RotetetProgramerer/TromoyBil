@@ -77,9 +77,23 @@ function waterNormalTex(){const s=256,P=8,c=document.createElement('canvas');c.w
     const k=(j*s+i)*4;img.data[k]=(nx*.5+.5)*255;img.data[k+1]=(nz*.5+.5)*255;img.data[k+2]=(ny*.5+.5)*255;img.data[k+3]=255}
   x.putImageData(img,0,0);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;return t}
 const waterMat=new THREE.MeshStandardMaterial({color:LIN('#3f5c4d'),roughness:.08,metalness:.3,transparent:true,opacity:.7,normalMap:waterNormalTex(),normalScale:new THREE.Vector2(.45,.45),envMapIntensity:1.2});
-const water=new THREE.Mesh(new THREE.PlaneGeometry(WORLD,WORLD),waterMat);water.rotation.x=-Math.PI/2;water.renderOrder=2;scene.add(water);
+// the sea reaches the horizon (the fog fades it into the sky); the UVs keep the waves the same size as on the old 70-wide plane
+const WATER_SPAN=420,water=new THREE.Mesh((()=>{const g=new THREE.PlaneGeometry(WATER_SPAN,WATER_SPAN),uv=g.attributes.uv;for(let i=0;i<uv.count;i++)uv.setXY(i,uv.getX(i)*WATER_SPAN/70,uv.getY(i)*WATER_SPAN/70);return g})(),waterMat);water.rotation.x=-Math.PI/2;water.renderOrder=2;scene.add(water);
 const mudMat=new THREE.MeshStandardMaterial({color:LIN('#5b4631'),roughness:.22,metalness:.1,transparent:true,opacity:.88,normalMap:waterMat.normalMap,normalScale:new THREE.Vector2(.3,.3),envMapIntensity:.9});
 const poolGroup=new THREE.Group();scene.add(poolGroup);
+// wind: grass, reeds, ferns, palm fronds and leaves sway a little. The sway is added after the instance matrix (in world units) and grows
+// with the distance from the instance's foot, so thin reeds bend as much as wide bushes and the foot stays put. amp = sway per unit of height.
+const WIND={uTime:{value:0}};
+function windMaterial(m,amp){m.onBeforeCompile=sh=>{sh.uniforms.uWindT=WIND.uTime;
+  sh.vertexShader='uniform float uWindT;\n'+sh.vertexShader.replace('#include <project_vertex>',`vec4 mvPosition=vec4(transformed,1.0);
+    #ifdef USE_INSTANCING
+      mvPosition=instanceMatrix*mvPosition;
+      vec3 wFoot=instanceMatrix[3].xyz;float wd=min(length(mvPosition.xyz-wFoot),2.5);
+      mvPosition.x+=sin(uWindT*1.6+wFoot.x*.7+wFoot.z*.4)*${amp.toFixed(3)}*wd;
+      mvPosition.z+=cos(uWindT*1.25+wFoot.x*.45-wFoot.z*.6)*${(amp*.8).toFixed(3)}*wd;
+    #endif
+    mvPosition=modelViewMatrix*mvPosition;gl_Position=projectionMatrix*mvPosition;`)};m.needsUpdate=true}
+windMaterial(DM.tuft,.05);windMaterial(DM.leaf,.012);
 function buildPools(lv){poolGroup.children.slice().forEach(m=>{m.geometry.dispose();poolGroup.remove(m)});
   for(const p of lv.pools){const m=new THREE.Mesh(new THREE.CircleGeometry(p.r,36),p.mud?mudMat:waterMat);m.rotation.x=-Math.PI/2;m.position.set(p.x,p.level,p.z);m.renderOrder=2;poolGroup.add(m)}}
 let levelGroup=new THREE.Group();scene.add(levelGroup);
@@ -123,7 +137,21 @@ function shadeTerrain(){
     const nx=s(-1,0)-s(1,0),nz=s(0,-1)-s(0,1),ny=2*CELL,inv=1/Math.hypot(nx,ny,nz),slope=1-ny*inv;
     const f=Math.max(.42,Math.min(1.12,(1-ao*.75)*(1-slope*.3)));
     tCol[k*3]=TC[k*3]*f;tCol[k*3+1]=TC[k*3+1]*f;tCol[k*3+2]=TC[k*3+2]*f}
+  contactShade();waterShade();
 }
+// contact shadows baked into the terrain colour: the sun's shadow only reaches ~10 units round the car, so trees, houses, lamps and
+// bushes further away would look pasted on. The ground darkens softly round everything with a collider, and under tree crowns.
+function contactShade(){if(!LV)return;const occ=new Float32Array(N*N).fill(1),sm=t=>t<=0?1:t>=1?0:1-t*t*(3-2*t);
+  const ring=(x,z,r,spread,k)=>{const R=r+spread;cellsIn(x-R,z-R,x+R,z+R,(i,px,pz)=>{const d=Math.hypot(px-x,pz-z);if(d<R)occ[i]*=1-k*sm((d-r*.7)/(spread+r*.3))})};
+  for(const c of LV.colliders){if(c.r!=null)ring(c.x,c.z,c.r,.35+c.r*.9,.3);
+    else{const R=Math.max(c.w,c.d)/2+.7,cs=Math.cos(c.ry||0),sn=Math.sin(c.ry||0);cellsIn(c.x-R,c.z-R,c.x+R,c.z+R,(i,px,pz)=>{const dx=px-c.x,dz=pz-c.z,lx=Math.abs(dx*cs-dz*sn)-c.w/2,lz=Math.abs(dx*sn+dz*cs)-c.d/2,d=Math.hypot(Math.max(lx,0),Math.max(lz,0));occ[i]*=1-.3*sm(d/.7)})}}
+  for(const p of LV.perches)if(p.kind==='top')ring(p.x,p.z,p.tree?1.1:.6,p.tree?1.1:.7,p.tree?.16:.12);   // the crowns of trees and palms
+  for(let k=0;k<N*N;k++){const o=Math.max(.55,occ[k]);tCol[k*3]*=o;tCol[k*3+1]*=o;tCol[k*3+2]*=o}}
+// under water the bottom takes on the water's colour and darkens with depth; the sand just above the waterline is wet
+function waterShade(){const def=LEVELS[state.levelIdx];if(def.water==null&&!(LV&&LV.pools&&LV.pools.length))return;const deep=col(def.waterCol||'#3f5c4d').map(v=>v*.5);
+  for(let j=0;j<N;j++)for(let i=0;i<N;i++){const k=j*N+i,px=-HALF+i*CELL,pz=-HALF+j*CELL,w=WL(px,pz);if(w<-1e8)continue;const d=w-TH[k];
+    if(d>0){const t=Math.min(.8,d*1.3);for(let c=0;c<3;c++)tCol[k*3+c]+=(deep[c]-tCol[k*3+c])*t}
+    else if(d>-.1){const f=1-.2*(1+d/.1);for(let c=0;c<3;c++)tCol[k*3+c]*=f}}}
 
 // tyre tracks on soft ground
 const TRK_N=600,trkGeo=new THREE.PlaneGeometry(.12,.22);trkGeo.rotateX(-Math.PI/2);
@@ -464,7 +492,7 @@ function loadLevel(i){
   levelGroup.traverse(o=>{if((o.isInstancedMesh||o.isMesh||o.isPoints)&&o.geometry&&!keepGeo.has(o.geometry))o.geometry.dispose();
     if(o.material&&!keepMat.has(o.material)){if(o.material.map)o.material.map.dispose();o.material.dispose()}});
   scene.remove(levelGroup);levelGroup=new THREE.Group();scene.add(levelGroup);gateVis=[];
-  LV=genLevel(def);if(terrainN!==N)buildTerrainGeo();water.scale.set(WORLD/70,WORLD/70,1);
+  LV=genLevel(def);if(terrainN!==N)buildTerrainGeo();
   state.world=isIsland(def)&&!!state.roam;state.course=null;state.free=false;LV.mainGates=LV.gates;LV.mainCrates=LV.crates;
   for(let k=0;k<N*N;k++){const i2=k%N,j=(k/N)|0;tPos[k*3]=-HALF+i2*CELL;tPos[k*3+1]=TH[k];tPos[k*3+2]=-HALF+j*CELL;tCol[k*3]=TC[k*3];tCol[k*3+1]=TC[k*3+1];tCol[k*3+2]=TC[k*3+2]}
   shadeTerrain();syncTerrain();
@@ -722,7 +750,7 @@ function syncVisuals(dt){
     if(tx!==null){arrow.visible=true;arrow.position.copy(car.pos).add(_c2.set(0,1.25,0));_c1.set(tx-car.pos.x,0,tz-car.pos.z).normalize();arrow.quaternion.setFromUnitVectors(YAX,_c1)}else arrow.visible=false;beacon.visible=false}
   else{beacon.visible=false;arrow.visible=false}
   updateDust(dt);updateRain(dt);updateFx(dt);applyZone(fp.x,fp.z);nightTint();updateCoat(dt);updateWinch(dt);updateAnimals(dt);updateBoulder(dt);
-  waterMat.normalMap.offset.x+=dt*.025;waterMat.normalMap.offset.y+=dt*.018;
+  waterMat.normalMap.offset.x+=dt*.025;waterMat.normalMap.offset.y+=dt*.018;WIND.uTime.value+=dt;
   const tm=performance.now()*.001;for(const c of crateVis){if(c.taken)continue;c.g.rotation.y=tm*1.2;c.g.position.y=c.cr.y+Math.sin(tm*2.2+c.cr.x)*.03}
 }
 

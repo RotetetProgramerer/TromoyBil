@@ -8,7 +8,7 @@ Et 3D-spill i nettleseren der du kjører en RC-crawler i skala 1:24 gjennom port
 index.html            Siden som laster alt. Her står rekkefølgen på skriptene.
 css/style.css         Alt utseende (meny, HUD, garasje).
 js/core.js            Motoren: terreng, baneverktøy, bilfysikk. Trenger du sjelden å røre.
-js/props.js           Planter og dyr du setter ut ett og ett (c.plant, c.sow). Innholdet ligger i data/.
+js/props.js           Planter, trær, lykter og dyr du setter ut ett og ett (c.plant, c.sow). Innholdet ligger i js/props/ og data/.
 js/game.js            Spillet: grafikk, kamera, lyd, meny, garasje, poeng.
 js/animals.js         Dyr (papegøyer, apekatter, kaimaner, jaguar, frosker og flere) og den rullende steinen.
 js/savannedyr.js      Dyrene på Løveøya: løver, geparder og krokodiller som angriper, flokkene som flykter og gribbene.
@@ -22,6 +22,8 @@ js/boat.js            Motorbåtløpet fra marinaen på Tromøya: havet, øyene, 
 js/planesim.js        Flyfysikken: avgang, flyging, landing, krasj og ringene (ingen DOM, testes uten nettleser).
 js/plane.js           Flyturene fra flyplassen på Trinnvik: flyet, flyplassen ute på havet, HUD, lyd, og båtene og flyene til de andre i rommet.
 js/net.js             Flerspiller: rom, romkode og de andre bilene.
+js/props/             Enkeltelementer: trær, palmer, gran … én fil per element. ← finpuss elementer her
+props.html            Elementverkstedet: se og juster ett element alene (åpne i nettleseren).
 data/cars.js          Bilene.                 ← legg til nye biler her
 data/levels/NN-id.js  Én fil per bane.         ← legg til nye baner her
 data/parts.js         Garasjedeler og lakkfarger.
@@ -33,6 +35,7 @@ data/flights.js       Flyplassen på havet og flyturene med ringer.        ← l
 tools/test-levels.js  Autopilot som tester alle baner uten nettleser.
 tools/test-boats.js   Autopilot som kjører alle båtløpene uten nettleser.
 tools/test-flights.js Autopilot som flyr alle flyturene og lander på rullebanen, uten nettleser.
+tools/test-props.js   Finner pynt som svever over bakken uten noe under seg (node tools/test-props.js [bane]).
 manifest.json, sw.js  Gjør spillet til en PWA (installerbar, virker uten nett).
 icons/                Appikoner.
 ```
@@ -48,6 +51,24 @@ Vil du ha en lokal server, for eksempel for å teste på mobilen i samme nettver
 ```
 npx serve .
 ```
+
+## Elementer og elementverkstedet
+
+Trær og andre elementer ligger i `js/props/`, én fil per element. Hver fil har innstillingene øverst (`params`) og to funksjoner: `place` (kollider, kalles når banen plasserer elementet) og `build` (selve delene, kalles etter `c.finish()` når bakken er ferdig). Banene bruker dem med `c.plant('palme',x,z,{h:3.5})`, eller `c.tree`, `c.spruce`, `c.bushes` og `c.lamp`.
+
+Elementene er oppføringer i den samme lista `PROPS` (`js/props.js`) som plantene og dyrene i `data/` (se «Planter og dyr» under), så `c.plant` virker på alle, og alle kan finpusses i verkstedet. Geometrien og hjelperne som bare elementene bruker (`PG.taper`, `PG.stem`, `PG.crown`, `PG.fin`, `PG.frond`, `tiltVec`, `tint`, `dirRot`), står i `js/props/_felles.js`.
+
+Åpne `props.html` i nettleseren for å se ett element alene:
+
+- Velg element, og dra i glidebryterne. Endringen vises med en gang.
+- **Hjelpelinjer** viser kollideren (rød ring, gul hvis vinsjen kan feste i den), sitteplassene for dyr (gule kuler) og foten (hvit ring). Da ser du at ting henger sammen.
+- **Skråning** og **Ujevn bakke** viser om foten flyter på skrå bakke. **Lys** henter lyset fra en av øyene.
+- **Ny variant** gir samme innstillinger med nye tilfeldige detaljer. **Antall** viser en hel lund.
+- **Kopier** gir linjen du limer inn i banen. Vil du endre standarden for alle øyene, endrer du `params` i elementets fil og laster siden på nytt (innstillingene huskes).
+
+Hvert element bygges med sin egen tilfeldighetsrekke ut fra posisjonen (`propRng`). Du kan derfor endre et tre uten at buskene og steinene på banen flytter seg. `c.tree` og `c.spruce` plasserer med banens egen tilfeldighetsrekke, så skogene står der de alltid har stått.
+
+Nytt element: kopier en fil i `js/props/`, gi den et nytt navn i `PROPS.navn`, og legg den inn i `index.html`, `props.html` og `FILES` i `sw.js`.
 
 ## Legge til en ny bil
 
@@ -160,6 +181,8 @@ c.bonus(x,z,r,muttere,tekst) // belønning (muttere) første gang bilen kommer i
 c.steam(x,z)                 // liten dampsøyle (sprekk i vulkanen)
 c.tree(x,z,{h,r})            // regnskogstre med røtter, grener, krone, mose og lianer. Grener blir sitteplasser for dyr.
 c.forest()                   // bygger alle trærne. Kall etter c.finish().
+c.plant(navn,x,z,{...})      // et hvilket som helst element fra js/props/ ('palme', 'bytre', 'gran', 'kjempestamme', 'busk', 'bregne', 'lykt' …)
+c.plants()                   // bygger alle elementene som er plassert. Kall etter c.finish().
 c.ruts(t0,t1,dybde)          // hjulspor i stien mellom t0 og t1
 c.pond(x,z,r,dybde,{mud:true})  // søledam med brunt vann
 c.lavaNear(x,z,m)            // sant hvis det er lava innenfor m. Bruk når du plasserer steiner og planter.
@@ -237,7 +260,7 @@ Verktøy for byer i `build(c)`:
 | `c.stairs(x,z,retning,n,trinn,inntrinn,bredde,{level,land,wall})` | En trapp stemplet i absolutt høyde: `n` trinn à `trinn` opp fra `(x,z)` i retning `retning` (radianer, 0 = +z). Bakken inni fotavtrykket settes til trinnhøyden, så trappa aldri forsvinner under en terrasse. `level` er høyden ved foten (standard bakken der), `land` en flat avsats etter øverste trinn, `wall:true` gir murer med kollidere på sidene. |
 | `c.street(poly,{hw,drop,cross})` | En bygate: kjørebanen senkes `drop` (0,12) innenfor `hw`, så fortauet får kantstein på begge sider. `cross:[[x,z],...]` er fotgjengerfelt der gata kommer opp igjen (opphøyd gangfelt). Gater som krysser hverandre senkes bare én gang. Ingen utjevning: bakken må være flat fra før. |
 | `c.building(x,y,z,b,h,d,farge,ry,{fh,sign,roof})` | En bygning: boks med sokkel, flatt tak, vindusbånd per etasje (`fh` = etasjehøyde), dør og en firkantet kollider som følger fasaden. Fronten vender mot +z i boksens egen ramme. Tegnes på øykartet. |
-| `c.lamp(x,z,{h,ang})` | Gatelykt med stolpe og arm. Lyser om natten (nattløp). Duer sitter på den. |
+| `c.lamp(x,z,{h,ang,arm})` | Gatelykt med stolpe og arm (`js/props/lykt.js`). `arm:0` gir en kailykt. Lyser om natten (nattløp). Duer sitter på den. |
 | `c.cone(x,z)`, `c.barrier(x,z,retning)` | Trafikkjegle og sperrebukk som velter når bilen treffer dem. |
 | `shape(..., level)` og `disc(..., level)` | Stemplene kan nå få en absolutt høyde for h = 0, i stedet for å måle fra grunnterrenget. Bruk det på terrasser og gater (fartsdumper, ramper, opphøyde kryss). |
 | `c.road(poly,{bench:false})` | En vei uten utjevning av terrenget rundt. |
@@ -404,9 +427,9 @@ Verktøy i `build(c)`:
 | `c.sow(navn,n,[x,z],radius,{r,gap,ok,p})` | Opptil `n` på tilfeldige ledige steder innenfor `radius`. `r` er fotavtrykket, `gap` avstanden mellom dem, `ok(x,z)` en ekstra test, `p` parametrene (et objekt, eller en funksjon av tilfeldighetsgeneratoren, f.eks. `R=>({s:.8+R()*.4})`). |
 | `c.plantOK(x,z,r)` | Sant hvis stedet er ledig: på land, ikke i vann, minst 3 fra løyper og veier, ikke ved porter, start, blokkerte områder eller andre kollidere. |
 
-Plantene og dyrene plasseres (kollidere) med en gang, men tegnes etter `build(c)`, når terrenget er ferdig. De bruker sin egen tilfeldighetsgenerator, så resten av banen blir lik selv om du legger til flere. Bykkevika har de subtropiske, jungelen på Tromøya de tropiske, Gautefall de arktiske og Løveøya savannens.
+Plantene og dyrene plasseres (kollidere) med en gang, men tegnes når terrenget er ferdig: av `c.plants()` etter `c.finish()`, ellers etter `build(c)`. De bruker sin egen tilfeldighetsgenerator, så resten av banen blir lik selv om du legger til flere. Alle kan ses alene i `props.html`. Bykkevika har de subtropiske, jungelen på Tromøya de tropiske, Gautefall de arktiske og Løveøya savannens.
 
-Ny plante eller nytt dyr: kopier en oppføring. `place(x,z,o,env)` leser parametrene med `propParams` og legger til kollidere i `env.colliders`; `build(t,env,out)` tegner med `out.add(geometri,materiale,{x,y,z,sx,sy,sz,c})`. Geometrier: `PG.blob` (kule, sx/sy/sz er halvakser), `PG.trunk` og `DG.branch`. Hjelpere: `stemBetween(a,b,r,{c})` (gren fra a til b; med `PG.blob` blir det en avlang kule mellom punktene), `footY`, `shade`, `dirVec`, og `DYR.*` i `data/dyr.js` for kropper, øyne og buer. Sitteplasser for fugler legges i `env.perches`.
+Ny plante eller nytt dyr: kopier en oppføring. `place(x,z,o,env)` leser parametrene med `propParams` og legger til kollidere i `env.colliders`; `build(t,env,out)` tegner med `out.add(geometri,materiale,{x,y,z,sx,sy,sz,c},skygge)` (`skygge` er `true` hvis du ikke gir den). En standardverdi `v:[a,b]` i `params` trekkes tilfeldig mellom a og b. Geometrier: `PG.blob` (kule, sx/sy/sz er halvakser), `PG.trunk` og `DG.branch`. Hjelpere: `stemBetween(a,b,r,{c})` (gren fra a til b; med `PG.blob` blir det en avlang kule mellom punktene), `footY`, `shade`, `dirVec`, og `DYR.*` i `data/dyr.js` for kropper, øyne og buer. Sitteplasser for fugler legges i `env.perches`.
 
 ## Kaimanøya: jungeløya
 

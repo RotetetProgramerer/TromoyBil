@@ -24,7 +24,7 @@ const ANIMALS={parrots:[],monkeys:[],butterflies:null,crabs:[],hootT:6,eagle:nul
 const PARROT_COLS=[['#e23a2e','#2d63d8','#f2c23a'],['#f2c23a','#2a5ad0','#2a5ad0'],['#3fae3a','#2f8f2e','#e2c33a'],['#e8542a','#d8b22a','#2f8f2e']];
 function makeParrot(cols){const g=new THREE.Group();const [cb,cw,ct]=cols;
   apart(g,ANIMAL_GEO.sph,amat(cb),0,0,0,.1,.09,.17);apart(g,ANIMAL_GEO.sph,amat(cb),0,.07,.13,.075);apart(g,ANIMAL_GEO.sph,amat('#f4f0e6'),0,.085,.19,.03,.03,.02);
-  apart(g,ANIMAL_GEO.cone,amat('#55504a'),0,.06,.2,.03,.055,.03,-Math.PI/2);apart(g,ANIMAL_GEO.box,amat(ct),0,0,-.2,.05,.015,.16);
+  apart(g,ANIMAL_GEO.cone,amat('#55504a'),0,.06,.2,.03,.055,.03,Math.PI/2);apart(g,ANIMAL_GEO.box,amat(ct),0,0,-.2,.05,.015,.16);
   const wings=[];for(const sd of[-1,1]){const piv=new THREE.Group();piv.position.set(sd*.06,.03,0);const w=new THREE.Mesh(ANIMAL_GEO.wing,amat(cw,{side:THREE.DoubleSide}));w.scale.set(sd*.26,.12,1);w.rotation.x=-Math.PI/2;w.castShadow=true;piv.add(w);g.add(piv);wings.push(piv)}
   g.userData.wings=wings;return g}
 function parrotPerch(p,avoid){const L=LV.perches.filter(q=>q!==avoid&&Math.hypot(q.x-car.pos.x,q.z-car.pos.z)>9);const S=L.length?L:LV.perches;return S[Math.floor(Math.random()*S.length)]}
@@ -36,12 +36,12 @@ const PIGEON_COLS=[['#8a8f96','#6b7078','#b9bdc2'],['#9a9ea3','#7a7e84','#d9dde0
 function bezier(bz,u,out){const a=1-u;out.set(0,0,0).addScaledVector(bz[0],a*a*a).addScaledVector(bz[1],3*a*a*u).addScaledVector(bz[2],3*a*u*u).addScaledVector(bz[3],u*u*u);return out}
 function updateParrots(dt,tm){
   for(const b of ANIMALS.parrots){const g=b.g;
-    if(b.st==='perch'){g.position.y=b.perch.y+.08+Math.sin(tm*2.1+b.ph)*.006;g.rotation.y+=(Math.sin(tm*.3+b.ph)>.95?dt*.4:0);for(const w of g.userData.wings)w.rotation.z*=.9;
+    if(b.st==='perch'){g.position.y=b.perch.y+(b.pigeon?.058:.08)+Math.sin(tm*2.1+b.ph)*.006;g.rotation.y+=(Math.sin(tm*.3+b.ph)>.95?dt*.4:0);for(const w of g.userData.wings)w.rotation.z*=.9;
       if(state.mode==='play'&&Math.hypot(b.perch.x-car.pos.x,b.perch.z-car.pos.z)<5.5&&b.cool<=0)parrotTakeoff(b);b.cool-=dt}
     else if(b.st==='fly'){b.u+=dt/b.dur;const u=Math.min(1,b.u);bezier(b.bz,u,g.position);bezier(b.bz,Math.min(1,u+.01),_ap);_ap.sub(g.position);
       if(_ap.lengthSq()>1e-6){g.rotation.y=Math.atan2(_ap.x,_ap.z);g.rotation.x=-Math.asin(Math.max(-.6,Math.min(.6,_ap.normalize().y)))}
       const fl=Math.sin(tm*55+b.ph)*(u<.2||u>.75?.95:.5);g.userData.wings[0].rotation.z=-fl;g.userData.wings[1].rotation.z=fl;
-      if(b.u>=1){b.st='perch';b.cool=3;g.rotation.x=0;g.position.set(b.perch.x,b.perch.y+.08,b.perch.z)}}
+      if(b.u>=1){b.st='perch';b.cool=3;g.rotation.x=0;g.position.set(b.perch.x,b.perch.y+(b.pigeon?.058:.08),b.perch.z)}}
     else{ // circling high over the forest
       b.a+=dt*b.w;g.position.set(b.cx+Math.cos(b.a)*b.r,b.cy+Math.sin(b.a*2.3)*.6,b.cz+Math.sin(b.a)*b.r);g.rotation.y=Math.atan2(-Math.sin(b.a)*b.w,Math.cos(b.a)*b.w)+(b.w>0?Math.PI/2:-Math.PI/2);g.rotation.z=b.w>0?-.35:.35;
       const glide=Math.sin(tm*.4+b.ph)>.2,fl=glide?Math.sin(tm*2)*.08:Math.sin(tm*34+b.ph)*.7;g.userData.wings[0].rotation.z=-fl;g.userData.wings[1].rotation.z=fl}}}
@@ -88,7 +88,7 @@ function updateCrabs(dt,tm){for(const c of ANIMALS.crabs){const g=c.g,dx=g.posit
 
 /* ---------- the eagle: circles high over the summit, glides most of the time ---------- */
 function makeEagle(){const g=new THREE.Group(),dk=amat('#3a2a1c'),wh=amat('#f4f0e6');
-  apart(g,ANIMAL_GEO.sph,dk,0,0,0,.13,.1,.3);apart(g,ANIMAL_GEO.sph,wh,0,.06,.27,.085,.075,.1);apart(g,ANIMAL_GEO.cone,amat('#e5a92b'),0,.05,.37,.03,.08,.03,-Math.PI/2);
+  apart(g,ANIMAL_GEO.sph,dk,0,0,0,.13,.1,.3);apart(g,ANIMAL_GEO.sph,wh,0,.06,.27,.085,.075,.1);apart(g,ANIMAL_GEO.cone,amat('#e5a92b'),0,.05,.37,.03,.08,.03,Math.PI/2);
   apart(g,ANIMAL_GEO.box,wh,0,0,-.34,.16,.02,.16);
   const wings=[];for(const sd of[-1,1]){const piv=new THREE.Group();piv.position.set(sd*.08,.04,.02);const w=new THREE.Mesh(ANIMAL_GEO.wing,amat('#4a3626',{side:THREE.DoubleSide}));w.scale.set(sd*.95,.3,1);w.rotation.x=-Math.PI/2;w.castShadow=true;piv.add(w);
     const tip=new THREE.Mesh(ANIMAL_GEO.wing,amat('#2a1e14',{side:THREE.DoubleSide}));tip.scale.set(sd*.3,.26,1);tip.position.set(sd*.95,0,0);tip.rotation.x=-Math.PI/2;piv.add(tip);g.add(piv);wings.push(piv)}
@@ -114,7 +114,7 @@ function updateBear(dt,tm){const b=ANIMALS.bear;if(!b)return;const g=b.g,L=Math.
 
 /* ---------- gulls: sit on the sand, take off and circle when the car comes near ---------- */
 function makeGull(){const g=new THREE.Group(),wh=amat('#f4f4f0'),gr=amat('#9aa0a6');
-  apart(g,ANIMAL_GEO.sph,wh,0,0,0,.055,.045,.11);apart(g,ANIMAL_GEO.sph,wh,0,.03,.1,.04);apart(g,ANIMAL_GEO.cone,amat('#e5a92b'),0,.025,.15,.012,.04,.012,-Math.PI/2);
+  apart(g,ANIMAL_GEO.sph,wh,0,0,0,.055,.045,.11);apart(g,ANIMAL_GEO.sph,wh,0,.03,.1,.04);apart(g,ANIMAL_GEO.cone,amat('#e5a92b'),0,.025,.15,.012,.04,.012,Math.PI/2);
   const wings=[];for(const sd of[-1,1]){const piv=new THREE.Group();piv.position.set(sd*.03,.02,0);const w=new THREE.Mesh(ANIMAL_GEO.wing,gr);w.material=amat('#dcdcd8',{side:THREE.DoubleSide});w.scale.set(sd*.26,.08,1);w.rotation.x=-Math.PI/2;piv.add(w);
     const tip=new THREE.Mesh(ANIMAL_GEO.wing,amat('#3a3a3a',{side:THREE.DoubleSide}));tip.scale.set(sd*.07,.07,1);tip.position.set(sd*.26,0,0);tip.rotation.x=-Math.PI/2;piv.add(tip);g.add(piv);wings.push(piv)}
   g.userData.wings=wings;return g}
@@ -133,8 +133,8 @@ function updateGulls(dt,tm){for(const b of ANIMALS.gulls){const g=b.g,d=Math.hyp
 /* ---------- grazers: deer and rabbits. They nibble, wander a little, and bolt when the car comes close ---------- */
 function makeDeer(){const g=new THREE.Group(),fur=amat('#9a6a3a'),lt=amat('#d9b98a');
   apart(g,ANIMAL_GEO.sph,fur,0,.5,0,.16,.17,.32);apart(g,ANIMAL_GEO.sph,lt,0,.42,-.02,.12,.1,.26);
-  const neck=apart(g,ANIMAL_GEO.cylTop,fur,0,.82,.26,.05,.3,.05,-.6);const head=new THREE.Group();head.position.set(0,.86,.36);apart(head,ANIMAL_GEO.sph,fur,0,0,0,.07,.07,.12);apart(head,ANIMAL_GEO.sph,amat('#1a1410'),0,.01,.12,.02);
-  for(const sd of[-1,1]){apart(head,ANIMAL_GEO.cone,fur,sd*.06,.07,-.02,.02,.08,.02,0,0,sd*.5);apart(head,ANIMAL_GEO.cylTop,amat('#5a4030'),sd*.04,.08,-.04,.012,.2,.012,-.3,0,sd*.4)}g.add(head);
+  const neck=apart(g,ANIMAL_GEO.cylTop,fur,0,.82,.26,.05,.3,.05,.6);const head=new THREE.Group();head.position.set(0,.86,.36);apart(head,ANIMAL_GEO.sph,fur,0,0,0,.07,.07,.12);apart(head,ANIMAL_GEO.sph,amat('#1a1410'),0,.01,.12,.02);
+  for(const sd of[-1,1]){apart(head,ANIMAL_GEO.cone,fur,sd*.06,.07,-.02,.02,.08,.02,0,0,sd*.5);apart(head,ANIMAL_GEO.cylTop,amat('#5a4030'),sd*.04,.08,-.04,.012,.2,.012,Math.PI-.3,0,sd*.4)}g.add(head);
   const legs=[];for(const sd of[-1,1])for(const fz of[.2,-.2]){const l=new THREE.Group();l.position.set(sd*.09,.4,fz);apart(l,ANIMAL_GEO.cylTop,fur,0,0,0,.03,.42,.03);g.add(l);legs.push(l)}
   apart(g,ANIMAL_GEO.sph,lt,0,.52,-.32,.03,.05,.03);g.userData.legs=legs;g.userData.head=head;return g}
 function makeRabbit(){const g=new THREE.Group(),fur=amat('#8a7a68');apart(g,ANIMAL_GEO.sph,fur,0,.08,0,.07,.07,.1);apart(g,ANIMAL_GEO.sph,fur,0,.15,.08,.05);
@@ -143,7 +143,7 @@ function makeRabbit(){const g=new THREE.Group(),fur=amat('#8a7a68');apart(g,ANIM
 function makeCat(col){const g=new THREE.Group(),fur=amat(col);apart(g,ANIMAL_GEO.sph,fur,0,.11,0,.07,.07,.16);apart(g,ANIMAL_GEO.sph,fur,0,.19,.15,.06);
   for(const sd of[-1,1]){apart(g,ANIMAL_GEO.cone,fur,sd*.035,.25,.15,.018,.045,.018);apart(g,ANIMAL_GEO.sph,amat('#d9e04a'),sd*.025,.2,.2,.01)}
   for(const sd of[-1,1])for(const fz of[.1,-.1])apart(g,ANIMAL_GEO.cylTop,fur,sd*.04,.08,fz,.015,.09,.015);
-  apart(g,ANIMAL_GEO.cylTop,fur,0,.14,-.17,.012,.2,.012,-1.2);return g}
+  apart(g,ANIMAL_GEO.cylTop,fur,0,.14,-.17,.012,.2,.012,2.1);return g}
 function buildCats(o,R){const cols=['#2a2622','#c8894a','#8a8580','#e9e4da','#5a4a3a'];for(let i=0;i<(o.n||2);i++){let x,z,k=0;do{x=o.at[0]+(R()-.5)*o.r*2;z=o.at[1]+(R()-.5)*o.r*2;k++}while((LV.dist(x,z)<1.0||WL(x,z)>H(x,z))&&k<40);
     const g=makeCat(cols[i%cols.length]);g.position.set(x,H(x,z),z);g.rotation.y=R()*6.28;levelGroup.add(g);ANIMALS.rabbits.push({g,kind:'cat',hx:o.at[0],hz:o.at[1],hr:o.r,st:'graze',t:R()*3,ph:R()*6.28,sp:0,tx:x,tz:z,flee:2.6,speed:3.4})}}
 function buildDeer(o,R){for(let i=0;i<(o.n||3);i++){let x,z,k=0;do{x=o.at[0]+(R()-.5)*o.r*2;z=o.at[1]+(R()-.5)*o.r*2;k++}while((LV.dist(x,z)<3||WL(x,z)>H(x,z)||surfAt(x,z)===S.ROCK)&&k<40);
@@ -174,7 +174,7 @@ function updateFish(dt,tm){for(const f of ANIMALS.fish){f.t-=dt;
 function buildLizards(o,R){for(let i=0;i<(o.n||5);i++){let x,z,k=0;do{x=o.at[0]+(R()-.5)*o.r*2;z=o.at[1]+(R()-.5)*o.r*2;k++}while((LV.dist(x,z)<1.2||WL(x,z)>H(x,z))&&k<40);
     const g=new THREE.Group(),col=amat(o.rat?['#5a4a3a','#6b5a48','#4a4038'][i%3]:['#8a7a3a','#6a7a4a','#a08040'][i%3]);
     if(o.rat){apart(g,ANIMAL_GEO.sph,col,0,.03,0,.04,.035,.07);apart(g,ANIMAL_GEO.sph,col,0,.035,.07,.028,.025,.035);for(const sd of[-1,1])apart(g,ANIMAL_GEO.sph,amat('#c9a0a0'),sd*.02,.06,.07,.012);apart(g,ANIMAL_GEO.cylTop,amat('#c9a0a0'),0,.03,-.07,.006,.14,.006,Math.PI/2+.3)}
-    else{apart(g,ANIMAL_GEO.sph,col,0,.02,0,.035,.025,.08);apart(g,ANIMAL_GEO.sph,col,0,.025,.08,.025,.02,.035);apart(g,ANIMAL_GEO.cone,col,0,.015,-.12,.015,.12,.015,Math.PI/2)}
+    else{apart(g,ANIMAL_GEO.sph,col,0,.02,0,.035,.025,.08);apart(g,ANIMAL_GEO.sph,col,0,.025,.08,.025,.02,.035);apart(g,ANIMAL_GEO.cone,col,0,.015,-.12,.015,.12,.015,-Math.PI/2)}
     g.position.set(x,H(x,z),z);g.rotation.y=R()*6.28;levelGroup.add(g);ANIMALS.lizards.push({g,run:0,vx:0,vz:0,ph:R()*6.28})}}
 function updateLizards(dt,tm){for(const l of ANIMALS.lizards){const g=l.g,dx=g.position.x-car.pos.x,dz=g.position.z-car.pos.z,d=Math.hypot(dx,dz);
     if(l.run<=0&&d<2.4&&state.mode==='play'){l.run=.6;const a=Math.atan2(dx,dz)+(Math.random()-.5);l.vx=Math.sin(a)*5;l.vz=Math.cos(a)*5;g.rotation.y=a}
@@ -318,7 +318,7 @@ function buildAnimals(lv,def){clearAnimals();const A=def.animals;if(!A)return;co
     ANIMALS.parrots.push({g,st:'circle',cx:p.x,cz:p.z,cy:p.y+5+R()*3,r:4+R()*5,a:R()*6.28,w:(R()<.5?1:-1)*(.35+R()*.25),ph:R()*6.28})}
   // pigeons: grey, small, on lamp posts and roofs (perches of kind 'post' when there are any)
   if(A.pigeons&&hasP){const posts=lv.perches.filter(p=>p.kind==='post'),pool=posts.length?posts:lv.perches;
-    for(let i=0;i<A.pigeons;i++){const p=pool[Math.floor(R()*pool.length)],g=makeParrot(PIGEON_COLS[i%PIGEON_COLS.length]);g.scale.setScalar(.72);g.position.set(p.x,p.y+.06,p.z);g.rotation.y=R()*6.28;levelGroup.add(g);
+    for(let i=0;i<A.pigeons;i++){const p=pool[Math.floor(R()*pool.length)],g=makeParrot(PIGEON_COLS[i%PIGEON_COLS.length]);g.scale.setScalar(.72);g.position.set(p.x,p.y+.058,p.z);g.rotation.y=R()*6.28;levelGroup.add(g);
       ANIMALS.parrots.push({g,st:'perch',perch:p,cool:R()*3,ph:R()*6.28,pigeon:true})}}
   // monkeys: on branches near the road, where they can watch the car
   const near=lv.perches.filter(p=>p.kind==='branch'&&lv.dist(p.x,p.z)<7),pool=near.length>=4?near:lv.perches.filter(p=>p.kind==='branch');
@@ -328,12 +328,14 @@ function buildAnimals(lv,def){clearAnimals();const A=def.animals;if(!A)return;co
   if(A.liana){const[x,z]=A.liana,y0=H(x,z),top=y0+5.8,len=4.1,t=lv.tOf(x,z),tn=lv.T(t);const piv=new THREE.Group();piv.position.set(x,top,z);piv.rotation.y=Math.atan2(tn.x,tn.z);
     const rope=new THREE.Mesh(ANIMAL_GEO.cylTop,amat('#4f6b2c'));rope.scale.set(.025,len,.025);piv.add(rope);const g=makeMonkey();g.position.set(0,-len-.05,0);piv.add(g);levelGroup.add(piv);
     const arm=new THREE.Mesh(ANIMAL_GEO.cylTop,amat('#4f6b2c'));arm.scale.set(.02,.9,.02);arm.position.y=-len;piv.add(arm);
+    {const br=apart(levelGroup,ANIMAL_GEO.cyl,amat('#5a4330'),x,top+.03,z,.07,3.2,.07,0,piv.rotation.y,Math.PI/2);br.rotation.order='YZX';
+     for(const[o,sx,c]of[[0,1.1,'#3b7f33'],[1.2,.8,'#2d6b2a'],[-1.1,.85,'#4a8f3a']]){const dx=Math.cos(piv.rotation.y)*o,dz=-Math.sin(piv.rotation.y)*o;apart(levelGroup,ANIMAL_GEO.sph,amat(c),x+dx,top+.35,z+dz,sx,.45,sx)}}   // greina og løvet lianen henger i
     ANIMALS.monkeys.push({g,pivot:piv,st:'sit',perch:null,perches:[],cool:1e9,ph:R()*6.28,yaw0:0,kind:'liana'})}
   // two on a hanging bridge: they hop to the posts when the car arrives
   if(A.bridgeMonkeys){const dk=lv.fx.find(f=>f.type==='deck'&&Math.hypot(f.ax-A.bridgeMonkeys.A[0],f.az-A.bridgeMonkeys.A[1])<.5);
     if(dk){const yAt=t=>dk.y0+(dk.y1-dk.y0)*t-dk.sag*4*t*(1-t),lx=-dk.uz,lz=dk.ux,pt=(t,lat,h)=>({x:dk.ax+dk.ux*dk.len*t+lx*lat,y:yAt(t)+h,z:dk.az+dk.uz*dk.len*t+lz*lat,kind:'post'});
-      const posts=[pt(0,dk.hw+.06,1.0),pt(0,-dk.hw-.06,1.0),pt(1,dk.hw+.06,1.0),pt(1,-dk.hw-.06,1.0)];
-      for(const[t,sd]of[[.35,1],[.62,-1]]){const p=pt(t,sd*(dk.hw-.05),.5),g=makeMonkey();g.position.set(p.x,p.y,p.z);g.rotation.y=Math.atan2(dk.ux,dk.uz)+sd*Math.PI/2;levelGroup.add(g);
+      const posts=[pt(0,dk.hw+.06,1.11),pt(0,-dk.hw-.06,1.11),pt(1,dk.hw+.06,1.11),pt(1,-dk.hw-.06,1.11)];
+      for(const[t,sd]of[[.35,1],[.62,-1]]){const p=pt(t,sd*(dk.hw-.05),.6),g=makeMonkey();g.position.set(p.x,p.y,p.z);g.rotation.y=Math.atan2(dk.ux,dk.uz)+sd*Math.PI/2;levelGroup.add(g);
         ANIMALS.monkeys.push({g,st:'sit',perch:p,perches:posts,cool:0,ph:R()*6.28,yaw0:g.rotation.y,kind:'bridge'})}}}
   // butterflies around the flowers
   if(A.butterflies&&lv.flowers&&lv.flowers.length){const n=Math.min(A.butterflies,lv.flowers.length),im=[0,1].map(()=>{const m=new THREE.InstancedMesh(ANIMAL_GEO.bwing,new THREE.MeshBasicMaterial({side:THREE.DoubleSide}),n);m.frustumCulled=false;levelGroup.add(m);return m});
