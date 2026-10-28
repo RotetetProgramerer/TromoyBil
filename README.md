@@ -13,8 +13,10 @@ js/game.js            Spillet: grafikk, kamera, lyd, meny, garasje, poeng.
 js/animals.js         Dyr (papegøyer, apekatter, sommerfugler, krabber) og den rullende steinen.
 js/savannedyr.js      Dyrene på Løveøya: løver, geparder og krokodiller som angriper, flokkene som flykter og gribbene.
 js/ambience.js        Jungellyd laget med WebAudio (ingen lydfiler).
-js/skier.js           Fysikken for skiløperen i Gautefall (ingen DOM, testes uten nettleser).
-js/ski.js             Skianlegget i spillet: stolheisen, skiløperen, turen opp og ned, kamera og lyd.
+js/skier.js           Fysikken for skiløperen i Gautefall: carving, skrens, hockeystopp, hopp og landing (ingen DOM, testes uten nettleser).
+js/ski.js             Skianlegget i spillet: stolheisen, skiløperen (modell og stillinger), turen opp og ned, kamera, mellomtider, spøkelset og lyd.
+js/skiresort.js       Livet i skianlegget: kordfløyel og is på løypene, gamle skispor, startgrind, nett, målområder med publikum
+                      og tidtavle, løypekartet, snøkanoner, andre skiløpere og folk i stolheisen.
 js/boatsim.js         Fysikken for motorbåtløpet: båtene, bøyene, piratene og vulkanen (ingen DOM, testes uten nettleser).
 js/boat.js            Motorbåtløpet fra marinaen på Tromøya: havet, øyene, båtene, delt skjerm, HUD, lyd og løp mot andre i rommet.
 js/planesim.js        Flyfysikken: avgang, flyging, landing, krasj og ringene (ingen DOM, testes uten nettleser).
@@ -240,31 +242,49 @@ Testen: `node tools/test-levels.js trinnvik` kjører landsbytesten og alle sju l
 
 ## Gautefall: vinterøya og skianlegget
 
-`data/levels/08-gautefall.js` er en vinterøy med et fjell i midten og et flatt platå på toppen. Fjellveien går fra kaia opp til parkeringsplassen ved bunnstasjonen. Kjør inn på den blå ruta foran heisen, så kommer spørsmålet «Vil du stå på ski?». JA: bilen blir stående, og en skiløper (i samme farge som lakken på bilen) tar stolheisen til toppen (ca. 10 sekunder, hopp over med Enter). På toppen velger du nedfart:
+`data/levels/08-gautefall.js` er en vinterøy med et fjell i midten og et flatt platå på toppen. Fjellveien går fra kaia opp til parkeringsplassen ved bunnstasjonen. Kjør inn på den blå ruta foran heisen, så kommer spørsmålet «Vil du stå på ski?». JA: bilen blir stående, og en skiløper (i samme farge som lakken på bilen, med startnummer på ryggen) tar stolheisen til toppen (ca. 10 sekunder, hopp over med Enter). Andre skiløpere sitter i heisen og kjører rolig ned Familiebakken. På toppen står et løypekart, og du velger nedfart:
 
 | Løype | Farge | Type | Slik vinner du |
 |---|---|---|---|
-| Familiebakken | Grønn | Friløp i sikksakk | Tid. Brede kontrollporter. |
+| Familiebakken | Grønn | Friløp i tre lange strekk i sikksakk | Tid. Brede kontrollporter. Se opp for de andre skiløperne. |
 | Slalåmbakken | Blå | Slalåm | Tid. Røde og blå porter; bom gir +5 sekunder. |
-| Utforløypa | Rød | Utfor | Tid. Bratt, rask, med isflekker i svingene. |
-| Big Jumps | Svart | Hoppløype | Poeng: 120 per sekund i lufta, +150 for hver hele snurr (360°) med ren landing. |
+| Utforløypa | Rød | Utfor | Tid. Bratt og rask, med is i svingene, røde sikkerhetsnett på yttersiden og kuler før mål. |
+| Big Jumps | Svart | Hoppløype | Poeng: 120 per sekund i lufta, +150 for hver hele snurr (360°) med ren landing, +50 for perfekt sats. |
 
-Styring: **← →** svinger (og snurrer i lufta), **↓** bremser (plog), **↑** staker på flatene og går i hockestilling i fart, **mellomrom** hopper, **C** bytter kamera, **Esc** pause. På mobil er det en egen hoppknapp. I Lett-modus har skiløperen en fartsgrense og tåler hardere landinger. Treffer du et tre, lander på tvers eller for hardt, faller du og starter igjen fra forrige port. Resultatet gir stjerner, rekorder (`best['gautefall/ski/slalom']` osv.) og muttere.
+Du står bak startgrinda under nedtellingen. Tiden starter når du dytter deg gjennom staven, og et spøkelse (en lys, gjennomsiktig skiløper) kjører din beste tur i den samme løypa ved siden av deg. Ved hver port ser du mellomtiden mot beste tur: grønn når du ligger foran, rød når du ligger bak. Tidtavla i målområdet viser tiden din mens du kommer ned, og publikum bak gjerdet jubler og ringer med kubjeller når du nærmer deg mål.
+
+**Styring:** **← →** svinger (og snurrer i lufta), **↓** bremser i plog, **↓ og ← eller →** gir hockeystopp med skiene på tvers, **↑** gir stavtak på flatene (skøyting der det er flatt) og hockestilling i fart, **mellomrom** hopper, **C** bytter kamera (nært, langt bak og hjelmkamera), **Esc** pause. På mobil er det en egen hoppknapp.
+
+**Slik kjører skiløperen:**
+
+- **Carving og skrens.** Svinger du jevnt, tipper skiene over på kanten og skjærer en ren bue (smale spor, en sprø lyd og lite fartstap). Svinger du brattere enn skiene klarer å bøye seg, sklir halene ut: farten går ned, snøen spruter, og sporene blir brede. Kantene tåler bare så mye sidekraft, og på is mye mindre. Kjører du for fort inn i en isete sving, sklir du ut av svingen. Resultatet viser hvor stor del av svingene du carvet.
+- **Underlaget.** Preparert snø glir best. Utenfor løypa er det dyp pudder: du synker ned, svinger tregere, bremser og lager en sky av snø. Kulene i Utforløypa kaster deg opp i lufta.
+- **Fart.** I hockestilling går det opp mot 90 km/t i de bratteste partiene, oppreist rundt 50 km/t.
+- **Hopp.** Mellomrom gir et lite hopp hvor som helst. Trykker du rett før kanten på et hopp, får du en perfekt sats og kommer mye høyere. Lander du litt på skrå eller litt hardt, vingler du et halvt sekund og må styre rett for å holde balansen. Lander du helt på tvers eller veldig hardt, faller du.
+- **Fall.** Ski og staver flyr, skiløperen ruller rundt, blir liggende et øyeblikk og reiser seg. Er du fortsatt i løypa, fortsetter du der du falt; ellers starter du ved forrige port. I Lett-modus har skiløperen en fartsgrense og tåler hardere landinger.
+
+Resultatet gir stjerner, rekorder (`best['gautefall/ski/slalom']` osv., med mellomtidene) og muttere. Spøkelset for hver løype lagres i `localStorage` (`ghost:gautefall/ski/slalom` osv.).
 
 Verktøy i `build(c)` for vinter og ski:
 
 | Verktøy | Betydning |
 |---|---|
 | `c.spruce(x,z,{h,snow})`, `c.spruces()` | Grantre med snø på greinene (kollider og festepunkt for vinsjen). `c.spruces()` bygger alle etter `c.finish()`. |
-| `c.piste({id,name,desc,diff,color,kind,path,gates,hw,blend,gw,ice,par})` | En nedfart: egen linje fra toppen (t=0) til målet (t=1), jevnet ut på tvers, preparert (kordfløyelsstriper, glir bedre, merket i `TG`) og holdt fri for trær. `kind` er `'fri'`, `'slalom'`, `'utfor'` eller `'hopp'`. `gates` er portene som `[x,z]`, den siste er målet. `color` 1–4 er grønn, blå, rød og svart. `ice:[[t0,t1]]` legger is på løypa. `par:[3 stjerner, 2 stjerner]` er tid i sekunder, eller poeng for hoppløypa. |
+| `c.piste({id,name,desc,diff,color,kind,path,gates,hw,blend,tilt,berm,gw,ice,nets,par})` | En nedfart: egen linje fra toppen (t=0) til målet (t=1), jevnet ut på tvers og glattet, merket som preparert i `TG` (glir bedre) og holdt fri for trær. Kordfløyelen tegnes oppå av `js/skiresort.js`. `kind` er `'fri'`, `'slalom'`, `'utfor'` eller `'hopp'`. `gates` er portene som `[x,z]`, den siste er målet. `color` 1–4 er grønn, blå, rød og svart. `tilt` (0–1, standard 0,22) er hvor mye av fjellsiden løypa får helle på tvers; 0 gir helt flatt (slalåm). `berm` er høyden på snøkanten langs løypa (standard 0,07). `ice:[[t0,t1]]` legger blank is på løypa. `nets:true` setter røde sikkerhetsnett på yttersiden av svingene. `par:[3 stjerner, 2 stjerner]` er tid i sekunder, eller poeng for hoppløypa. |
 | `c.kicker(k,t,{h,len,land,drop,w})` | Et hopp i løype `k` ved `t`: rampe opp til en blå kant, og et gravd ut, bratt landingsområde etterpå. Kall etter `c.piste`. |
-| `c.dressPistes()` | Løypestikker langs kantene og en startbu ved hver start (kalles automatisk hvis banen ikke gjør det). |
-| `c.lift([x,z],[x,z],{off,span,hang,clear})` | Stolheis fra bunnstasjon til toppstasjon. Mastene blir høye nok til at stolene går klar av bakken. Kall når terrenget er ferdig. Kabelen og stolene tegnes og flyttes av `js/ski.js`. |
+| `c.moguls(k,t0,t1,{h,sp,sl})` | Kuler i løype `k` mellom `t0` og `t1`, i forskjøvne rader (`sp` mellom radene, `sl` på tvers). Kall etter `c.piste`. |
+| `c.dressPistes()` | Løypestikker langs kantene, en startbu bak hver start (der det er plass utenfor synsfeltet), et skilt i løypas farge, nettene, og et målområde ved hvert mål med gjerde, plass til publikum og en tidtavle. Bratte skrenter langs løypene får stein som stikker fram. Kalles automatisk hvis banen ikke gjør det. |
+| `c.lift([x,z],[x,z],{off,span,hang,clear})` | Stolheis fra bunnstasjon til toppstasjon. Mastene blir høye nok til at stolene går klar av bakken, og master nær en løype får madrass. Kall når terrenget er ferdig. Kabelen, stolene og folkene i dem tegnes og flyttes av `js/ski.js` og `js/skiresort.js`. |
+| `c.groomer(x,z,ry,farge)` | En pistemaskin som står parkert (belter, førerhus, skjær og fres). |
+| `c.snowgun(x,z,retning)` | En snøkanon på et lite tårn som blåser snøtåke i retningen (radianer). |
+| `c.trailMap(x,z,ry)` | En tavle med løypekartet, tegnet ut fra løypene og heisen på banen. |
 | `skiAt:[x,z]` | Der bilen må stå for å få spørsmålet om å stå på ski. |
 | `beachSurf:S.GRAVEL` | Underlaget på stranda rundt en øy (standard sand). |
 | `village:{…,snow:true}` | Snø på takene i landsbyen. |
 
-Testen kjører også nedfartene med en autopilot på ski: `node tools/test-levels.js gautefall`. Hver løype skal vise `MÅL`, helst `kræsj 0` og `fast 0`. For hoppløypa vises lufttiden for hvert hopp og den hardeste landingen (over 8,2 er et fall).
+Baner med `snow:true` får glitter i snøen med høy grafikk.
+
+Testen kjører også nedfartene med en autopilot på ski: `node tools/test-levels.js gautefall`. Hver løype skal vise `MÅL`, helst `kræsj 0` og `fast 0`. For hoppløypa vises lufttiden for hvert hopp og den hardeste landingen (over 6,2 vingler skiløperen, over 9,2 er et fall).
 
 ## Løveøya: savannen og dyrene som angriper
 
