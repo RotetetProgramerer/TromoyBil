@@ -38,6 +38,7 @@
     <div class="r"><span>Fart</span><b id="sSpeed">0 km/t</b></div>
   </div>
   <div class="ski-help" id="sHelp" hidden></div>
+  <div class="ski-split" id="sSplit" hidden></div>
   <div class="hud-btns">
     <button class="ib" id="bZoomOut" aria-label="Zoom ut (X)" title="Zoom ut (X)"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21M7.5 10.5h6"/></svg></button>
     <button class="ib" id="bZoomIn" aria-label="Zoom inn (Z)" title="Zoom inn (Z)"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21M7.5 10.5h6M10.5 7.5v6"/></svg></button>
@@ -172,7 +173,7 @@
       <dt><kbd>L</kbd> <kbd>C</kbd> <kbd>R</kbd></dt><dd>Lys, kamera, vinsj tilbake</dd>
       <dt><kbd>Z</kbd> / <kbd>X</kbd></dt><dd>Zoom nærmere og lengre fra bilen</dd>
       <dt>Mus</dt><dd>Dra for å se rundt, rull eller klyp for zoom</dd>
-      <dt>På ski</dt><dd>Gautefall: ← → sving, ↓ plog, ↑ stake, mellomrom hopp</dd>
+      <dt>På ski</dt><dd>Gautefall: ← → sving (jevnt for carving), ↓ plog, ↓ og sving hockeystopp, ↑ stavtak og hockestilling, mellomrom hopp, C kamera</dd>
       <dt>Med båt</dt><dd>Marinaen på Tromøya: WASD eller piltastene. To spillere deler tastaturet.</dd>
       <dt>Med fly</dt><dd>Flyplassen på Trinnvik: W/↑ gass og stig, S/↓ sink og brems, A/D eller ←/→ sving, mellomrom full fart.</dd>
     </dl>
@@ -426,6 +427,7 @@
 <script src="js/carmodel.js"></script>
 <script src="js/world.js"></script>
 <script src="js/ski.js"></script>
+<script src="js/skiresort.js"></script>
 <script src="js/boat.js"></script>
 <script src="js/plane.js"></script>
 <script src="js/net.js"></script>
