@@ -137,19 +137,14 @@ LEVELS.push(
       if(rr<17.5||!c.onLand(x,z)||c.dist(x,z)<2.5||dShort(x,z)<2.5||c.nearGate(x,z,2.5)||c.nearStart(x,z,2.6)||c.lavaNear(x,z,3)||!c.free(x,z,1.2)||c.pools.some(p=>Math.hypot(p.x-x,p.z-z)<p.r+1.6)||lineD(RIVER,x,z)<3||seaD(x,z)<12.5)continue;
       if(Math.abs(H(x+.5,z)-H(x-.5,z))+Math.abs(H(x,z+.5)-H(x,z-.5))>.3||H(x,z)<.6)continue;
       if(palms.some(q=>Math.hypot(q.x-x,q.z-z)<2.4)||c.trees.some(t=>Math.hypot(t.x-x,t.z-z)<1.6))continue;palms.push({x,z,h:2.8+R()*1.8,lean:(R()-.5)*.35})}
-    const trunks=[],fronds=[];
-    for(const q of palms){const y=H(q.x,q.z),th=q.h,tx=q.x-Math.sin(q.lean)*th,ty=y+Math.cos(q.lean)*th;c.colliders.push({x:q.x,z:q.z,r:.17});
-      trunks.push({x:q.x-Math.sin(q.lean)*th/2,y:y+Math.cos(q.lean)*th/2,z:q.z,sx:.12,sy:th,sz:.12,rz:q.lean,c:mix('#8a7048','#a58a5a',R())});
-      c.perches.push({x:tx,y:ty+.5,z:q.z,kind:'top'});
-      const k0=R()*6.3;for(let k=0;k<8;k++)fronds.push({x:tx,y:ty,z:q.z,sx:.2,sy:1.5+R()*.3,sz:.55,ry:k0+k*.785,rz:1.0+R()*.35,c:['#2d7a2b','#3f9a3a','#25682a'][k%3]})}
-    instanced(DG.trunk,DM.white,trunks,c.decor);instanced(DG.tuft,DM.tuft,fronds,c.decor);
+    for(const q of palms)c.plant('palme',q.x,q.z,{h:q.h,lean:q.lean});c.plants();   // js/props/palme.js
     // --- bregner, store blader, blomster og underskog ---
     const ferns=[],flowers=[],leaves=[];c.flowers=[];
     for(let i=0;i<2400&&ferns.length<420;i++){const x=(R()-.5)*64,z=(R()-.5)*64;if(rOf(x,z)<13.5||c.dist(x,z)<1.6||dShort(x,z)<1.5||c.lavaNear(x,z,1.2)||seaD(x,z)<12.5||lineD(RIVER,x,z)<2.6||onLedge(x,z)||c.pools.some(p=>Math.hypot(p.x-x,p.z-z)<p.r))continue;const s=.3+R()*.5;
-      ferns.push({x,y:H(x,z)-.02,z,sx:s*.9,sy:s*1.1,sz:s*.9,ry:R()*6,c:['#2f7a2c','#3e8f35','#1f6a2a','#58a03a'][i%4]});
+      ferns.push(c.plant('bregne',x,z,{s,palett:1,c:['#2f7a2c','#3e8f35','#1f6a2a','#58a03a'][i%4]}));
       if(R()<.4)leaves.push({x:x+(R()-.5)*.8,y:H(x,z)+.02,z:z+(R()-.5)*.8,sx:.28+R()*.2,sy:.6+R()*.6,sz:.1,rx:.5+R()*.6,ry:R()*6.28,c:['#2a7a3a','#3f9a4a','#1e6a30'][i%3],ord:'YXZ'});
-      if(R()<.22){const f={x:x+(R()-.5)*.4,y:H(x,z)+s*.9,z:z+(R()-.5)*.4};flowers.push({...f,sx:.07,sy:.07,sz:.07,c:['#e0405a','#f08a3a','#f2d24a','#d35aa8'][i%4]});c.flowers.push(f)}}
-    instanced(DG.fern,DM.tuft,ferns,c.decor);instanced(DG.leaf,DM.leaf,leaves,c.decor,false);instanced(DG.cone,DM.white,flowers,c.decor,false);
+      if(R()<.22){const f={x:x+(R()-.5)*.4,y:H(x,z)+s*.62,z:z+(R()-.5)*.4};flowers.push({...f,sx:.07,sy:.07,sz:.07,c:['#e0405a','#f08a3a','#f2d24a','#d35aa8'][i%4]});c.flowers.push(f)}}
+    c.plants();instanced(DG.leaf,DM.leaf,leaves,c.decor,false);instanced(DG.cone,DM.white,flowers,c.decor,false);
     c.pebbles(500,['#3a3631','#524b45','#2b2724'],.04,.11);
     c.tufts(60,['#4d7a2f','#6b9a3c']);
   }}

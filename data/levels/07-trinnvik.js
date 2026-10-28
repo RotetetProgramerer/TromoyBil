@@ -69,9 +69,8 @@ const rectCells=(x0,z0,x1,z1,fn)=>cellsIn(x0,z0,x1,z1,(k,px,pz)=>{if(px<x0||px>x
 const stripe=(a,w,c0,c1)=>(Math.floor(a/w)%2===0)?c0:c1;
 // fartsdump på en gate: 0,12 høy sinushump, gule og svarte striper. level = gatenivået
 const bump=(x,z,ang,level,h=.12)=>shape(x,z,ang,.9,3.2,(a,b)=>h*(1-Math.cos(2*Math.PI*(a+.45)/.9))/2,S.ASPHALT,(a,b)=>stripe(b+1.6,.4,'#e5c13a','#2a2a2a'),level);
-// enkelt bytre: stamme nå, tre kuler etter c.finish; perches til duene
-const TREES=[];
-const tree=(c,x,z,s=1)=>{const y=H(x,z),h=1.4*s+.3;c.cyl(x,y,z,.07*s,h,'#5a4330');TREES.push({x,y:y+h,z,s});c.colliders.push({x,z,r:.1,anchor:true,y:y+.6});c.perches.push({x,y:y+h+.6*s,z,kind:'top'})};
+// bytre (js/props/tre-by.js): plasseres nå, bygges av c.plants() etter c.finish, så stamme og krone står på ferdig bakke
+const tree=(c,x,z,s=1)=>c.plant('bytre',x,z,{s});
 
 LEVELS.push(
 { id:'trinnvik', name:'Trinnvik', diff:2, seed:7171, size:120, coast:42, world:true,
@@ -84,7 +83,7 @@ LEVELS.push(
     return{beach:smt((R-30)/5),city,stadium:rectIn(PITCH,x,z,2.5),site:smt((6-Math.hypot(x-15.5,z-25.5))/3),jungle:park*.25,swamp:0,snow:0}},
   path:[[0,-13],[2,-11],[0,-9],[-2,-11],[0,-13]], challenges:CH, village:{at:[26.2,-26.2]}, landExtra:airLand,
   mapLabels:[[0,-5,'Torget'],[-2,18,'Øvre by'],[-2,32,'Utsikten'],[-20,-19,'Skateparken'],[-24,9,'Byparken'],[21.5,15,'Stadion'],[22,-8,'P-huset'],[15,25.5,'Byggetomta'],[27,-25,'Havna'],[2,-31,'Promenaden'],[31,-14,'Kaia'],[-47,-3,'Flyplassen']],
-  animals:{pigeons:14,gulls:{at:[4,-35.5],n:7},crabs:6,crabsAt:[-3,-36],fish:[{at:[-16.5,19],r:2,n:2},{at:[-4,-42],r:5,n:3},{at:[36,-30],r:4,n:2}],
+  animals:{pigeons:14,gulls:{at:[4,-35.5],n:7},crabs:6,crabsAt:[3.5,-36],fish:[{at:[-16.5,19],r:2,n:2},{at:[-4,-42],r:5,n:3},{at:[36,-30],r:4,n:2}],
     rabbits:[{at:[-22,10],r:6,n:5}],butterflies:20,rats:[{at:[32,-10.5],r:1.5,n:3},{at:[14,25],r:3,n:3}],cats:[{at:[-4,-18.5],r:5,n:2},{at:[-13,-5],r:4,n:1}]},
   boulder:{trigger:[22.5,14.7],from:[17,16.4],to:[28,13],speed:4.5,r:.35,col:'#f4f4f0',msg:'⚽ Ballen!'},
   base(x,z,n){const R=Math.hypot(x,z),u=upper(x,z);
@@ -133,16 +132,16 @@ LEVELS.push(
     shape(12,-4,0,4.6,3.2,(a,b)=>{const u=a+2.3;return u<1.8?(Math.floor(u/.6)+1)*.14:u<2.8?.42:(Math.floor((4.6-u)/.6)+1)*.14},S.ROCK,(a,b)=>{const u=a+2.3,st=u<1.8?Math.floor(u/.6):u<2.8?3:Math.floor((4.6-u)/.6);return st===3?'#a9a59c':(st%2?'#9f9b92':'#8a867e')},L0-.12);
     bump(4,-14,Math.PI/2,L0-.12);bump(-11,-9,0,L0-.12);bump(24,2.5,Math.PI/2,L0-.12);bump(8,-27.2,Math.atan2(-6,-7),L0-.12);
     // --- Torget: fontene, kiosk, benker, boder, kjegler, trær ---
-    c.pond(0,-5,1.5,.3,{fill:.6,bed:S.ROCK});disc(0,-5,.45,.3,S.ROCK,'#a7a39a',L0);c.cyl(0,L0+.3,-5,.1,.9,'#8d8984');c.cyl(0,L0+1.2,-5,.26,.06,'#8d8984');c.fall(0,-5,0,.5,L0+1.2,L0-.18,{spray:false});c.colliders.push({x:0,z:-5,r:.5});
+    c.pond(0,-5,1.5,.3,{fill:.6,bed:S.ROCK});disc(0,-5,.45,.3,S.ROCK,'#a7a39a',L0);c.cyl(0,L0+.3,-5,.1,.9,'#8d8984');c.cyl(0,L0+1.2,-5,.56,.07,'#8d8984');for(let i=0;i<4;i++){const a=i*Math.PI/2;c.fall(Math.sin(a)*.58,-5+Math.cos(a)*.58,a,.42,L0+1.2,L0-.18,{spray:false})}   // vannet faller fra skålkanten, utenfor sokkelenc.colliders.push({x:0,z:-5,r:.5});
     c.box(4.6,L0,-9,1.6,1.1,1.2,'#e76f51');c.box(4.6,L0+1.1,-9,2.0,.08,1.6,'#f2e8d0');c.box(4.6,L0+.6,-9.62,1.2,.4,.03,'#1a262d');c.colliders.push({x:4.6,z:-9,w:1.7,d:1.3,ry:0});   // kiosken
     for(const[bx,bz,ry]of[[-4.5,-9,0],[-6.2,-2,Math.PI/2],[6.6,-2.5,Math.PI/2],[-4.2,0,0]]){c.box(bx,L0+.3,bz,1.1,.06,.34,'#8a6a3a',ry);for(const sd of[-.42,.42])c.box(bx+Math.cos(ry)*sd,L0,bz-Math.sin(ry)*sd,.08,.3,.3,'#3a3a3a',ry);c.colliders.push({x:bx,z:bz,r:.45})}   // benker
-    for(const[sx,sz]of[[-5.2,-7],[-5.2,-3.5]]){for(const[dx,dz]of[[-.6,-.45],[.6,-.45],[-.6,.45],[.6,.45]])c.cyl(sx+dx,L0,sz+dz,.03,.9,'#8a8a88');c.box(sx,L0+.85,sz,1.4,.05,1.1,'#8a6a3a');c.box(sx,L0+1.4,sz,1.6,.06,1.3,'#d9432f');c.box(sx,L0+1.46,sz,1.6,.06,.4,'#f4f4f0');c.colliders.push({x:sx,z:sz,w:1.5,d:1.2,ry:0})}   // markedsboder
+    for(const[sx,sz]of[[-5.2,-7],[-5.2,-3.5]]){for(const[dx,dz]of[[-.6,-.45],[.6,-.45],[-.6,.45],[.6,.45]])c.cyl(sx+dx,L0,sz+dz,.03,1.4,'#8a8a88');c.box(sx,L0+.85,sz,1.4,.05,1.1,'#8a6a3a');c.box(sx,L0+1.4,sz,1.6,.06,1.3,'#d9432f');c.box(sx,L0+1.46,sz,1.6,.06,.4,'#f4f4f0');c.colliders.push({x:sx,z:sz,w:1.5,d:1.2,ry:0})}   // markedsboder
     for(const[cx,cz]of[[2,-12.6],[5,-15.4],[8,-12.6],[13.3,-8],[10.7,-9.5]])c.cone(cx,cz);
     for(const[tx,tz]of[[-6.8,-9.5],[6.8,-9.5],[-6.8,.5]])tree(c,tx,tz,1.1);
     for(let i=0;i<10;i++){const a=i/10*6.28;c.flowers.push({x:Math.cos(a)*2.4,y:L0+.2,z:-5+Math.sin(a)*2.4})}
     // busskur, trafikklys
-    for(const[bx,bz,ry]of[[-13.2,-11,-Math.PI/2],[-13.2,-2,-Math.PI/2]]){for(const sd of[-1.1,1.1])c.cyl(bx+Math.cos(ry)*sd,L0,bz-Math.sin(ry)*sd,.04,1.7,'#5a5a58');c.box(bx,L0+1.65,bz,2.6,.08,1.0,'#2c4a6b',ry);c.box(bx+Math.sin(ry)*.45,L0+.4,bz+Math.cos(ry)*.45,2.4,1.2,.03,'#9ec6e0',ry);c.box(bx,L0+.3,bz,1.8,.06,.3,'#8a6a3a',ry);c.colliders.push({x:bx,z:bz,w:2.6,d:1.0,ry})}
-    for(const[tx,tz]of[[-9.2,-15.8],[13.8,1.4],[10.2,4.8],[-12.8,4.8]]){c.cyl(tx,L0,tz,.05,2.2,'#3a3a3a');c.box(tx,L0+1.6,tz,.2,.6,.2,'#1d1c1a');for(const[dy,col]of[[2.05,'#d9432f'],[1.9,'#e5c13a'],[1.75,'#3fae3a']])c.box(tx,L0+dy,tz,.22,.1,.1,col);c.colliders.push({x:tx,z:tz,r:.08,anchor:true,y:L0+.6})}
+    for(const[bx,bz,ry]of[[-13.2,-11,-Math.PI/2],[-13.2,-2,-Math.PI/2]]){for(const sd of[-1.1,1.1])c.cyl(bx+Math.cos(ry)*sd,L0,bz-Math.sin(ry)*sd,.04,1.7,'#5a5a58');c.box(bx,L0+1.65,bz,2.6,.08,1.0,'#2c4a6b',ry);c.box(bx+Math.sin(ry)*.45,L0+.4,bz+Math.cos(ry)*.45,2.4,1.2,.03,'#9ec6e0',ry);c.box(bx,L0+.3,bz,1.8,.06,.3,'#8a6a3a',ry);for(const sd of[-.7,.7])c.box(bx+Math.cos(ry)*sd,L0,bz-Math.sin(ry)*sd,.06,.3,.22,'#5a5a58',ry);c.colliders.push({x:bx,z:bz,w:2.6,d:1.0,ry})}   // benken har bein
+    for(const[tx,tz]of[[-9.2,-15.8],[13.8,1.4],[10.2,4.8],[-12.8,4.8]]){{const tb=H(tx,tz)-.03;c.cyl(tx,tb,tz,.05,L0+2.2-tb,'#3a3a3a')}c.box(tx,L0+1.6,tz,.2,.6,.2,'#1d1c1a');for(const[dy,col]of[[2.05,'#d9432f'],[1.9,'#e5c13a'],[1.75,'#3fae3a']]){c.box(tx,L0+dy,tz,.26,.1,.1,col);c.box(tx,L0+dy,tz,.1,.1,.26,col)}c.colliders.push({x:tx,z:tz,r:.08,anchor:true,y:L0+.6})}
     // --- Nedre by: husrekker rundt Ringveien ---
     const PAST=['#e9c46a','#f4a261','#8ecae6','#cdb4db','#a8d5a2','#f2e8d0','#e76f51','#90be6d','#f6bd60','#84a59d'];
     for(let i=0;i<8;i++){const hx=-9.1+i*2.6,hh=2.2+(i%3)*.6;c.building(hx,L0,-18.2,2.4,hh,2.4,PAST[i%PAST.length],0,{fh:1.15,sign:i===3?'#d9432f':null})}    // sør
@@ -155,21 +154,23 @@ LEVELS.push(
     c.cyl(-4.2,L2,30.5,.05,2.0,'#9a9a96');c.box(-3.9,L2+1.7,30.5,.5,.3,.02,'#d9432f');c.cyl(-3.2,L2,32.8,.06,.9,'#5a5a58');c.cyl(-3.2,L2+.9,32.8,.14,.3,'#2a2a2a',{rx:1.2});c.colliders.push({x:-4.2,z:30.5,r:.08},{x:-3.2,z:32.8,r:.1});   // flagg og kikkert på Utsikten
     // --- Havna: lasterampe, containerkai, jernbanespor med planovergang, promenade med molo og badebrygge ---
     shape(17.5,-26.5,0,7,3,(a)=>{const u=a+3.5;return u<2.4?u/2.4*.3:u<5.4?.3:u<6.1?.15:0},S.ROCK,(a,b)=>{const u=a+3.5;return Math.abs(b)>1.3?'#e5c13a':u<2.4?'#8f8b83':mix('#a29e95','#8a867e',u<5.4?.2:.8)},L0);
-    for(let i=0;i<2;i++)for(let j=0;j<2;j++){const cx=30.3+j*2.6,cz=-15.8+i*2.6,cy=H(cx,cz)-.03,col=['#c8463a','#2c4a6b','#4a7a3a','#a86a3a'][(i*2+j)%4];c.box(cx,cy,cz,2.4,1.0,1.0,col);for(let s=0;s<4;s++)c.box(cx-.9+s*.6,cy,cz,.03,1.0,1.04,mix(col,'#000',.25));if((i+j)%2)c.box(cx,cy+1.0,cz,2.4,1.0,1.0,['#e5a92b','#8ecae6'][j]);c.colliders.push({x:cx,z:cz,w:2.44,d:1.04,ry:0,anchor:true,y:cy+.5})}
-    for(const rz of[-20.3,-21.0])log(15,rz,22.5,rz,.035,S.ROCK,(u,d)=>d<.3?'#9a9a9c':'#5a5a58');for(let x=15.2;x<22.5;x+=.5)c.box(x,L0-.02,-20.65,.12,.03,1.1,'#5a4330');
+    for(let i=0;i<2;i++)for(let j=0;j<2;j++){const cx=30.3+j*2.6,cz=-15.8+i*2.6,cy=Math.min(H(cx-1.2,cz-.5),H(cx+1.2,cz-.5),H(cx-1.2,cz+.5),H(cx+1.2,cz+.5))-.02,col=['#c8463a','#2c4a6b','#4a7a3a','#a86a3a'][(i*2+j)%4];c.box(cx,cy,cz,2.4,1.0,1.0,col);for(let s=0;s<4;s++)c.box(cx-.9+s*.6,cy,cz,.03,1.0,1.04,mix(col,'#000',.25));if((i+j)%2)c.box(cx,cy+1.0,cz,2.4,1.0,1.0,['#e5a92b','#8ecae6'][j]);c.colliders.push({x:cx,z:cz,w:2.44,d:1.04,ry:0,anchor:true,y:cy+.5})}
+    for(const rz of[-20.3,-21.0])log(15,rz,22.5,rz,.035,S.ROCK,(u,d)=>d<.3?'#9a9a9c':'#5a5a58');for(let x=15.2;x<22.5;x+=.5)c.box(x,Math.min(H(x,-20.2),H(x,-20.65),H(x,-21.1))-.015,-20.65,.12,.03,1.1,'#5a4330');
     for(const[bx,bz]of[[18.9,-22.1]]){c.cyl(bx,L0,bz,.06,1.1,'#5a5a58');c.box(bx,L0+1.0,bz,.06,.5,.06,'#f4f4f0',0,{rz:.6});c.box(bx,L0+1.0,bz,.06,.5,.06,'#f4f4f0',0,{rz:-.6});c.box(bx,L0+.5,bz,2.0,.07,.07,'#d9432f',Math.PI/4);c.colliders.push({x:bx,z:bz,r:.1,anchor:true,y:L0+.5})}   // andreaskors og åpne bomarmer
     for(const[px2,pz2]of[[35,-20],[35.4,-17],[35.2,-14],[34.6,-11.5]])c.cyl(px2,H(px2,pz2)-.02,pz2,.1,.35,'#2a2a2a');                                       // pullerter mot sjøen
+    {const B={x0:-8.6,x1:.6,z0:-42.5,z1:-33.9},deep=def.water-.45;   // havnebassenget
+      cellsIn(B.x0-1,B.z0-1,B.x1+1,B.z1+1,(k,px,pz)=>{const f=rectIn(B,px,pz,.9);if(f<=0)return;const t=deep;if(t<TH[k]){TH[k]+=(t-TH[k])*f;if(f>.3)TS[k]=S.SAND}})}
     c.bridge(-7,-32.5,-7,-39.2,.9,{sag:0,y0:L0,y1:L0,pier:true});c.bridge(-1,-32.5,-1,-37,.9,{sag:0,y0:L0,y1:L0,pier:true});c.bridge(-7,-37,-1,-37,.9,{sag:.22,y0:L0,y1:L0,pier:true});   // moloen og badebrygga som sløyfe
-    for(const[qx,qz]of[[-7,-34.5],[-7,-36.5],[-7,-38.6],[-1,-34.5],[-1,-36.5],[-3,-37],[-5,-37]]){const bottom=Math.min(H(qx,qz),def.water-.3);c.cyl(qx,bottom,qz,.09,L0-bottom+.1,'#4a3a2a')}
-    c.cyl(-7,def.water-.4,-40.4,.42,1.8,'#f4f4f0');c.cyl(-7,def.water+1.4,-40.4,.46,.3,'#d9432f');c.box(-7,def.water+1.7,-40.4,.4,.3,.4,'#1a262d');c.cyl(-7,def.water+2.0,-40.4,.3,.12,'#d9432f');c.colliders.push({x:-7,z:-40.4,r:.45});   // fyrlykta
-    for(const[bx,bz,col]of[[-4.5,-34.5,'#c8463a'],[2,-34.8,'#4f7bb5']]){const by=H(bx,bz)-.04;c.box(bx,by,bz,1.5,.34,.6,col,.3);c.box(bx,by+.3,bz,1.1,.04,.4,'#8a6a3a',.3);c.colliders.push({x:bx,z:bz,r:.8})}   // båter på stranda
+    for(const[qx,qz,ax]of[[-7,-34.5,1],[-7,-36.5,1],[-7,-38.6,1],[-1,-34.5,1],[-1,-36.5,1],[-3,-37,0],[-5,-37,0]])for(const sd of[-.97,.97]){const px=qx+(ax?sd:0),pz=qz+(ax?0:sd),top=H(qx,qz)+.2,bottom=Math.min(Hterr(px,pz),def.water-.3)-.05;c.cyl(px,bottom,pz,.07,top-bottom,'#4a3a2a')}   // pælene langs kantene av dekket
+    {const fb=Math.min(Hterr(-7,-40.4),def.water-.4)-.05;c.cyl(-7,fb,-40.4,.42,def.water+1.4-fb,'#f4f4f0')}c.cyl(-7,def.water+1.4,-40.4,.46,.3,'#d9432f');c.box(-7,def.water+1.7,-40.4,.4,.3,.4,'#1a262d');c.box(-7,def.water+1.74,-40.4,.42,.18,.42,'#fff3c0');c.fx.push({type:'lamp',x:-7,y:def.water+1.75,z:-40.4});c.cyl(-7,def.water+2.0,-40.4,.3,.12,'#d9432f');c.colliders.push({x:-7,z:-40.4,r:.45});   // fyrlykta
+    for(const[bx,bz,col]of[[-4.5,-34.8,'#c8463a'],[2,-34.8,'#4f7bb5']]){const by=Math.max(H(bx,bz)-.04,def.water-.14);c.box(bx,by,bz,1.5,.34,.6,col,.3);c.box(bx,by+.33,bz,1.1,.04,.4,'#8a6a3a',.3);c.colliders.push({x:bx,z:bz,r:.8})}   // båter på stranda
     // --- Byparken: sandkasse, sklie, trappepyramide, dam, lekeplass ---
     shape(-19,2,0,4,4,(a,b)=>Math.max(Math.abs(a),Math.abs(b))>1.75?.16:.04,null,(a,b)=>Math.max(Math.abs(a),Math.abs(b))>1.75?'#8a6a3a':'#d2ab66',L0);paint(-19,2,1.7,S.SAND);
     shape(-29.6,10,0,6,3.0,(a,b)=>{const h=a<-1?.18*(Math.floor((a+3)/.5)+1):a<0?.72:.72*(1-a/3);return h+(Math.abs(b)>1.2?.15:0)},S.ROCK,(a,b)=>Math.abs(b)>1.2?'#e5c13a':a<0?'#9a9a96':'#d9432f',L0);   // sklia (kjøres nordover): stige opp, platting, rutsjebane ned, kanter på sidene
     shape(-23.5,13,0,7.2,7.2,(a,b)=>{const r=Math.hypot(a,b);return r>3.6?null:Math.min(.36,.12*(Math.floor((3.6-r)/.9)+1))},S.ROCK,(a,b)=>['#d9432f','#e5a92b','#3fae3a','#4f7bb5'][Math.min(3,Math.floor((3.6-Math.hypot(a,b))/.9))],L0);   // trappepyramiden i regnbuefarger: tre ringer à 0,12
     c.pond(-16.5,19,2.5,1.25,{fill:.62,bed:S.MUD});
     {const L=[];for(let i=0;i<60;i++){const a=R()*6.28,d=2.6+R()*.7,x=-16.5+Math.cos(a)*d,z=19+Math.sin(a)*d;L.push({x,y:H(x,z)-.02,z,sx:.045,sy:.6+R()*.5,sz:.045,rx:(R()-.5)*.4,rz:(R()-.5)*.4,c:['#6d8a3a','#8a9a4a','#5a6b2a'][i%3]});if(i%5===0)c.flowers.push({x,y:H(x,z)+.5,z})}instanced(DG.tuft,DM.tuft,L,c.decor,false)}   // siv
-    for(const[hx,hz]of[[-16,26]]){for(const sd of[-.9,.9]){c.cyl(hx+sd,L0,hz-.4,.03,1.6,'#5a5a58',{rz:.2});c.cyl(hx+sd,L0,hz+.4,.03,1.6,'#5a5a58',{rz:-.2})}c.cyl(hx,L0+1.55-1.0,hz,.03,2.0,'#5a5a58',{rz:1.57});for(const sd of[-.35,.35]){c.box(hx+sd,L0+.5,hz,.3,.04,.14,'#d9432f');c.cyl(hx+sd-.1,L0+.5,hz,.008,1.05,'#8a8a88');c.cyl(hx+sd+.1,L0+.5,hz,.008,1.05,'#8a8a88')}c.colliders.push({x:hx,z:hz,w:2.2,d:1.0,ry:0})}   // husker
+    for(const[hx,hz]of[[-16,26]]){for(const sd of[-.9,.9]){c.cyl(hx+sd,L0,hz-.2,.03,1.6,'#5a5a58',{rx:.253});c.cyl(hx+sd,L0,hz+.2,.03,1.6,'#5a5a58',{rx:-.253})}c.cyl(hx,L0+1.55-1.0,hz,.03,2.0,'#5a5a58',{rz:1.57});for(const sd of[-.35,.35]){c.box(hx+sd,L0+.5,hz,.3,.04,.14,'#d9432f');c.cyl(hx+sd-.1,L0+.5,hz,.008,1.05,'#8a8a88');c.cyl(hx+sd+.1,L0+.5,hz,.008,1.05,'#8a8a88')}c.colliders.push({x:hx,z:hz,w:2.2,d:1.0,ry:0})}   // husker
     {const kx=-22,kz=25;c.cyl(kx,L0,kz,.9,.08,'#2c4a6b');c.cyl(kx,L0,kz,.05,.9,'#9a9a96');for(let i=0;i<6;i++){const a=i/6*6.28;c.cyl(kx+Math.cos(a)*.75,L0+.08,kz+Math.sin(a)*.75,.03,.6,'#e5a92b')}c.colliders.push({x:kx,z:kz,r:.95})}   // karusell
     for(let i=0;i<16;i++){const a=R()*6.28,d=1+R()*1.2;c.flowers.push({x:-20+Math.cos(a)*d,y:L0+.2,z:12.5+Math.sin(a)*d})}
     {const L=[];for(const f of c.flowers)L.push({x:f.x,y:f.y,z:f.z,sx:.07,sy:.07,sz:.07,c:['#e0405a','#f08a3a','#f2d24a','#d35aa8'][L.length%4]});instanced(DG.cone,DM.white,L,c.decor,false)}
@@ -180,23 +181,23 @@ LEVELS.push(
     for(const rx of[-20.6,-19.7,-18.8])log(rx,-18,rx,-15,.05,S.ROCK,(u,d)=>d<.3?'#c9c6be':'#5a5a58');
     shape(-24.5,-19,0,8,3,(a,b)=>{let h=a<-1.5?1.08*clamp((a+4)/2.5):a<.5?1.08:Math.max(0,1.08-.18*(Math.floor((a-.5)/.5)+1));if(b<-1.2&&a>.5&&a<2.5)h=Math.max(h,1.0);return h},S.ROCK,(a,b)=>b<-1.2&&a>.5&&a<2.5?'#6e6c68':a<-1.5?'#7f8d9c':a<.5?'#a9a59c':(Math.floor((a-.5)/.5)%2?'#9f9b92':'#8a867e'),L0);   // Seksern (kjøres nordover): bank opp, dekk, seks trinn ned med hubba
     shape(-28,-8.5,0,6,5.2,(a,b)=>{const u=Math.abs(b);if(u<.6)return 0;const v=u-.6;return v<1.6?1.6-Math.sqrt(Math.max(0,1.6*1.6-v*v)):1.6},S.ROCK,(a,b)=>Math.abs(b)>2.1?'#e9e4da':mix('#4a7fb5','#2c4a6b',Math.abs(b)/2.2),L0);   // røret: halfpipe med kvartsirkler
-    c.box(-31,L0,-15,.04,1.1,12,'#9a9a96');for(let z=-21;z<=-9;z+=1.5)c.cyl(-31,L0,z,.03,1.2,'#5a5a58');c.colliders.push({x:-31,z:-15,w:.1,d:12,ry:0});   // gjerdet mot sjøen
+    for(let z=-21;z<-9;z+=1.5){const b=Math.min(H(-31,z),H(-31,z+.75),H(-31,z+1.5))-.02;c.box(-31,b,z+.75,.04,L0+1.1-b,1.5,'#9a9a96')}for(let z=-21;z<=-9;z+=1.5){const b=H(-31,z)-.03;c.cyl(-31,b,z,.03,L0+1.2-b,'#5a5a58')}c.colliders.push({x:-31,z:-15,w:.1,d:12,ry:0});   // gjerdet mot sjøen
     // --- Stadion: tribune med enderamper og rekkverk bak, bane med linjer, mål, spillertunnel, lysmaster ---
     shape(22.5,8.5,Math.PI/2,15,5,tribH,S.ROCK,(a,b)=>{const i=tribRow(b);if(i<0)return '#8f8b83';return Math.abs(a)>5?'#85817a':(i%2?'#a9a59c':'#7f8d9c')},L0);
-    for(let x=15.5;x<=29.5;x+=1){const y=L0+tribH(x-22.5,2.3);c.box(x,y,6.05,1.0,.5,.14,'#9a968e');c.colliders.push({x,z:6.05,w:1.02,d:.14,ry:0})}   // rekkverket bak øverste rad
+    for(let x=15.5;x<=29.5;x+=1){const y0=tribH(x-23,2.3),y1=tribH(x-22,2.3),y=L0+(y0+y1)/2;c.box(x,y,6.05,1.02,.5,.14,'#9a968e',0,{rz:Math.atan2(y1-y0,1)});c.colliders.push({x,z:6.05,w:1.02,d:.14,ry:0})}   // rekkverket bak øverste rad
     {const cx=(PITCH.x0+PITCH.x1)/2,cz=(PITCH.z0+PITCH.z1)/2,pw=PITCH.x1-PITCH.x0,pd=PITCH.z1-PITCH.z0;for(const[bx,bz,w,d]of[[cx,PITCH.z0+.1,pw,.12],[cx,PITCH.z1-.1,pw,.12],[PITCH.x0+.1,cz,.12,pd],[PITCH.x1-.1,cz,.12,pd],[cx,cz,.12,pd]])c.box(bx,L0-.1,bz,w,.02,d,'#f4f4f0');
-    for(let i=0;i<16;i++){const a=i/16*6.28;c.box(cx+Math.cos(a)*1.3,L0-.1,cz+Math.sin(a)*1.3,.35,.02,.1,'#f4f4f0',-a)}
+    for(let i=0;i<16;i++){const a=i/16*6.28;c.box(cx+Math.cos(a)*1.3,L0-.1,cz+Math.sin(a)*1.3,.52,.02,.1,'#f4f4f0',Math.PI/2-a)}
     for(const gx of[PITCH.x0+.6,PITCH.x1-.6]){for(const gz of[cz-.9,cz+.9]){c.cyl(gx,L0-.1,gz,.035,.8,'#f4f4f0');c.colliders.push({x:gx,z:gz,r:.06})}c.cyl(gx,L0+.7-.95,cz,.035,1.9,'#f4f4f0',{rx:1.57});c.box(gx+(gx<cx?-.3:.3),L0-.1,cz,.02,.8,1.86,'#d9d9d6')}}   // linjer og mål
     c.building(26.5,L0,19.0,5,2.2,1.2,'#8a8f96',Math.PI,{fh:1.1,roofBox:false});c.building(26.5,L0,23.2,5,2.2,1.2,'#8a8f96',0,{fh:1.1,roofBox:false});c.box(26.5,L0+1.9,21.1,5,.18,4.6,'#55534f');c.fx.push({type:'sign',x:22.6,z:22.6,ang:Math.PI/2,text:'SPILLER-',sub:'tunnelen'});   // garderobebyggene med tunnelen mellom
-    for(const[lx,lz]of[[13.3,16],[31.8,15],[13.4,21.6]]){c.cyl(lx,L0,lz,.08,5.2,'#5a5a58');c.box(lx,L0+5.1,lz,.9,.3,.4,'#2a2a2a');c.box(lx,L0+5.05,lz,.8,.08,.3,'#fff3c0');c.colliders.push({x:lx,z:lz,r:.12,anchor:true,y:L0+.6});c.fx.push({type:'lamp',x:lx,y:L0+5.0,z:lz})}
+    for(const[lx,lz]of[[13.3,16],[31.8,15],[13.4,21.6]]){{const fb=H(lx,lz)-.05;c.cyl(lx,fb,lz,.08,L0+5.2-fb,'#5a5a58')}c.box(lx,L0+5.1,lz,.9,.3,.4,'#2a2a2a');c.box(lx,L0+5.05,lz,.8,.08,.3,'#fff3c0');c.colliders.push({x:lx,z:lz,r:.12,anchor:true,y:L0+.6});c.fx.push({type:'lamp',x:lx,y:L0+5.0,z:lz})}
     // --- P-huset: brystning, søyler, bom, takdekke med striper, lekebiler og heissjakt ---
     for(let i=0,d=SP0+7;d<=SP1-4;d+=5.5,i++){const p=spP(d),q=spP(d+1),ang=Math.atan2(q[0]-p[0],q[1]-p[1]),ox=Math.cos(d*DEG),oz=Math.sin(d*DEG),bx=p[0]+ox*1.5,bz=p[1]+oz*1.5;
       c.box(bx,H(bx,bz)-.02,bz,.1,.32,.78,'#c9c6be',ang);if(d>300&&d<540&&i%3===0)c.cyl(p[0]-ox*1.6,spY(d)-.1,p[1]-oz*1.6,.13,2.2,'#9a968e')}
-    for(let a=0;a<360;a+=9){if(inArrival(a))continue;const rr=PH_TOP-.12,x=PH[0]+Math.cos(a*DEG)*rr,z=PH[1]+Math.sin(a*DEG)*rr;c.box(x,H(x,z)-.02,z,.1,.32,.78,'#c9c6be',Math.atan2(Math.cos(a*DEG),-Math.sin(a*DEG)))}   // brystningen på takkanten
-    for(let i=0;i<6;i++){const a=[0,40,80,120,280,320][i]*DEG,x=PH[0]+Math.cos(a)*2.9,z=PH[1]+Math.sin(a)*2.9,ry=-a;for(const sd of[-1,1])c.box(x+Math.sin(ry)*sd*1.0,L0+PH_H+.01,z+Math.cos(ry)*sd*1.0,1.9,.02,.08,'#f4f4f0',ry+Math.PI/2);
-      if(i%2===0){const col=['#d9432f','#4f7bb5','#3fae3a'][i/2|0];c.box(x,L0+PH_H,z,1.0,.42,1.8,col,ry);c.box(x,L0+PH_H+.42,z,.9,.32,.9,mix(col,'#1a262d',.6),ry);for(const sx of[-.5,.5])for(const sz of[-.55,.55])c.cyl(x+Math.cos(ry)*sx+Math.sin(ry)*sz,L0+PH_H,z-Math.sin(ry)*sx+Math.cos(ry)*sz,.16,.14,'#1a1918',{rz:1.57,ry});c.colliders.push({x,z,w:1.0,d:1.8,ry})}}
+    for(let a=0;a<360;a+=9){if(inArrival(a))continue;const rr=PH_TOP-.12,x=PH[0]+Math.cos(a*DEG)*rr,z=PH[1]+Math.sin(a*DEG)*rr;c.box(x,H(x,z)-.02,z,.1,.32,.78,'#c9c6be',-a*DEG)}   // brystningen på takkanten
+    for(let i=0;i<6;i++){const a=[0,40,80,120,280,320][i]*DEG,x=PH[0]+Math.cos(a)*2.9,z=PH[1]+Math.sin(a)*2.9,ry=-a;for(const sd of[-1,1])c.box(x+Math.cos(ry)*sd*.78,L0+PH_H+.01,z-Math.sin(ry)*sd*.78,.08,.02,1.9,'#f4f4f0',ry);
+      if(i%2===0){const col=['#d9432f','#4f7bb5','#3fae3a'][i/2|0];c.box(x,L0+PH_H+.08,z,1.0,.38,1.8,col,ry);c.box(x,L0+PH_H+.46,z,.9,.32,.9,mix(col,'#1a262d',.6),ry);for(const sx of[-.5,.5])for(const sz of[-.55,.55])c.cyl(x+Math.cos(ry)*sx+Math.sin(ry)*sz,L0+PH_H+.09,z-Math.sin(ry)*sx+Math.cos(ry)*sz,.16,.14,'#1a1918',{rz:1.57,ry});c.colliders.push({x,z,w:1.0,d:1.8,ry})}}
     c.box(24.6,L0+PH_H,-6.5,1.6,1.5,1.6,'#8a8f96');c.box(24.6,L0+PH_H+.4,-7.31,.7,.9,.03,'#1a262d');c.colliders.push({x:24.6,z:-6.5,w:1.64,d:1.64,ry:0,anchor:true,y:L0+PH_H+.5});c.cyl(24.6,L0+PH_H+1.5,-6.5,.12,.9,'#5a5a58');
-    {const e=spP(228),ang=Math.atan2(spP(232)[0]-e[0],spP(232)[1]-e[1]);for(const sd of[-1.6,1.6])c.cyl(e[0]+Math.cos(ang)*sd,L0,e[1]-Math.sin(ang)*sd,.06,1.2,'#8a8a88');c.cyl(e[0],L0+1.15-1.6,e[1],.04,3.2,'#d9432f',{rz:1.57,ry:ang});c.fx.push({type:'sign',x:e[0]+Math.cos(ang)*2.4,z:e[1]-Math.sin(ang)*2.4,ang:ang+Math.PI,text:'P-HUS',sub:'spiral til taket'})}
+    {const e=spP(228),ang=Math.atan2(spP(232)[0]-e[0],spP(232)[1]-e[1]);for(const sd of[-1.6,1.6]){const qx=e[0]+Math.cos(ang)*sd,qz=e[1]-Math.sin(ang)*sd,qb=H(qx,qz)-.03;c.cyl(qx,qb,qz,.06,L0+1.2-qb,'#8a8a88')}c.cyl(e[0],L0+1.15-1.6,e[1],.04,3.2,'#d9432f',{rz:1.57,ry:ang});c.fx.push({type:'sign',x:e[0]+Math.cos(ang)*2.4,z:e[1]-Math.sin(ang)*2.4,ang:ang+Math.PI,text:'P-HUS',sub:'spiral til taket'})}
     // --- Byggetomta: gjerde med port, kran, brakke, gjørme, hauger, trappa som ender i lufta ---
     for(let x=SITE.x0;x<SITE.x1-.01;x+=1.9){if(x>16.4&&x<19.2)continue;c.box(x+.95,L0,SITE.z0,1.9,1.0,.03,'#9a9a98');c.box(x+.95,L0,SITE.z1,1.9,1.0,.03,'#9a9a98')}for(let z=SITE.z0;z<SITE.z1-.01;z+=1.3){c.box(SITE.x0,L0,z+.65,.03,1.0,1.3,'#9a9a98');c.box(SITE.x1,L0,z+.65,.03,1.0,1.3,'#9a9a98')}
     c.colliders.push({x:(SITE.x0+16.4)/2,z:SITE.z0,w:16.4-SITE.x0,d:.1,ry:0},{x:(19.2+SITE.x1)/2,z:SITE.z0,w:SITE.x1-19.2,d:.1,ry:0},{x:SITE.x0,z:(SITE.z0+SITE.z1)/2,w:.1,d:SITE.z1-SITE.z0,ry:0},{x:SITE.x1,z:(SITE.z0+SITE.z1)/2,w:.1,d:SITE.z1-SITE.z0,ry:0},{x:(SITE.x0+SITE.x1)/2,z:SITE.z1,w:SITE.x1-SITE.x0,d:.1,ry:0});
@@ -209,8 +210,8 @@ LEVELS.push(
     for(const[cx,cz]of[[16.3,22.9],[17,22.7],[19.6,22.8],[11.6,26.1],[16,25.9]])c.cone(cx,cz);c.barrier(14.6,22.8,0);c.barrier(19.6,26.0,Math.PI/2);
     for(const rz of[26.3,27.0])log(14.9,rz,16.9,rz,.2,S.ROCK,()=>'#8e8e8a');c.box(11.5,L0,25.6,.6,.5,.4,'#d9432f');c.steam(11.5,25.6,L0+.5,.3);
     // --- lykter: Ringveien, Havnegata, Kaiveien, promenaden, Øvre gate, Smauet, parken ---
-    const lamps=[[-9,-16.4],[-4,-16.4],[1,-16.4],[6,-16.4],[10.5,-16.4],[-13.4,-12.5],[-13.4,-7],[-13.4,-1.5],[-9,5.3],[3.2,5.3],[9,5.3],[14.3,-11.8],[17.6,-19.3],[23,-19.6],[28,-16.4],[31.5,-16.5],
-      [14.3,-20.5],[13.8,-24],[8.6,-30.2],[2,-33.6],[-5,-33],[-9.6,-30],[-9.5,13.6],[-3.6,13.6],[1,13.3],[11.3,13.4],[4.3,15.5],[7.7,17.9],[-5,22],[1,24],[-4,32.5],[-15.5,-.5],[-18.5,-4.5],[-27.5,7],[-21.5,17.5],[-12.6,23.2],[-24.5,22.8],[-31,-13],[-17,-32.3],[-10,-20],[9.6,21.4],[29.6,-13.6],[33,-19.8],[-4.5,26.5]];
+    const lamps=[[-9,-16.4],[-4,-16.4],[1,-16.4],[6,-16.4],[10.5,-16.4],[-13.4,-12.5],[-13.4,-7],[-13.4,.3],[-9,5.3],[3.2,5.3],[9,5.3],[14.3,-11.8],[17.6,-19.3],[23,-19.6],[28,-16.4],[31.5,-16.5],
+      [14.3,-20.5],[13.8,-24],[8.6,-30.2],[2,-33.6],[-5,-33],[-9.6,-30],[-3.6,13.6],[1,13.3],[11.3,13.4],[4.3,15.5],[7.7,17.9],[-5,22],[1,24],[-4,32.5],[-15.5,-.5],[-18.5,-4.5],[-27.5,7],[-21.5,17.5],[-12.6,23.2],[-25.8,22.8],[-31,-13],[-17,-32.3],[-10,-20],[9.6,21.4],[28.3,-13.9],[33,-19.8],[-4.5,26.5]];
     for(const[lx,lz]of lamps)c.lamp(lx,lz,{ang:Math.atan2(-lx,-(lz+4))});
     // --- flyplassen (js/plane.js tegner flyet, vindposen og ser etter den blå ruta) ---
     c.road(AIRVEI,{hw:1.3,blend:2,surf:S.ASPHALT});
@@ -234,8 +235,7 @@ LEVELS.push(
     // --- gullmutterne ---
     c.secret(25.6,-5.3,'På taket av P-huset');c.secret(BOWL[0],BOWL[1],'Bunnen av Bollen');c.secret(1,30.5,'Utsikten');c.secret(AMF[0],AMF[1],'På scenen i Amfiet');c.secret(-7,-38.6,'Ytterst på moloen');
     c.finish();
-    // trekroner (etter finish så H er ferdig)
-    {const L=[];for(const t of TREES){for(let k=0;k<3;k++){const a=k*2.1+t.x,d=k?.3*t.s:0;L.push({x:t.x+Math.cos(a)*d,y:t.y+.45*t.s+(k?.1:.35)*t.s,z:t.z+Math.sin(a)*d,sx:.55*t.s*(1+(k?0:.3)),sy:.5*t.s,sz:.55*t.s*(1+(k?0:.3)),c:['#4f8a3a','#3f7a34','#5a9a44'][k]})}}instanced(DG.canopy,DM.leaf,L,c.decor);TREES.length=0}
+    c.plants();   // bytrærne
     c.props();
     c.pebbles(300,['#8a847a','#a49d90'],.04,.1);c.tufts(70,['#5d8a3a','#7aa048']);c.shells(140);
   }}

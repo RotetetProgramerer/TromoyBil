@@ -1,16 +1,18 @@
 'use strict';
 /* =================================================================
-   PROPS: plants and animals you place one by one with c.plant(name,x,z,{...}).
-   The content lives in data/vegetasjon.js and data/dyr.js. Each entry is PROPS[name]={navn,info,params,place,build}:
-     params            {key:{v,min,max,step,navn}}; v is the default. propParams() reads them.
+   PROPS: plants, trees, lamps and animals you place one by one with c.plant(name,x,z,{...}).
+   The trees, palms, spruces, bushes, ferns and lamps the engine uses (c.tree, c.spruce, c.bushes, c.lamp) are one file each in js/props/;
+   the plants and animals of the three environments live in data/vegetasjon.js and data/dyr.js. Each entry is PROPS[name]={navn,info,params,place,build}:
+     params            {key:{v,min,max,step,navn}}; v is the default, [a,b] means «random between a and b». propParams() reads them.
      place(x,z,o,env)  runs at once (in build(c)): reads the params and pushes colliders. Returns the prop's data t.
-     build(t,env,out)  runs after c.finish(), when the terrain is final: out.add(geometry,material,instance) draws it.
-   env = {H, rng, colliders, perches}. All props of a level are drawn as a handful of instanced meshes (one per geometry and material).
+     build(t,env,out)  runs after c.finish(), when the terrain is final: out.add(geometry,material,instance,shadow) draws it.
+   env = {H, rng, colliders, perches, fx}. All props of a level are drawn as a handful of instanced meshes (one per geometry and material).
+   props.html shows one entry at a time with sliders for its params.
    ================================================================= */
 const PROPS={};
 // geometries: PG.blob is a unit sphere (sx/sy/sz are half axes), PG.trunk a centred cylinder of height 1 (the same as DG.trunk)
 const PG={blob:new THREE.SphereGeometry(1,10,7),trunk:DG.trunk};
-// materials: all white, the colour comes from each instance. DM.bark is brown, so props that ask for it get PM.bark instead.
+// materials: all white, the colour comes from each instance. DM.bark is drawn together with PM.bark.
 const PM={
   bark:new THREE.MeshStandardMaterial({color:0xffffff,roughness:1,flatShading:true}),
   pels:new THREE.MeshStandardMaterial({color:0xffffff,roughness:.95,flatShading:true}),
@@ -18,10 +20,14 @@ const PM={
 };
 const PROP_MAT=new Map([[DM.bark,PM.bark]]);
 
-// the params of a prop: o[key] if given (clamped to min..max), otherwise the default. A direction (retning) that is not given is random.
+// the params of a prop: o[key] if given (clamped to min..max), otherwise the default. A default [a,b] is random between a and b
+// (drawn in the order of params), and a direction (retning) that is not given is random.
 function propParams(name,o,rng){const P=PROPS[name].params,r={};
-  for(const k in P){const d=P[k];let v=o[k];if(v==null)v=k==='retning'?rng()*(d.max??6.28):d.v;if(d.min!=null)v=Math.max(d.min,v);if(d.max!=null)v=Math.min(d.max,v);r[k]=v}
+  for(const k in P){const d=P[k];let v=o[k];if(v==null)v=k==='retning'?rng()*(d.max??6.28):d.v;if(Array.isArray(v))v=v[0]+rng()*(v[1]-v[0]);
+    if(d.min!=null)v=Math.max(d.min,v);if(d.max!=null)v=Math.min(d.max,v);r[k]=v}
   return r}
+// a prop's own random stream for build, from its position: the same tree looks the same every time, whatever else is on the level
+const propRng=(x,z,seed=0)=>mulberry32((Math.round(x*100)*73856093^Math.round(z*100)*19349663^seed*83492791)|0);
 // ground height under a footprint of radius r: the lowest point, so nothing floats on a slope
 function footY(Hf,x,z,r){let m=Hf(x,z);for(let i=0;i<8;i++){const a=i*Math.PI/4;m=Math.min(m,Hf(x+Math.cos(a)*r,z+Math.sin(a)*r))}return m}
 // lighter (a>0) or darker (a<0) hex colour
@@ -40,17 +46,21 @@ function stemBetween(a,b,r,extra){const dx=b.x-a.x,dy=b.y-a.y,dz=b.z-a.z,l=Math.
     if(Math.abs(m13)<.9999999){rx=Math.atan2(-m23,m33);rz=Math.atan2(-m12,m11)}else{rx=Math.atan2(m32,m22)}}
   return Object.assign({x:a.x,y:a.y,z:a.z,sx:r,sy:l,sz:r,rx,ry,rz,ord:'XYZ',_u:[ux,uy,uz]},extra)}
 
-function propEnv(c){return c._penv||(c._penv={H,rng:mulberry32(((G.def&&G.def.seed)|0)*31+7),colliders:c.colliders,perches:c.perches})}
-// c.plant: place now, draw later (c.plants, called by genLevel after build)
-function plantProp(c,name,x,z,o={}){const P=PROPS[name];if(!P)throw new Error('Ukjent plante eller dyr: '+name);
-  const t=P.place(x,z,o,propEnv(c));c.plantList.push({name,t});return t}
-function buildProps(c){const env=propEnv(c),groups=new Map();
-  const out={add(geo,mat,o){mat=PROP_MAT.get(mat)||mat;
+function propEnv(c){return c._penv||(c._penv={H,rng:mulberry32(((G.def&&G.def.seed)|0)*31+7),colliders:c.colliders,perches:c.perches,fx:c.fx})}
+// c.plant: place now, draw later (c.plants). rng: the random generator for place, if not the props' own (c.tree and c.spruce
+// pass the level's, so the forests stand where they always stood)
+function plantProp(c,name,x,z,o={},rng){const P=PROPS[name];if(!P)throw new Error('Ukjent plante eller dyr: '+name);
+  const t=P.place(x,z,o,rng?Object.assign({},propEnv(c),{rng}):propEnv(c));c.plantList.push({name,t});return t}
+// out.add(geo,mat,o,shadow) collects the parts; one instanced mesh per geometry, material and shadow
+function propOut(){const groups=new Map();return{
+  add(geo,mat,o,shadow=true){mat=PROP_MAT.get(mat)||mat;
     if(geo===PG.blob&&o._u){const h=o.sy/2;o.x+=o._u[0]*h;o.y+=o._u[1]*h;o.z+=o._u[2]*h}   // a blob from stemBetween: centre it between the two points
-    let g=groups.get(geo);if(!g)groups.set(geo,g=new Map());let L=g.get(mat);if(!L)g.set(mat,L=[]);L.push(o)}};
-  for(const p of c.plantList)PROPS[p.name].build(p.t,env,out);
-  for(const[geo,g]of groups)for(const[mat,L]of g)instanced(geo,mat,L,c.decor);
-  c.plantList=[]}
+    let g=groups.get(geo);if(!g)groups.set(geo,g=new Map());let m=g.get(mat);if(!m)g.set(mat,m={on:[],off:[]});(shadow?m.on:m.off).push(o)},
+  flush(grp){const ims=[];for(const[geo,g]of groups)for(const[mat,m]of g)for(const im of[instanced(geo,mat,m.on,grp),instanced(geo,mat,m.off,grp,false)])if(im)ims.push(im);groups.clear();return ims}}}
+// draw every prop placed so far. Each is built with its own random stream from its position (propRng), so tuning one prop never changes another
+function buildProps(c){if(!c._done)return;const env=Object.assign({},propEnv(c)),out=propOut(),seed=(G.def&&G.def.seed)|0;
+  for(const p of c.plantList){env.rng=propRng(p.t.x,p.t.z,seed);PROPS[p.name].build(p.t,env,out)}
+  out.flush(c.decor);c.plantList=[]}
 // a free spot for a prop of radius r: on land and out of the water, clear of lines, gates, the start, blocked areas and other colliders
 function propSpotOK(c,x,z,r){if(c.dist(x,z)<r+3||c.nearGate(x,z,r+2.5)||c.nearStart(x,z,r+3)||!c.onLand(x,z)||!c.free(x,z,r)||WL(x,z)>H(x,z)-.05)return false;
   for(const q of c.colliders){const qr=q.r??Math.hypot(q.w,q.d)/2;if(Math.hypot(q.x-x,q.z-z)<qr+r)return false}return true}

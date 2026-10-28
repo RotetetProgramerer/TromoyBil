@@ -104,7 +104,7 @@ LEVELS.push(
       c.box(bx,y+1.2,bz-2.5,.9,.7,.05,'#1a262d');c.box(bx,y+2.3,bz-2.5,3.6,.5,.08,'#e5a92b');c.box(bx,y+2.3,bz-2.55,3.2,.3,.02,'#14120e');  // vindu og skilt
       c.box(bx+5.2,y,bz-.6,2.6,2.1,3.0,'#8a7f70');c.box(bx+5.2,y+2.1,bz-.6,2.9,.2,3.3,'#4a4038');c.box(bx+5.2,y+1.0,bz-2.12,1.2,.7,.05,'#1a262d');   // kontoret
       c.cyl(bx+7.6,y,bz+1.2,.09,7.5,'#9a9a96');c.box(bx+7.6,y+7.5,bz+1.2,.5,.5,.5,'#d9432f');for(let k=0;k<3;k++)c.box(bx+7.6,y+2+k*1.8,bz+1.2,1.4-k*.3,.05,.05,'#9a9a96');   // radiomast
-      for(const[mx,mz]of[[bx-9,bz-7.5],[bx+9,bz-7.5],[bx-9,bz-1],[bx+9,bz-1]]){c.cyl(mx,y,mz,.07,3.6,'#5a5a58');c.box(mx,y+3.5,mz,.6,.22,.3,'#2a2a2a');c.box(mx,y+3.42,mz,.5,.06,.22,'#fff3c0')}   // lysmaster
+      for(const[mx,mz]of[[bx-9,bz-7.5],[bx+9,bz-7.5],[bx-9,bz-1],[bx+9,bz-1]]){c.cyl(mx,y,mz,.07,3.6,'#5a5a58');c.box(mx,y+3.5,mz,.6,.22,.3,'#2a2a2a');c.box(mx,y+3.42,mz,.5,.06,.22,'#fff3c0');c.fx.push({type:'lamp',x:mx,y:y+3.4,z:mz})}   // lysmaster (lyser om natta)
       c.box(bx-3.2,y,bz-4.4,1.9,.12,3.2,'#4a4a48');for(const dz of[-1.2,1.2]){c.box(bx-3.2,y+.12,bz-4.4+dz,1.9,.08,.25,'#e5a92b')}for(const dx of[-.6,.6])for(const dz of[-1,1])c.cyl(bx-3.2+dx,y+.2,bz-4.4+dz,.08,.9,'#5a5a58');   // løftebukk
       const guy=(gx,gz,col,ry)=>{c.cyl(gx,y,gz,.09,.42,'#2c4a6b');c.cyl(gx,y+.4,gz,.13,.32,col);c.cyl(gx,y+.74,gz,.09,.17,'#d9a07a');c.box(gx,y+.9,gz,.22,.06,.22,'#e5a92b',ry);c.colliders.push({x:gx,z:gz,r:.18})};
       guy(bx-3.9,bz-6.4,'#e5a92b',.3);guy(bx+2.6,bz-5.2,'#d9432f',1.2);guy(bx+4.2,bz-3.6,'#2c4a6b',2.4);
@@ -158,23 +158,17 @@ LEVELS.push(
     // --- fossen ---
     {const top=polM(13.8,13),pool=c.pools.find(p=>Math.hypot(p.x-FOOT[0],p.z-FOOT[1])<.1),yT=H(top[0],top[1])+.1,ang=Math.atan2(FOOT[0]-top[0],FOOT[1]-top[1]);c.fall(top[0],top[1],ang,2.6,yT,pool.level,{spray:false})}
     // --- grantrær på fjellsiden ---
-    const trunks=[],cones=[];
+    const trunks=[];
     for(let i=0;i<4000&&trunks.length<90;i++){const x=M[0]+(R()-.5)*50,z=M[1]+(R()-.5)*50,rr=rM(x,z);if(rr<12.5||rr>23||near(x,z,2.4)||c.nearGate(x,z,2.4)||lineD(STREAM,x,z)<3||!c.free(x,z,1)||trunks.some(q=>Math.hypot(q.x-x,q.z-z)<1.8)||c.trees.some(t=>Math.hypot(t.x-x,t.z-z)<1.8)||slope(x,z)>.5)continue;
-      const y=H(x,z),h=1.8+R()*1.6;trunks.push({x,z,y,h});c.colliders.push({x,z,r:.12});
-      for(let k=0;k<3;k++){const u=k/3,s=.55*(1-u*.55)+R()*.1;cones.push({x,y:y+.4+h*u*.5,z,sx:s,sy:h*.5,sz:s,ry:R()*6,c:rr>14.5?['#2b5a30','#346a36','#254d2b'][k%3]:'#dfe8ee'})}}
-    instanced(DG.trunk,DM.bark,trunks.map(q=>({x:q.x,y:q.y+q.h*.3,z:q.z,sx:.07,sy:q.h*.6,sz:.07,c:'#4a3826'})),c.decor);instanced(DG.fern,DM.tuft,cones,c.decor);
+      const h=1.8+R()*1.6;trunks.push({x,z});c.plant('gran',x,z,{h,snow:rr<14.5?.9:rr<16?.35:0,ry:R()*6.28})}   // js/props/gran.js: snø høyt oppe, grønn lenger ned
+    c.plants();
     // --- palmer langs strendene og ved oasen ---
     const palms=[];
     for(let i=0;i<3000&&palms.length<70;i++){const x=(R()-.5)*110,z=(R()-.5)*110,Rr=Math.hypot(x,z),oa=Math.hypot(x-OASIS[0],z-OASIS[1]);
       if(!(Rr>isl(x,z)-11&&Rr<isl(x,z)-4.5)&&!(oa>3&&oa<6))continue;
       if(near(x,z,2.5)||c.nearGate(x,z,2.5)||!c.free(x,z,1.2)||c.pools.some(p=>Math.hypot(p.x-x,p.z-z)<p.r+1.6)||lineD(STREAM,x,z)<3||slope(x,z)>.3||H(x,z)<def.water+.3)continue;
       if(palms.some(q=>Math.hypot(q.x-x,q.z-z)<2.4)||c.trees.some(t=>Math.hypot(t.x-x,t.z-z)<1.6))continue;palms.push({x,z,h:2.8+R()*1.8,lean:(R()-.5)*.35})}
-    const ptr=[],fronds=[];
-    for(const q of palms){const y=H(q.x,q.z),th=q.h,tx=q.x-Math.sin(q.lean)*th,ty=y+Math.cos(q.lean)*th;c.colliders.push({x:q.x,z:q.z,r:.17});
-      ptr.push({x:q.x-Math.sin(q.lean)*th/2,y:y+Math.cos(q.lean)*th/2,z:q.z,sx:.12,sy:th,sz:.12,rz:q.lean,c:mix('#8a7048','#a58a5a',R())});
-      c.perches.push({x:tx,y:ty+.5,z:q.z,kind:'top'});
-      const k0=R()*6.3;for(let k=0;k<8;k++)fronds.push({x:tx,y:ty,z:q.z,sx:.2,sy:1.5+R()*.3,sz:.55,ry:k0+k*.785,rz:1.0+R()*.35,c:['#2d7a2b','#3f9a3a','#25682a'][k%3]})}
-    instanced(DG.trunk,DM.white,ptr,c.decor);instanced(DG.tuft,DM.tuft,fronds,c.decor);
+    for(const q of palms)c.plant('palme',q.x,q.z,{h:q.h,lean:q.lean});c.plants();   // js/props/palme.js
     // --- kaktus i ørkenen ---
     const cacti=[];
     for(let i=0;i<2500&&cacti.length<60;i++){const x=14+R()*44,z=-30+R()*52;if(!inDesert(x,z)||near(x,z,2.2)||c.nearGate(x,z,2.2)||!c.free(x,z,.8)||lineD(STREAM,x,z)<3.5||slope(x,z)>.35||Math.hypot(x,z)>isl(x,z)-7)continue;
@@ -184,13 +178,13 @@ LEVELS.push(
     // --- bregner, blomster og underskog i jungelen; siv i sumpen ---
     const ferns=[],flowers=[],leaves=[],reeds=[];c.flowers=[];
     for(let i=0;i<5000&&ferns.length<480;i++){const x=-52+R()*46,z=-46+R()*64;if(!inJungle(x,z)||near(x,z,1.6)||lineD(STREAM,x,z)<2.6||c.pools.some(p=>Math.hypot(p.x-x,p.z-z)<p.r))continue;const s=.3+R()*.5;
-      ferns.push({x,y:H(x,z)-.02,z,sx:s*.9,sy:s*1.1,sz:s*.9,ry:R()*6,c:['#2f7a2c','#3e8f35','#1f6a2a','#58a03a'][i%4]});
+      ferns.push(c.plant('bregne',x,z,{s,palett:1,c:['#2f7a2c','#3e8f35','#1f6a2a','#58a03a'][i%4]}));
       if(R()<.4)leaves.push({x:x+(R()-.5)*.8,y:H(x,z)+.02,z:z+(R()-.5)*.8,sx:.28+R()*.2,sy:.6+R()*.6,sz:.1,rx:.5+R()*.6,ry:R()*6.28,c:['#2a7a3a','#3f9a4a','#1e6a30'][i%3],ord:'YXZ'});
-      if(R()<.22){const f={x:x+(R()-.5)*.4,y:H(x,z)+s*.9,z:z+(R()-.5)*.4};flowers.push({...f,sx:.07,sy:.07,sz:.07,c:['#e0405a','#f08a3a','#f2d24a','#d35aa8'][i%4]});c.flowers.push(f)}}
+      if(R()<.22){const f={x:x+(R()-.5)*.4,y:H(x,z)+s*.62,z:z+(R()-.5)*.4};flowers.push({...f,sx:.07,sy:.07,sz:.07,c:['#e0405a','#f08a3a','#f2d24a','#d35aa8'][i%4]});c.flowers.push(f)}}
     for(let i=0;i<4000&&reeds.length<700;i++){const x=SW[0]+(R()-.5)*2*(SW_R+3),z=SW[1]+(R()-.5)*2*(SW_R+3);const d=dSw(x,z);if(d>SW_R+2||near(x,z,1.5)||H(x,z)>def.water+.5)continue;
       reeds.push({x,y:H(x,z)-.02,z,sx:.045,sy:.7+R()*.8,sz:.045,rx:(R()-.5)*.4,rz:(R()-.5)*.4,c:['#6d8a3a','#8a9a4a','#5a6b2a'][i%3]});
       if(R()<.08){const f={x,y:H(x,z)+.9,z};c.flowers.push(f)}}   // øyenstikkere svirrer her
-    instanced(DG.fern,DM.tuft,ferns,c.decor);instanced(DG.leaf,DM.leaf,leaves,c.decor,false);instanced(DG.cone,DM.white,flowers,c.decor,false);instanced(DG.tuft,DM.tuft,reeds,c.decor,false);
+    c.plants();instanced(DG.leaf,DM.leaf,leaves,c.decor,false);instanced(DG.cone,DM.white,flowers,c.decor,false);instanced(DG.tuft,DM.tuft,reeds,c.decor,false);
     // --- tåke i sumpen og rundt toppen ---
     for(let i=0;i<40;i++){const a=R()*6.28,d=R()*SW_R;c.fx.push({type:'mist',x:SW[0]+Math.cos(a)*d,z:SW[1]+Math.sin(a)*d,y:.9+R()*.5,s:5+R()*5})}
     for(let i=0;i<36;i++){const a=R()*6.28,d=4+R()*9,x=M[0]+Math.cos(a)*d,z=M[1]+Math.sin(a)*d;c.fx.push({type:'mist',x,z,y:H(x,z)+.8+R()*.8,s:4+R()*5})}

@@ -91,12 +91,13 @@ const DG={
   fern:new THREE.ConeGeometry(1,1,6), cone:new THREE.SphereGeometry(1,6,5),
   canopy:new THREE.SphereGeometry(1,7,5), branch:new THREE.CylinderGeometry(.55,1,1,6), root:new THREE.BoxGeometry(1,1,1), leaf:new THREE.ConeGeometry(1,1,3,1,true)
 };
+DG.prism=new THREE.CylinderGeometry(1,1,1,3,1);   // triangular prism: apex at local z=1, base edge at z=-.5 (width 1.732)
 DG.branch.translate(0,.5,0); DG.leaf.translate(0,.5,0);
 DG.tuft.translate(0,.5,0); DG.fern.translate(0,.5,0);
 const DM={
   white:new THREE.MeshStandardMaterial({color:0xffffff,roughness:.9,flatShading:true}),
   tuft:new THREE.MeshStandardMaterial({color:0xffffff,roughness:1,side:THREE.DoubleSide,flatShading:true}),
-  bark:new THREE.MeshStandardMaterial({color:0x5d4330,roughness:1,flatShading:true}),
+  bark:new THREE.MeshStandardMaterial({color:0xffffff,roughness:1,flatShading:true}),   // white: the bark colour comes from each instance
   leaf:new THREE.MeshStandardMaterial({color:0xffffff,roughness:.85,side:THREE.DoubleSide,flatShading:true})
 };
 function instanced(geo,mat,list,grp,shadow=true){
@@ -185,7 +186,7 @@ function genLevel(def){
     // distance to the main line, and to every road and course registered so far (so rocks and trees keep clear of them too)
     xpts:[],dist:(x,z)=>{let m=1e9;for(let i=0;i<pts.length;i+=2){const dx=pts[i].x-x,dz=pts[i].z-z,d=dx*dx+dz*dz;if(d<m)m=d}const X=c.xpts;for(let i=0;i<X.length;i++){const dx=X[i].x-x,dz=X[i].z-z,d=dx*dx+dz*dz;if(d<m)m=d}return Math.sqrt(m)},
     nearGate:(x,z,m)=>c.gates.some(g=>Math.hypot(g.c.x-x,g.c.z-z)<m)||c.courses.some(k=>k.gates.some(g=>Math.hypot(g.c.x-x,g.c.z-z)<m)),
-    courses:[],roads:[],boxes:[],cyls:[],
+    courses:[],roads:[],boxes:[],cyls:[],prisms:[],
     // a road: levelled, painted, and kept clear of decor. poly=[[x,z],...]
     road(poly,o={}){const d=polyPts(poly,.5);c.xpts.push(...d);c.roads.push(poly);if(o.bench!==false)benchPts(polyPts(poly,.33),o.hw??1.3,o.blend??1.6);if(o.surf!=null)for(const p of d)paint(p.x,p.z,o.hw??1.3,o.surf,o.skip);return poly},
     // a course (an event inside an open world): its own line, gates and crates. Levelled like a road unless bench:false.
@@ -196,7 +197,7 @@ function genLevel(def){
     box(x,y,z,w,h,d,col,ry=0,o={}){c.boxes.push({x,y:y+h/2,z,sx:w,sy:h,sz:d,ry,rx:o.rx||0,rz:o.rz||0,c:col})},
     onLand:(x,z)=>H(x,z)>(def.water??-1e9)+.25&&(!def.coast||Math.hypot(x,z)<def.coast-6),
     cyl(x,y,z,r,h,col,o={}){c.cyls.push({x,y:y+h/2,z,sx:r,sy:h,sz:r,rx:o.rx||0,ry:o.ry||0,rz:o.rz||0,c:col});return c.cyls.length-1},
-    props(){for(const b of c.boxes)if(b.sx>=1&&b.sz>=1&&b.sy>=.8)c.footprints.push({x:b.x,z:b.z,w:b.sx,d:b.sz,ry:b.ry||0});c.propBoxes=instanced(DG.root,DM.white,c.boxes,c.decor);c.propCyls=instanced(DG.trunk,DM.white,c.cyls,c.decor);c.cylList=c.cyls;c.boxes=[];c.cyls=[]},
+    props(){for(const b of c.boxes)if(b.sx>=1&&b.sz>=1&&b.sy>=.8)c.footprints.push({x:b.x,z:b.z,w:b.sx,d:b.sz,ry:b.ry||0});c.propBoxes=instanced(DG.root,DM.white,c.boxes,c.decor);c.propCyls=instanced(DG.trunk,DM.white,c.cyls,c.decor);c.cylList=c.cyls;instanced(DG.prism,DM.white,c.prisms,c.decor);c.boxes=[];c.cyls=[];c.prisms=[]},
     footprints:[],   // big boxes (buildings), drawn on the island map
     // ---- town pieces (see README: «En by») ----
     // a staircase stamped at an absolute height: n steps of `rise` up, each `tread` deep, `w` wide, climbing from (x,z) in direction ang (radians, 0 = +z).
@@ -222,6 +223,8 @@ function genLevel(def){
       return poly},
     // a building: a box w×h×d with its bottom at y, its front towards +z in its own frame (rotated ry): plinth, flat roof with a lip and a roof box, window bands per floor, a door, and a box collider.
     building(x,y,z,w,h,d,col,ry=0,o={}){const fh=o.fh??1.2,floors=Math.max(1,Math.round(h/fh)),cs=Math.cos(ry),sn=Math.sin(ry),at=(lx,lz)=>[x+lx*cs+lz*sn,z-lx*sn+lz*cs];
+      // a stone foundation down to the ground where the ground under the footprint is lower than the floor (a terrace edge, a benched course)
+      {let m=1e9;for(const lx of[-w/2,0,w/2])for(const lz of[-d/2,0,d/2]){const[px,pz]=at(lx,lz);m=Math.min(m,H(px,pz))}if(m<y-.04)c.box(x,m-.05,z,w+.06,y-m+.05,d+.06,o.found||'#7d7974',ry)}
       c.box(x,y,z,w,h,d,col,ry);c.box(x,y,z,w+.08,.1,d+.08,o.plinth||'#55534f',ry);c.box(x,y+h,z,w+.16,.12,d+.16,o.roof||'#3f3d3a',ry);
       if(o.roofBox!==false){const[rx,rz]=at(w*.2,-d*.15);c.box(rx,y+h+.12,rz,Math.min(1.2,w*.35),.5,Math.min(1.0,d*.35),o.roofBoxCol||'#6a6866',ry)}
       const win=o.win||'#1a262d',wh=Math.min(.42,fh*.38),wy0=y+fh*.45;
@@ -232,9 +235,8 @@ function genLevel(def){
       {const[dx2,dz2]=at(0,d/2*1.01);c.box(dx2,y,dz2,.5,.8,.04,o.door||'#3a2a22',ry);if(o.sign){const[sx,sz]=at(0,d/2*1.02);c.box(sx,y+fh-.1,sz,Math.min(w*.7,2.2),.3,.04,o.sign,ry)}}
       const col2={x,z,w:w+.04,d:d+.04,ry,anchor:true,y:y+.5};c.colliders.push(col2);c.block(x,z,Math.hypot(w,d)/2+.5);return col2},
     // a street lamp: pole, arm and head. The head glows at night (c.fx 'lamp', see game.js). Birds may sit on top.
-    lamp(x,z,o={}){const y=o.y??H(x,z),h=o.h??1.7,arm=o.arm??.45,ang=o.ang??0,ax=Math.sin(ang)*arm,az=Math.cos(ang)*arm,col=o.col||'#3a3a3a';
-      c.cyl(x,y,z,.045,h,col);c.box(x+ax/2,y+h-.05,z+az/2,.05,.05,arm,col,ang);c.box(x+ax,y+h-.16,z+az,.26,.14,.26,'#fff0c0');c.box(x+ax,y+h-.02,z+az,.3,.04,.3,col);
-      c.colliders.push({x,z,r:.08,anchor:true,y:y+.6});c.fx.push({type:'lamp',x:x+ax,y:y+h-.1,z:z+az});c.perches.push({x,y:y+h+.03,z,kind:'post'});return{x,y:y+h,z}},
+    // js/props/lykt.js; it is built by c.plants() (after c.finish), so it stands on the finished ground
+    lamp(x,z,o={}){return c.plant('lykt',x,z,o)},
     // a traffic cone that tips over when the car hits it (cylinders only, so c.breakable works)
     cone(x,z,o={}){const y=o.y??H(x,z),ids=[c.cyl(x,y,z,.14,.03,'#2a2a2a'),c.cyl(x,y+.03,z,.075,.34,o.col||'#f26b1d'),c.cyl(x,y+.19,z,.08,.06,'#f4f4f0')];c.breakable(x,z,.13,ids);return ids},
     // a red-and-white barrier trestle across the way (also tips over). ang = direction of the bar.
@@ -265,31 +267,16 @@ function genLevel(def){
         cellsIn(p.x-.7,p.z-.7,p.x+.7,p.z+.7,(k,px,pz)=>{const b=Math.abs((px-p.x)*tz-(pz-p.z)*tx),a=Math.abs((px-p.x)*tx+(pz-p.z)*tz);if(a>L*.6)return;const d=Math.abs(b-.4);if(d>.14)return;
           const w=1-(d/.14)**2;TH[k]-=depth*w*(.8+.4*G.noise(px*3,pz*3))})}},
     steam:(x,z,y,s=.45)=>c.fx.push({type:'smoke',x,z,y:y??H(x,z),small:s}),
-    // a plant or an animal from PROPS (data/vegetasjon.js, data/dyr.js): c.plant('jungel_kapok',x,z,{s:1.2}). Colliders now, drawn after build (js/props.js).
+    // a plant, tree, lamp or animal from PROPS (js/props/, data/vegetasjon.js, data/dyr.js): c.plant('jungel_kapok',x,z,{s:1.2}).
+    // Colliders now, drawn by c.plants() once the ground is final (after c.finish; genLevel calls it after build). See js/props.js.
     plantList:[],plant:(name,x,z,o)=>plantProp(c,name,x,z,o),plants:()=>buildProps(c),
     // c.sow('subtrop_agave',12,[x,z],radius,{r,gap,ok,p}): scatter props on free spots (see js/props.js). plantOK(x,z,r): is the spot free?
     sow:(name,n,at,rad,o)=>sowProps(c,name,n,at,rad,o),plantOK:(x,z,r=.5)=>propSpotOK(c,x,z,r),
-    // a jungle tree: trunk with buttress roots, branches, canopy and moss. Returns the tree (perches for animals are collected in c.perches)
+    // a jungle tree (js/props/tre-jungel.js). Returns the tree (perches for animals are collected in c.perches)
     trees:[],perches:[],
-    tree(x,z,o={}){const t={x,z,h:o.h??(5+rng()*4),r:o.r??(.18+rng()*.16),lean:o.lean??(rng()-.5)*.14,ry:rng()*6.28,moss:o.moss??rng()<.75,kind:o.kind||'jungle',branches:[]};
-      const nb=o.branches??(2+Math.floor(rng()*3));for(let i=0;i<nb;i++){const hy=t.h*(.45+.4*i/nb+rng()*.1),ang=t.ry+i*2.1+rng()*.8,len=1.2+rng()*1.4,tilt=.55+rng()*.5;t.branches.push({hy,ang,len,tilt})}
-      c.trees.push(t);c.colliders.push({x,z,r:t.r*1.3,anchor:true,y:H(x,z)+.7});return t},
-    // build meshes for all trees added with c.tree (call after c.finish so H() is final)
-    forest(){const R=rng,trunks=[],roots=[],branches=[],canopies=[],moss=[],lianas=[];
-      for(const t of c.trees){const y=H(t.x,t.z),th=t.h,top={x:t.x-Math.sin(t.lean)*th,y:y+Math.cos(t.lean)*th,z:t.z};const bark=mix('#4a3826','#6b5137',R());
-        trunks.push({x:(t.x+top.x)/2,y:(y+top.y)/2-.1,z:t.z,sx:t.r,sy:th+.2,sz:t.r,rz:t.lean,c:bark});
-        for(let k=0;k<3;k++){const a=t.ry+k*2.09;roots.push({x:t.x+Math.cos(a)*t.r*1.1,y:y+.08,z:t.z+Math.sin(a)*t.r*1.1,sx:t.r*.5,sy:.5+R()*.3,sz:t.r*1.6,ry:-a,rx:.25,c:bark})}
-        if(t.moss)moss.push({x:t.x+Math.cos(t.ry)*t.r*.55,y:y+th*.3,z:t.z+Math.sin(t.ry)*t.r*.55,sx:t.r*.75,sy:th*.5,sz:t.r*.75,rz:t.lean,c:mix('#3e6b2a','#5a8a34',R())});
-        for(const b of t.branches){const bx=t.x-Math.sin(t.lean)*b.hy,by=y+Math.cos(t.lean)*b.hy,dx=Math.cos(b.ang),dz=Math.sin(b.ang);
-          const ex=bx+dx*Math.cos(b.tilt)*b.len,ey=by+Math.sin(b.tilt)*b.len,ez=t.z+dz*Math.cos(b.tilt)*b.len;
-          branches.push({x:bx,y:by,z:t.z,sx:t.r*.45,sy:b.len,sz:t.r*.45,ry:-b.ang,rz:-(Math.PI/2-b.tilt),c:bark,ord:'YZX'});
-          c.perches.push({x:ex-dx*.2,y:ey-.02,z:ez-dz*.2,tree:t,kind:'branch',dir:b.ang});
-          canopies.push({x:ex,y:ey+.3,z:ez,sx:.9+R()*.5,sy:.5+R()*.25,sz:.9+R()*.5,c:['#2d6b2a','#3b7f33','#246126','#4a8f3a'][Math.floor(R()*4)]})}
-        for(let k=0;k<3;k++){const a=R()*6.28,d=R()*.9;canopies.push({x:top.x+Math.cos(a)*d,y:top.y+.2+R()*.5,z:top.z+Math.sin(a)*d,sx:1.3+R()*.8,sy:.7+R()*.4,sz:1.3+R()*.8,c:['#2d6b2a','#3b7f33','#246126','#4a8f3a'][Math.floor(R()*4)]})}
-        c.perches.push({x:top.x,y:top.y+.9,z:top.z,tree:t,kind:'top'});
-        if(R()<.6){const a=R()*6.28,len=th*(.35+R()*.45),lx=top.x+Math.cos(a)*(.4+R()*1.2),lz=top.z+Math.sin(a)*(.4+R()*1.2);lianas.push({x:lx,y:top.y-len/2,z:lz,sx:.022,sy:len,sz:.022,rx:(R()-.5)*.12,rz:(R()-.5)*.12,c:'#4f6b2c'})}}
-      instanced(DG.trunk,DM.bark,trunks,c.decor);instanced(DG.root,DM.bark,roots,c.decor);instanced(DG.branch,DM.bark,branches,c.decor);
-      instanced(DG.canopy,DM.leaf,canopies,c.decor);instanced(DG.trunk,DM.tuft,moss,c.decor,false);instanced(DG.trunk,DM.white,lianas,c.decor,false)},
+    tree(x,z,o={}){const t=plantProp(c,'jungeltre',x,z,o,rng);c.trees.push(t);return t},
+    // build meshes for all trees (and other plants) placed so far
+    forest(){c.plants()},
     // dirt ramp with a drop at the end: a jump in high gear
     ramp(t,h=.55,len=3.2,wid=2.6){const p=c.P(t),an=c.ang(t);c.block(p.x,p.z,3);
       shape(p.x,p.z,an,len,wid,(a,b)=>{const u=(a+len/2)/len;if(u<.08)return u/.08*.02;if(u<.88)return .02+(u-.08)/.8*h;return null},S.DIRT,(a,b)=>mix('#6d4b2d','#8d6a44',G.noise(a*3,b*3)*.7+(Math.abs(b)>wid/2-.18?.5:0)))},
@@ -320,7 +307,9 @@ function genLevel(def){
       // a house: walls, two roof slabs (ridge along the house), chimney, door, windows
       const house2=(hx,hz,ry,i,big)=>{const W=big?2.4:1.7,D=big?1.9:1.4,Hh=big?1.2:1.0,col=cols[i%cols.length],rc=roofs[i%roofs.length];
         c.box(hx,padH,hz,W,Hh,D,col,ry);c.box(hx,padH,hz,W+.1,.08,D+.1,'#3a3a3a',ry);
-        for(const sd of[-1,1]){const o2=sd*W*.25;c.box(hx+Math.cos(ry)*o2,padH+Hh+.2,hz-Math.sin(ry)*o2,W*.64,.07,D+.3,rc,ry,{rz:-sd*.62})}
+        // the roof slabs sit on the wall tops (before, the wall corners poked through), and the attic is a prism that closes the gables
+        for(const sd of[-1,1]){const o2=sd*W*.25;c.box(hx+Math.cos(ry)*o2,padH+Hh+.05+W*.179-.035,hz-Math.sin(ry)*o2,W*.64,.07,D+.3,rc,ry,{rz:-sd*.62})}
+        {const hr=W*.358;c.prisms.push({x:hx,y:padH+Hh+hr/3,z:hz,sx:W/1.732,sy:D,sz:hr/1.5,rx:-Math.PI/2,ry,ord:'YXZ',c:col})}
         c.box(hx+Math.cos(ry)*W*.3,padH+Hh+.2,hz-Math.sin(ry)*W*.3,.22,.55,.22,'#6b5a52',ry);c.box(hx+Math.sin(ry)*D/2,padH,hz+Math.cos(ry)*D/2,.42,.72,.04,'#3a2a22',ry);
         for(const sx2 of[-.45,.45])c.box(hx+Math.sin(ry)*D/2+Math.cos(ry)*sx2*W,padH+.45,hz+Math.cos(ry)*D/2-Math.sin(ry)*sx2*W,.32,.3,.03,'#1a262d',ry);c.colliders.push({x:hx,z:hz,r:Math.max(W,D)*.62,anchor:true,y:padH+.4})};
       // the four small houses flank the street out of the village (o.out), the big ferry office stands by the pier
@@ -328,7 +317,7 @@ function genLevel(def){
       const houseO=(f,s,ry,i)=>house2(vx+ox*f+qx*s,vz+oz*f+qz*s,ry,i);
       houseO(2.6,-4.9,yawO+.35,0);houseO(3.4,-2.8,yawO,1);houseO(3.4,2.8,yawO,2);houseO(2.6,4.9,yawO-.35,3);house(1.3,4.2,yaw-1.5,4,true);
       // lamps, barrels, nets and a sign
-      for(const[f,s]of[[1,-3.4],[4.6,2.6],[-.6,-2.3]]){const[lx,lz]=at(f,s);c.cyl(lx,padH,lz,.05,1.5,'#3a3a3a');c.box(lx,padH+1.45,lz,.22,.16,.22,'#fff0c0');c.colliders.push({x:lx,z:lz,r:.1,anchor:true,y:padH+.6})}
+      for(const[f,s]of[[1,-3.4],[4.6,2.6],[-.6,-2.3]]){const[lx,lz]=at(f,s);c.plant('lykt',lx,lz,{y:padH,h:1.45,arm:0,hode:.85})}
       for(const[f,s,col]of[[.6,-4.6,'#5a7a8a'],[.9,-4.3,'#c8463a'],[-4.8,-3.6,'#8a6a3a']]){const[bx2,bz2]=at(f,s);c.cyl(bx2,padH,bz2,.17,.42,col);c.colliders.push({x:bx2,z:bz2,r:.2})}
       {const[sx,sz]=at(3.6,2.3);c.fx.push({type:'sign',x:sx,z:sz,ang:Math.atan2(-dx,-dz),text:'FERGE',sub:'kjør om bord'})}
       // the way out of the village: a gravel road from the square inland, levelled so the car never gets boxed in
@@ -337,7 +326,7 @@ function genLevel(def){
       const A=at(5.6,0),B=at(11.4,0);c.bridge(A[0],A[1],B[0],B[1],1.4,{sag:0,y0:padH+.02,y1:padH+.02,pier:true});
       for(let f=6.4;f<11.4;f+=1.6)for(const sd of[-1.25,1.25]){const[qx,qz]=at(f,sd);const bottom=Math.min(Hterr(qx,qz),w-.2);c.cyl(qx,bottom,qz,.09,padH-bottom+.1,'#4a3a2a')}
       // two rowing boats moored beside the pier
-      for(const[f,s,col]of[[8.2,2.6,'#c8463a'],[9.9,-2.7,'#4f7bb5']]){const[qx,qz]=at(f,s);c.box(qx,w-.08,qz,1.5,.34,.6,col,yaw+.2);c.box(qx,w+.22,qz,1.1,.04,.4,'#8a6a3a',yaw+.2)}
+      for(const[f,s,col]of[[8.2,2.6,'#c8463a'],[9.9,-2.7,'#4f7bb5']]){const[qx,qz]=at(f,s);c.box(qx,w-.08,qz,1.5,.34,.6,col,yaw+.2);c.box(qx,w+.23,qz,1.1,.04,.4,'#8a6a3a',yaw+.2)}
       // the ferry's car deck: drivable, flush with the pier. The hull itself is drawn by the game so it can sail.
       const F0=at(11.2,0),F1=at(18.0,0);const fd=c.bridge(F0[0],F0[1],F1[0],F1[1],1.55,{sag:0,y0:padH+.03,y1:padH+.03,pier:true,ferry:true});
       const fc=at(14.6,0);c.ferry={x:fc[0],z:fc[1],dir:a,dx,dz,y:padH+.04,len:6.8,hw:1.55,quay:{x:A[0],z:A[1]},pad:{x:vx,z:vz,h:padH},deck:fd};
@@ -378,16 +367,10 @@ function genLevel(def){
         rings:[post(7.6,S0-.95,yaw+Math.PI/2),post(11.0,S0+.95,yaw-Math.PI/2),post(2.9,1.9,yaw)]};
       return c.marinaDef},
     // ---- winter pieces (see README: «Gautefall: vinterøya og skianlegget») ----
-    // a spruce with snow on its branches: a trunk and three or four stacked cones, each with a white cap. c.spruces() builds them all (after c.finish).
+    // a spruce with snow on its branches (js/props/gran.js). c.spruces() builds them all (after c.finish).
     spruceList:[],
-    spruce(x,z,o={}){const t={x,z,h:o.h??(1.5+rng()*1.7),snow:o.snow??(.5+rng()*.45),ry:rng()*6.28};c.spruceList.push(t);c.colliders.push({x,z,r:.14+t.h*.03,anchor:true,y:H(x,z)+.5});return t},
-    spruces(){const tr=[],nd=[],sn=[];
-      for(const t of c.spruceList){const y=H(t.x,t.z),h=t.h,n=h>2.3?4:3,col=mix('#1d452b','#2e5c38',rng());
-        tr.push({x:t.x,y:y+h*.1,z:t.z,sx:.05+h*.012,sy:h*.22,sz:.05+h*.012,c:'#4a3626'});
-        for(let i=0;i<n;i++){const u=i/n,yb=y+h*(.12+.7*u),ch=h*(.42-.14*u),r=h*(.31-.19*u),ry=t.ry+i*.9;
-          nd.push({x:t.x,y:yb,z:t.z,sx:r,sy:ch,sz:r,ry,c:col});
-          sn.push({x:t.x,y:yb+ch*(1-t.snow*.62),z:t.z,sx:r*t.snow*.66,sy:ch*t.snow*.64,sz:r*t.snow*.66,ry:ry+.5,c:'#f1f5f8'})}}
-      instanced(DG.trunk,DM.bark,tr,c.decor);instanced(DG.fern,DM.white,nd,c.decor);instanced(DG.fern,DM.white,sn,c.decor,false);c.spruceList=[]},
+    spruce(x,z,o={}){const t=plantProp(c,'gran',x,z,o,rng);c.spruceList.push(t);return t},
+    spruces(){c.plants();c.spruceList=[]},
     // a ski piste: its own line from the start up the mountain (t=0) to the finish (t=1), levelled across like a groomed slope, marked in TG
     // (the skier glides better there) and kept clear of trees. The corduroy itself is drawn on top by the game (js/skiresort.js).
     // p={id,name,desc,diff,kind:'fri'|'slalom'|'utfor'|'hopp',path,gates:[[x,z],...] (the last one is the finish),hw,blend,tilt,berm,gw (half width
@@ -446,7 +429,9 @@ function genLevel(def){
         // the start hut stands behind the start line, off to the side where there is room, so the skier looks down the piste past it
         const s0=k.start.p,tn=k.start.tan,s1=k.side(0),ry=Math.atan2(tn.x,tn.z);let sd=0,lat=0,back=0;   // no hut at all if the top is too crowded for one out of the way
         found:for(const[l,b]of[[1.5,2.6],[1.3,1.8],[.9,3.6],[2.2,2.2],[1.1,1.1],[2.6,.8]])for(const t of[1,-1]){const x=s0.x+s1.x*t*(k.hw+l)-tn.x*b,z=s0.z+s1.z*t*(k.hw+l)-tn.z*b;if(free(x,z,.8)){sd=t;lat=k.hw+l;back=b;break found}}
-        if(sd){const hx=s0.x+s1.x*sd*lat-tn.x*back,hz=s0.z+s1.z*sd*lat-tn.z*back,hy=H(hx,hz);
+        if(sd){const hx=s0.x+s1.x*sd*lat-tn.x*back,hz=s0.z+s1.z*sd*lat-tn.z*back,hc=Math.cos(ry),hs=Math.sin(ry);
+          let lo=1e9,hi=-1e9;for(const lx of[-.5,0,.5])for(const lz of[-.43,0,.43]){const g=H(hx+lx*hc+lz*hs,hz-lx*hs+lz*hc);lo=Math.min(lo,g);hi=Math.max(hi,g)}const hy=(lo+hi)/2+.15;   // dug into the slope on the uphill side, a foundation on the downhill side
+          if(hy-.15-lo>.03)c.box(hx,lo-.08,hz,1.04,hy-.15-lo+.1,.89,'#6a6662',ry);
           c.box(hx,hy-.15,hz,1.0,1.05,.85,'#b0533a',ry);c.box(hx,hy+.9,hz,1.2,.12,1.05,'#eef2f6',ry);c.box(hx-s1.x*sd*.51,hy+.3,hz-s1.z*sd*.51,.03,.32,.4,'#1a262d',ry);c.colliders.push({x:hx,z:hz,w:1.04,d:.9,ry,anchor:true,y:hy+.5})}else sd=1;
         // the piste's colour on a sign beside the start gate
         {const gx=s0.x-s1.x*sd*(k.hw+.3)+tn.x*.15,gz=s0.z-s1.z*sd*(k.hw+.3)+tn.z*.15,gy=H(gx,gz);c.cyl(gx,gy-.05,gz,.022,1.2,'#5a6066');c.box(gx,gy+.82,gz,.4,.4,.05,col,ry);c.box(gx,gy+.79,gz,.46,.46,.03,'#f4f4f0',ry);c.colliders.push({x:gx,z:gz,r:.05})}
@@ -481,14 +466,15 @@ function genLevel(def){
         if(N0.fixed)N1.y=(nd-N0.y*(1-u))/u+1e-3;else if(N1.fixed)N0.y=(nd-N1.y*u)/(1-u)+1e-3;else{N0.y+=nd-ly+1e-3;N1.y+=nd-ly+1e-3}}}if(!moved)break}
       for(let d=0;d<=len;d+=1)c.xpts.push({x:ax+ux*d,z:az+uz*d});
       // masts: a pole, a cross arm and a sheave train under each cable
-      for(const nd of nodes){if(nd.fixed)continue;const x=ax+ux*nd.d,z=az+uz*nd.d,gy=H(x,z);c.cyl(x,gy-.1,z,.09,nd.y-gy+.3,'#8a9096');c.box(x,nd.y+.12,z,2*off+.4,.09,.12,'#6d747a',ry);
-        for(const s of[-off,off])c.box(x+px*s,nd.y+.02,z+pz*s,.08,.07,.42,'#2f3336',ry);
+      for(const nd of nodes){if(nd.fixed)continue;const x=ax+ux*nd.d,z=az+uz*nd.d,gy=H(x,z);c.cyl(x,gy-.1,z,.055,nd.y-gy+.3,'#8a9096');c.box(x,nd.y+.12,z,2*off+.4,.09,.12,'#6d747a',ry);   // the pole is thin enough that the chairs' inner edge (0,075 from the middle) clears it
+        for(const s of[-off,off])c.box(x+px*s,nd.y,z+pz*s,.08,.12,.42,'#2f3336',ry);
         const pad=c.pistes.some(k=>k.dist(x,z)<k.hw+1.6);if(pad){c.cyl(x,gy-.05,z,.2,.95,'#2f6fd6');c.cyl(x,gy+.7,z,.205,.08,'#f2c230')}   // a padded mat round masts close to a piste
         c.colliders.push({x,z,r:pad?.22:.16,anchor:true,y:gy+.6})}
       // stations: the bullwheel turns under a roof on four posts; a machine house beside the bottom one, a hut beside the top one
+      // the posts stand outside the chairs: a chair is 0,95 wide round the cable, so it reaches off+0,48 from the middle
       const station=(x,z,y,dir,house)=>{const gy=y-1.55;c.cyl(x,y-.05,z,off+.02,.07,'#c8463a');c.cyl(x,y-.6,z,.12,.6,'#5a6066');
-        for(const sa of[-1,1])for(const sb of[-1,1]){const qx=x+px*sa*(off+.45)+ux*sb*.75,qz=z+pz*sa*(off+.45)+uz*sb*.75;c.cyl(qx,gy-.05,qz,.05,1.95+.05,'#5a6066');c.colliders.push({x:qx,z:qz,r:.07})}
-        c.box(x,y+.4,z,2*off+1.3,.12,2.0,'#c8463a',ry);c.box(x,y+.52,z,2*off+1.1,.06,1.8,'#eef2f6',ry);
+        for(const sa of[-1,1])for(const sb of[-1,1]){const qx=x+px*sa*(off+.65)+ux*sb*.75,qz=z+pz*sa*(off+.65)+uz*sb*.75;c.cyl(qx,gy-.05,qz,.05,1.95+.05,'#5a6066');c.colliders.push({x:qx,z:qz,r:.07})}
+        c.box(x,y+.4,z,2*off+1.6,.12,2.0,'#c8463a',ry);c.box(x,y+.52,z,2*off+1.4,.06,1.8,'#eef2f6',ry);
         const hx=x+px*dir*(off+1.65),hz=z+pz*dir*(off+1.65);c.box(hx,gy-.1,hz,1.5,1.25,2.2,house,ry);c.box(hx,gy+1.15,hz,1.7,.14,2.4,'#eef2f6',ry);for(const s of[-.55,.55])c.box(hx-px*dir*.76+ux*s,gy+.45,hz-pz*dir*.76+uz*s,.03,.3,.4,'#1a262d',ry);
         c.colliders.push({x:hx,z:hz,w:1.54,d:2.24,ry,anchor:true,y:gy+.6})};
       station(ax,az,y0,-1,'#d9d2c0');station(bx,bz,y1,1,'#b0533a');
@@ -508,10 +494,10 @@ function genLevel(def){
     finish(){for(let j=0;j<N;j++)for(let i=0;i<N;i++){const k=j*N+i;if(TCF[k])continue;const cc=surfColor(TS[k],-HALF+i*CELL,-HALF+j*CELL,n,def);TC[k*3]=cc[0];TC[k*3+1]=cc[1];TC[k*3+2]=cc[2]}c._done=true},
     pebbles(cnt,cols,smin,smax){const L=[];for(let i=0;i<cnt;i++){const x=(rng()-.5)*(WORLD-4),z=(rng()-.5)*(WORLD-4);if(def.water!=null&&H(x,z)<def.water+.02)continue;const s=smin+rng()*(smax-smin);
       L.push({x,y:H(x,z)+s*.2,z,sx:s,sy:s*.6,sz:s*(.8+rng()*.5),rx:rng()*3,ry:rng()*3,c:cols[i%cols.length]})}instanced(DG.peb,DM.white,L,c.decor,false)},
-    // bushes: low rounded clumps of two or three canopies, placed where ok(x,z) says yes. o.soft: no collider, the car drives through them
-    bushes(cnt,cols,ok,o={}){const L=[];for(let i=0;i<cnt*30&&L.length<cnt*3;i++){const x=(rng()-.5)*(WORLD-6),z=(rng()-.5)*(WORLD-6);if(c.dist(x,z)<2.2||(def.water!=null&&H(x,z)<def.water+.1)||(ok&&!ok(x,z)))continue;const s=.35+rng()*.35,n=2+(rng()<.5?1:0);
-        for(let k=0;k<n;k++){const a=rng()*6.28,d=k?s*.6:0;L.push({x:x+Math.cos(a)*d,y:H(x,z)+s*.45,z:z+Math.sin(a)*d,sx:s*(.9+rng()*.3),sy:s*.75,sz:s*(.9+rng()*.3),c:cols[(i+k)%cols.length]})}if(!o.soft)c.colliders.push({x,z,r:s*.7})}
-      instanced(DG.canopy,DM.leaf,L,c.decor)},
+    // bushes (js/props/busk.js): about 1.2·cnt bushes in the colours cols, placed where ok(x,z) says yes. o.soft: no collider, the car drives through them
+    bushes(cnt,cols,ok,o={}){let n=0;for(let i=0;i<cnt*30&&n<cnt*1.2;i++){const x=(rng()-.5)*(WORLD-6),z=(rng()-.5)*(WORLD-6);if(c.dist(x,z)<2.2||(def.water!=null&&H(x,z)<def.water+.1)||(ok&&!ok(x,z)))continue;
+        c.plant('busk',x,z,{s:.35+rng()*.35,klumper:2+(rng()<.5?1:0),cols,soft:o.soft});n++}
+      c.plants()},
     // mushrooms: a stalk and a cap, in the shade of trees
     mushrooms(cnt,ok){const st=[],cp=[];for(let i=0;i<cnt*40&&st.length<cnt;i++){const x=(rng()-.5)*(WORLD-6),z=(rng()-.5)*(WORLD-6);if(c.dist(x,z)<1.5||(def.water!=null&&H(x,z)<def.water+.1)||(ok&&!ok(x,z)))continue;const h=.08+rng()*.1,y=H(x,z);
         st.push({x,y:y+h/2,z,sx:.025,sy:h,sz:.025,c:'#e9dcb9'});cp.push({x,y:y+h,z,sx:.07+rng()*.05,sy:.04,sz:.07+rng()*.05,c:['#c43b2f','#d9a93a','#8a6a3a','#e9dcb9'][i%4]})}
@@ -533,7 +519,7 @@ function genLevel(def){
   if(c.pistes.length&&!c._pisteDressed)c.dressPistes();G.pistes=c.pistes;
   if(!c._done)c.finish();
   if(c.plantList.length)c.plants();
-  if(c.boxes.length||c.cyls.length)c.props();
+  if(c.boxes.length||c.cyls.length||c.prisms.length)c.props();
   // an island that is a race: the race line is also a course you can start from its portal while roaming
   if(def.village&&!def.world){const k=c.course({id:def.id,name:def.name,desc:def.desc,diff:def.diff,path:def.path,gates:def.gates,gateT:def.gateT,bench:false});k.main=true}
   c.start=def.start?{p:new V3(def.start[0],0,def.start[1]),tan:new V3(Math.sin(def.start[2]||0),0,Math.cos(def.start[2]||0))}:{p:c.P(0),tan:c.T(.004)};

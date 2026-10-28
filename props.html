@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="nb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Elementverksted</title>
+<meta name="description" content="Se og finpuss ett element alene (trær, palmer, gran, planter og dyr fra js/props/ og data/), med samme lys som på øyene.">
+<meta name="theme-color" content="#14120E">
+<link rel="icon" href="icons/icon-192.png">
+<style>
+/* Elementverkstedet: samme mørke tema og farger som spillet (css/style.css). Én side, ingen byggeverktøy. */
+:root{--sand:#E5A92B;--ink:#14120E;--ink-2:#1F1B15;--panel:rgba(20,18,14,.92);--paper:#F2E8D0;--muted:#B5A988;--line:rgba(229,169,43,.32);--signal:#FF6A2A;
+  --f-body:"Barlow Condensed","Arial Narrow","Roboto Condensed",system-ui,sans-serif;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;overflow:hidden;background:var(--ink);color:var(--paper);font-family:var(--f-body);font-size:16px}
+#stage{position:fixed;inset:0;touch-action:none}
+#stage canvas{display:block;width:100%;height:100%}
+#panel{position:fixed;top:0;left:0;bottom:0;width:320px;background:var(--panel);border-right:1px solid var(--line);overflow-y:auto;padding:14px 16px 24px;display:flex;flex-direction:column;gap:12px;z-index:2}
+h1{margin:0;font-size:1.35rem;letter-spacing:.04em;color:var(--sand);text-transform:uppercase}
+.sub{margin:0;color:var(--muted);font-size:.92rem;line-height:1.3}
+label.row{display:grid;grid-template-columns:1fr 64px;gap:4px 8px;align-items:center;font-size:.95rem}
+label.row input[type=range]{grid-column:1/3;width:100%;accent-color:var(--sand)}
+label.row output{text-align:right;font-variant-numeric:tabular-nums;color:var(--sand)}
+select,button,input[type=number]{font:inherit;color:var(--paper);background:var(--ink-2);border:1px solid var(--line);padding:6px 8px;border-radius:2px}
+select{width:100%}
+button{cursor:pointer}
+button:hover{border-color:var(--sand)}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--sand);outline-offset:1px}
+.btns{display:flex;flex-wrap:wrap;gap:6px}
+.btns button{flex:1 1 auto}
+fieldset{border:1px solid var(--line);margin:0;padding:8px 10px 10px;display:flex;flex-direction:column;gap:8px}
+legend{padding:0 4px;color:var(--muted);font-size:.85rem;text-transform:uppercase;letter-spacing:.08em}
+.check{display:flex;gap:8px;align-items:center;font-size:.95rem}
+.check input{accent-color:var(--sand);width:16px;height:16px}
+pre{margin:0;white-space:pre-wrap;word-break:break-all;background:var(--ink-2);border:1px solid var(--line);padding:8px;font-size:.8rem;font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--paper)}
+#stats{color:var(--muted);font-size:.85rem}
+#info{color:var(--muted);font-size:.9rem;margin:0}
+#toggle{display:none}
+#hint{position:fixed;right:12px;bottom:10px;color:var(--muted);font-size:.85rem;background:var(--panel);padding:4px 8px;border:1px solid var(--line);z-index:1}
+@media (max-width:700px){
+  #panel{top:auto;width:auto;right:0;max-height:55vh;border-right:0;border-top:1px solid var(--line);padding-inline:16px}
+  #panel.closed{max-height:52px;overflow:hidden}
+  #toggle{display:block;position:absolute;top:10px;right:16px}
+  #hint{display:none}
+}
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<aside id="panel">
+  <button id="toggle" aria-expanded="true">Skjul</button>
+  <h1>Elementverksted</h1>
+  <p class="sub">Elementene fra <code>js/props/</code> og plantene og dyrene i <code>data/</code>, alene på en prøvebakke. Endre fila, last siden på nytt: innstillingene huskes.</p>
+  <select id="kind" aria-label="Element"></select>
+  <p id="info"></p>
+  <fieldset><legend>Innstillinger</legend><div id="params" style="display:flex;flex-direction:column;gap:8px"></div>
+    <div class="btns"><button id="rndParams">Tilfeldige innstillinger</button><button id="reset">Standard</button></div></fieldset>
+  <fieldset><legend>Variasjon og antall</legend>
+    <div class="btns"><button id="rndSeed">Ny variant</button></div>
+    <label class="row">Antall<output id="countO"></output><input id="count" type="range" min="1" max="25" step="1"></label>
+    <label class="row">Avstand<output id="spaceO"></output><input id="space" type="range" min="1" max="8" step=".1"></label>
+  </fieldset>
+  <fieldset><legend>Omgivelser</legend>
+    <select id="light" aria-label="Lys fra øy"></select>
+    <select id="ground" aria-label="Bakke"></select>
+    <label class="row">Skråning<output id="slopeO"></output><input id="slope" type="range" min="0" max=".6" step=".01"></label>
+    <label class="row">Ujevn bakke<output id="bumpO"></output><input id="bump" type="range" min="0" max="1" step=".05"></label>
+    <label class="check"><input id="helpers" type="checkbox"> Hjelpelinjer (kollidere, sitteplasser, bakkekontakt)</label>
+    <label class="check"><input id="car" type="checkbox"> Vis bilens størrelse (2 enheter)</label>
+    <label class="check"><input id="spin" type="checkbox"> Snu sakte rundt</label>
+  </fieldset>
+  <fieldset><legend>Til banen</legend><pre id="code"></pre><div class="btns"><button id="copy">Kopier</button></div></fieldset>
+  <div id="stats"></div>
+</aside>
+<div id="hint">Dra: snu · Hjul/klyp: zoom · Høyreklikk/shift-dra: flytt</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous"></script>
+<script src="js/core.js"></script>
+<script src="js/props.js"></script>
+<!-- samme elementer som i index.html -->
+<script src="js/props/_felles.js"></script>
+<script src="js/props/tre-jungel.js"></script>
+<script src="js/props/tre-by.js"></script>
+<script src="js/props/palme.js"></script>
+<script src="js/props/gran.js"></script>
+<script src="js/props/kjempestamme.js"></script>
+<script src="js/props/busk.js"></script>
+<script src="js/props/bregne.js"></script>
+<script src="js/props/lykt.js"></script>
+<script src="data/vegetasjon.js"></script>
+<script src="data/dyr.js"></script>
+<script src="data/savanne.js"></script>
+<!-- banene, bare for lyset og fargene deres -->
+<script src="data/levels/01-sand.js"></script>
+<script src="data/levels/02-stein.js"></script>
+<script src="data/levels/03-skog.js"></script>
+<script src="data/levels/05-elv.js"></script>
+<script src="data/levels/06-vulkan.js"></script>
+<script src="data/levels/07-trinnvik.js"></script>
+<script src="data/levels/08-gautefall.js"></script>
+<script src="data/levels/09-kaiman.js"></script>
+<script src="data/levels/10-verden.js"></script>
+<script src="data/levels/11-savanne.js"></script>
+<script>
+(()=>{
+const $=id=>document.getElementById(id);
+const store={get(k,d){try{const v=localStorage.getItem('sgc-props:'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('sgc-props:'+k,JSON.stringify(v))}catch(e){}}};
+const ui=Object.assign({kind:'jungeltre',count:1,space:3.5,light:'vulkan',ground:'GRASS',slope:0,bump:.2,helpers:true,car:false,spin:false,seed:1},store.get('ui',{}));
+const saved=store.get('params',{});
+const kinds=Object.keys(PROPS);if(!PROPS[ui.kind])ui.kind=kinds[0];
+
+/* ---------- renderer, lys og kamera: som i spillet (game.js) ---------- */
+const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;
+$('stage').appendChild(renderer.domElement);
+const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(50,1,.05,400);
+const hemi=new THREE.HemisphereLight(0xffffff,0x888888,.6),sun=new THREE.DirectionalLight(0xffffff,1);
+sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);Object.assign(sun.shadow.camera,{left:-12,right:12,top:12,bottom:-12,near:.5,far:90});sun.shadow.bias=-.0004;sun.shadow.normalBias=.03;
+scene.add(hemi,sun,sun.target);
+const LIN=h=>new THREE.Color(h).convertSRGBToLinear();
+function skyTex(def){const c=document.createElement('canvas');c.width=16;c.height=256;const x=c.getContext('2d'),g=x.createLinearGradient(0,0,0,256),hz='#'+def.fog.toString(16).padStart(6,'0');
+  g.addColorStop(0,def.sky[0]);g.addColorStop(.42,def.sky[1]);g.addColorStop(.5,hz);g.addColorStop(1,hz);x.fillStyle=g;x.fillRect(0,0,16,256);const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;return t}
+const sky=new THREE.Mesh(new THREE.SphereGeometry(190,24,12),new THREE.MeshBasicMaterial({side:THREE.BackSide,fog:false,depthWrite:false}));sky.renderOrder=-10;scene.add(sky);
+const pmrem=new THREE.PMREMGenerator(renderer);
+function applyLight(){const def=LEVELS.find(l=>l.id===ui.light)||LEVELS[0];
+  if(sky.material.map)sky.material.map.dispose();sky.material.map=skyTex(def);sky.material.needsUpdate=true;
+  if(scene.environment)scene.environment.dispose();scene.environment=pmrem.fromEquirectangular(sky.material.map).texture;
+  scene.fog=new THREE.Fog(LIN(def.fog),Math.max(def.fogNear,30),Math.max(def.fogFar,90));
+  hemi.color.copy(LIN(def.hemi[0]));hemi.groundColor.copy(LIN(def.hemi[1]));hemi.intensity=def.hemi[2]*1.15;
+  sun.color.copy(LIN(def.sun));sun.intensity=def.sunI*1.55;const d=def.sunDir||[10,20,10];sun.position.set(d[0],d[1],d[2]);sun.target.position.set(0,0,0)}
+
+/* ---------- prøvebakken ---------- */
+const noise=makeNoise(7);
+const groundH=(x,z)=>ui.slope*x+ui.bump*.35*fbm(noise,x*.35,z*.35,3)+ui.bump*.06*fbm(noise,x*2.1,z*2.1,2);
+const GROUNDS={GRASS:'Gress',DIRT:'Jord',SAND:'Sand',SNOW:'Snø',ASPHALT:'Asfalt',ASH:'Aske',ROCK:'Fjell'};
+let ground=null;
+function buildGround(){if(ground){scene.remove(ground);ground.geometry.dispose()}
+  const g=new THREE.PlaneGeometry(40,40,160,160);g.rotateX(-Math.PI/2);const P=g.attributes.position,C=new Float32Array(P.count*3);
+  for(let i=0;i<P.count;i++){const x=P.getX(i),z=P.getZ(i);P.setY(i,groundH(x,z));const c=surfColor(S[ui.ground],x,z,noise,{});C[i*3]=c[0];C[i*3+1]=c[1];C[i*3+2]=c[2]}
+  g.setAttribute('color',new THREE.BufferAttribute(C,3));g.computeVertexNormals();
+  ground=new THREE.Mesh(g,new THREE.MeshStandardMaterial({vertexColors:true,roughness:.93}));ground.receiveShadow=true;ground.castShadow=true;scene.add(ground)}
+
+/* ---------- elementene ---------- */
+let group=null,helpers=null,carBox=null;
+const P=()=>PROPS[ui.kind].params;
+function current(){const p=P(),s=saved[ui.kind]||{},o={};for(const k in p){const v=p[k].v;o[k]=s[k]??(Array.isArray(v)?(p[k].step>=1?Math.round((v[0]+v[1])/2):+((v[0]+v[1])/2).toFixed(3)):v)}return o}
+function rebuild(){
+  if(group){scene.remove(group);group.traverse(o=>{if(o.isInstancedMesh)o.dispose&&o.dispose()})}
+  if(helpers){scene.remove(helpers);helpers.traverse(o=>{if(o.geometry)o.geometry.dispose()})}
+  group=new THREE.Group();helpers=new THREE.Group();scene.add(group,helpers);
+  const o=current(),n=ui.count,cols=Math.ceil(Math.sqrt(n)),env={H:groundH,rng:mulberry32(ui.seed),colliders:[],perches:[],fx:[]},recs=[],out=propOut();
+  for(let i=0;i<n;i++){const x=(i%cols-(cols-1)/2)*ui.space,z=(Math.floor(i/cols)-(Math.ceil(n/cols)-1)/2)*ui.space;
+    // tilfeldig dreiing for hver når det er flere; ellers akkurat innstillingene
+    const oi=n>1&&'ry' in o?Object.assign({},o,{ry:env.rng()*6.28}):o;recs.push(PROPS[ui.kind].place(x,z,oi,env))}
+  for(const r of recs){env.rng=propRng(r.x,r.z,ui.seed);PROPS[ui.kind].build(r,env,out)}
+  const ims=out.flush(group);let tris=0,inst=0;for(const im of ims){const g=im.geometry,t=(g.index?g.index.count:g.attributes.position.count)/3;tris+=t*im.count;inst+=im.count}
+  $('stats').textContent=`${ims.length} instanserte mesher · ${inst} deler · ${Math.round(tris).toLocaleString('nb')} trekanter`;
+  // hjelpelinjer: rød ring = kollider (gul = vinsjefeste), gul kule = sitteplass for dyr, oransje kule = lyset om natta, hvit ring = bakken der elementet står
+  if(ui.helpers){
+    const ring=(x,z,r,colr,y)=>{const pts=[];for(let i=0;i<=40;i++){const a=i/40*6.283;pts.push(new THREE.Vector3(x+Math.cos(a)*r,(y??groundH(x+Math.cos(a)*r,z+Math.sin(a)*r))+.02,z+Math.sin(a)*r))}
+      const l=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:colr,depthTest:false,transparent:true}));l.renderOrder=5;helpers.add(l)};
+    for(const c of env.colliders)ring(c.x,c.z,c.r??Math.max(c.w,c.d)/2,c.anchor?0xffd23a:0xff4a3a);
+    const sg=new THREE.SphereGeometry(.05,10,8);for(const p of env.perches){const m=new THREE.Mesh(sg,new THREE.MeshBasicMaterial({color:0xffe14a,depthTest:false}));m.position.set(p.x,p.y,p.z);m.renderOrder=6;helpers.add(m)}
+    for(const f of env.fx)if(f.type==='lamp'){const m=new THREE.Mesh(sg,new THREE.MeshBasicMaterial({color:0xff9a3a,depthTest:false}));m.position.set(f.x,f.y,f.z);m.scale.setScalar(1.6);m.renderOrder=6;helpers.add(m)}
+    for(const r of recs)ring(r.x,r.z,.05,0xffffff)}
+  if(carBox){scene.remove(carBox);carBox=null}
+  if(ui.car){const x=Math.max(2.5,ui.space*.6);carBox=new THREE.Mesh(new THREE.BoxGeometry(1,.75,2),new THREE.MeshStandardMaterial({color:LIN('#E5A92B'),roughness:.6}));carBox.position.set(-x,groundH(-x,1.5)+.42,1.5);carBox.castShadow=true;scene.add(carBox)}
+  writeCode(o);store.set('ui',ui)}
+
+function fmt(v){return+(+v).toFixed(3)}
+function writeCode(o){const p=P(),parts=[];for(const k in o){const v=p[k].v;if(!Array.isArray(v)&&fmt(v)===fmt(o[k]))continue;parts.push(k+':'+fmt(o[k]))}
+  const call=ui.kind==='jungeltre'?`c.tree(x,z,{${parts.join(',')}})`:ui.kind==='gran'?`c.spruce(x,z,{${parts.join(',')}})`:ui.kind==='lykt'?`c.lamp(x,z,{${parts.join(',')}})`:`c.plant('${ui.kind}',x,z,{${parts.join(',')}})`;
+  $('code').textContent=call+'\n\n// standardverdier (params i oppføringen, i js/props/ eller data/):\nparams:{'+Object.keys(o).map(k=>k+':'+fmt(o[k])).join(', ')+'}'}
+
+/* ---------- panelet ---------- */
+function buildPanel(){
+  $('kind').innerHTML=kinds.map(k=>`<option value="${k}">${PROPS[k].navn||k}</option>`).join('');$('kind').value=ui.kind;
+  $('info').textContent=PROPS[ui.kind].info||'';
+  const o=current(),p=P();$('params').innerHTML='';
+  for(const k in p){const d=p[k],l=document.createElement('label');l.className='row';
+    const set=v=>{(saved[ui.kind]=saved[ui.kind]||{})[k]=v;store.set('params',saved);rebuild()};
+    if(d.valg){   // en liste med navn (for eksempel fargepaletter); verdien er nummeret i lista
+      l.innerHTML=`<span>${d.navn||k}</span><span></span><select style="grid-column:1/3">${d.valg.map((n,i)=>`<option value="${i}">${n}</option>`).join('')}</select>`;
+      const sel=l.querySelector('select');sel.value=o[k];sel.addEventListener('change',()=>set(+sel.value))}
+    else{l.innerHTML=`<span>${d.navn||k}</span><output></output><input type="range" min="${d.min}" max="${d.max}" step="${d.step}">`;
+      const inp=l.querySelector('input'),out=l.querySelector('output');inp.value=o[k];out.textContent=fmt(o[k]);
+      inp.addEventListener('input',()=>{out.textContent=fmt(inp.value);set(+inp.value)})}
+    $('params').appendChild(l)}}
+const bind=(id,key,fn,num=true)=>{const el=$(id),o=$(id+'O');if(el.type==='checkbox')el.checked=ui[key];else el.value=ui[key];if(o)o.textContent=ui[key];
+  el.addEventListener(el.type==='range'?'input':'change',()=>{ui[key]=el.type==='checkbox'?el.checked:num?+el.value:el.value;if(o)o.textContent=ui[key];fn()})};
+$('light').innerHTML=LEVELS.map(l=>`<option value="${l.id}">Lys: ${l.name}</option>`).join('');
+$('ground').innerHTML=Object.entries(GROUNDS).map(([k,v])=>`<option value="${k}">Bakke: ${v}</option>`).join('');
+bind('kind','kind',()=>{buildPanel();rebuild();aimCamera()},false);
+bind('count','count',rebuild);bind('space','space',rebuild);
+bind('light','light',()=>{applyLight();store.set('ui',ui)},false);
+bind('ground','ground',()=>{buildGround();store.set('ui',ui)},false);
+bind('slope','slope',()=>{buildGround();rebuild()});bind('bump','bump',()=>{buildGround();rebuild()});
+bind('helpers','helpers',rebuild);bind('car','car',rebuild);bind('spin','spin',()=>store.set('ui',ui));
+$('rndSeed').onclick=()=>{ui.seed=1+Math.floor(Math.random()*1e6);rebuild()};
+$('rndParams').onclick=()=>{const p=P(),s=saved[ui.kind]={};for(const k in p){const v=p[k].v,[a,b]=Array.isArray(v)?v:[p[k].min,p[k].max];let x=a+Math.random()*(b-a);if(p[k].step>=1)x=Math.round(x);s[k]=fmt(x)}store.set('params',saved);buildPanel();rebuild()};
+$('reset').onclick=()=>{delete saved[ui.kind];store.set('params',saved);buildPanel();rebuild()};
+$('copy').onclick=()=>{const t=$('code').textContent.split('\n')[0];(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>{$('copy').textContent='Kopiert';setTimeout(()=>$('copy').textContent='Kopier',1200)}).catch(()=>{})};
+$('toggle').onclick=()=>{const c=$('panel').classList.toggle('closed');$('toggle').textContent=c?'Vis':'Skjul';$('toggle').setAttribute('aria-expanded',!c)};
+
+/* ---------- kamera: dra for å snu, hjul eller to fingre for zoom, høyreklikk eller shift for å flytte ---------- */
+const cam=Object.assign({yaw:.7,pitch:.28,dist:12,tx:0,ty:3,tz:0},store.get('cam',{}));
+function aimCamera(){const h=current().h??3;cam.ty=Math.min(12,h*.5);cam.dist=Math.max(4,h*1.9+ui.space*(Math.sqrt(ui.count)-1));store.set('cam',cam)}
+const ptrs=new Map();let pan=false,pinch0=0;
+renderer.domElement.addEventListener('contextmenu',e=>e.preventDefault());
+renderer.domElement.addEventListener('pointerdown',e=>{renderer.domElement.setPointerCapture(e.pointerId);ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});pan=e.button===2||e.shiftKey;
+  if(ptrs.size===2){const[a,b]=[...ptrs.values()];pinch0=Math.hypot(a.x-b.x,a.y-b.y)}});
+renderer.domElement.addEventListener('pointermove',e=>{const p=ptrs.get(e.pointerId);if(!p)return;const dx=e.clientX-p.x,dy=e.clientY-p.y;p.x=e.clientX;p.y=e.clientY;
+  if(ptrs.size===2){const[a,b]=[...ptrs.values()],d=Math.hypot(a.x-b.x,a.y-b.y);if(pinch0)cam.dist=Math.max(1,Math.min(80,cam.dist*pinch0/d));pinch0=d}
+  else if(pan){const s=cam.dist*.0016,cy=Math.cos(cam.yaw),sy=Math.sin(cam.yaw);cam.tx-=(dx*cy)*s;cam.tz+=(dx*sy)*s;cam.ty+=dy*s}
+  else{cam.yaw-=dx*.006;cam.pitch=Math.max(-.2,Math.min(1.5,cam.pitch+dy*.005))}store.set('cam',cam)});
+const up=e=>{ptrs.delete(e.pointerId);if(ptrs.size<2)pinch0=0};
+renderer.domElement.addEventListener('pointerup',up);renderer.domElement.addEventListener('pointercancel',up);
+renderer.domElement.addEventListener('wheel',e=>{e.preventDefault();cam.dist=Math.max(1,Math.min(80,cam.dist*Math.exp(e.deltaY*.001)));store.set('cam',cam)},{passive:false});
+
+function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix()}
+addEventListener('resize',resize);
+let last=performance.now();
+function frame(now){requestAnimationFrame(frame);const dt=Math.min(.05,(now-last)/1000);last=now;if(ui.spin)cam.yaw+=dt*.25;
+  const cp=Math.cos(cam.pitch);camera.position.set(cam.tx+Math.sin(cam.yaw)*cp*cam.dist,cam.ty+Math.sin(cam.pitch)*cam.dist,cam.tz+Math.cos(cam.yaw)*cp*cam.dist);
+  camera.lookAt(cam.tx,cam.ty,cam.tz);renderer.render(scene,camera)}
+resize();applyLight();buildGround();buildPanel();rebuild();if(!store.get('cam',null))aimCamera();requestAnimationFrame(frame);
+window.PV={ui,cam,rebuild,buildPanel,aimCamera,buildGround,applyLight,saved};   // for skjermbilder og feilsøking
+})();
+</script>
+</body>
+</html>
