@@ -1,6 +1,6 @@
 // Bane: se README for hva feltene betyr. Rekkefølgen i menyen følger rekkefølgen i index.html.
 LEVELS.push(
-{ id:'skog', name:'Skogsstien', diff:2, seed:53, gates:10, size:120, coast:42, village:{at:[18.5,-32]},
+{ id:'skog', name:'Froland', diff:2, seed:53, gates:10, size:120, coast:42, village:{at:[18.5,-32]},
   desc:'Regn, stokker, to gjørmehull og en bekk du må vade over. Trestammene er enorme i denne skalaen.',
   sky:['#7d94a3','#c9c6b4'], fog:0xa9b39c, fogNear:14, fogFar:58, sun:0xe8e0cc, sunI:.7, hemi:[0xb9c8c4,0x3e4428,.7], sunDir:[18,22,-10], rockCol:'#7d8270', water:.02, waterCol:'#3f5a4a', rain:true, clouds:false, animals:{deer:[{at:[-16,-12],r:7,n:3}],rabbits:[{at:[14,10],r:6,n:4}],fish:[{at:[0,6],r:5,n:2}]},
   path:[[-27,-24],[-18,-26],[-8,-20],[-6,-10],[-16,-4],[-20,6],[-12,14],[-2,10],[6,2],[14,-6],[24,-4],[26,8],[18,18],[6,24],[-4,27]],
@@ -23,7 +23,7 @@ LEVELS.push(
     for(let i=0;i<600&&trunks.length<80;i++){const x=(R()-.5)*66,z=(R()-.5)*66,r=.5+R()*.75;if(Math.abs(z-def.stream(x))<r+2.6||!c.onLand(x,z))continue;
       if(c.dist(x,z)<r+2.3||c.nearGate(x,z,r+2.5)||c.nearStart(x,z,r+3))continue;if(trunks.some(t=>Math.hypot(t.x-x,t.z-z)<t.r+r+1.4))continue;
       trunks.push({x,z,r});c.colliders.push({x,z,r:r*1.05});rock(x,z,r*1.9,.32,{surf:S.BARK,sharp:1.8,nz:.2})}
-    c.secret(0,def.stream(0)+3,'Ved bekken');c.secret(-24,22,'Mellom de store trærne');c.secret(-37,0,'Stranden i vest');c.secret(36,10,'Østsiden');c.secret(11,-33,'Bak kaia');
+    c.secret(0,def.stream(0)+3,'Ved bekken');c.secret(-24,22,'Mellom de store trærne');c.secret(-37,0,'Stranden i øst');c.secret(36,10,'Vestsiden');c.secret(11,-33,'Bak kaia');
     c.finish();
     instanced(DG.trunk,DM.bark,trunks.map(t=>({x:t.x,y:H(t.x,t.z)+11.6,z:t.z,sx:t.r,sy:24,sz:t.r,ry:R()*6,c:mix('#5a4331','#6e5440',R())})),c.decor);
     const ferns=[];for(let i=0;i<700&&ferns.length<260;i++){const x=(R()-.5)*66,z=(R()-.5)*66;if(c.dist(x,z)<1.9||Math.abs(z-def.stream(x))<1.8||!c.onLand(x,z))continue;const s=.25+R()*.4;

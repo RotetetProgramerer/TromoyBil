@@ -1,5 +1,5 @@
-// Sandglow-øya: åpen verden (120 × 120). Fri kjøring med basen i midten og sju løyper spredt rundt på øya.
-// Biomer: regnskog i vest, sump i sørvest, strand i sør, canyon/ørken i øst, snøfjell i nord. Bekken renner fra tjernet
+// Tromøya: åpen verden (120 × 120). Fri kjøring med basen i midten og sju løyper spredt rundt på øya.
+// Biomer: regnskog i øst, sump i sørøst, strand i sør, canyon/ørken i vest, snøfjell i nord. Bekken renner fra tjernet
 // på fjellet, over fossen, gjennom canyonen og ut i havet. Løypene registreres med c.course(...) og testes hver for seg:
 //   node tools/test-levels.js verden
 (function(){
@@ -17,7 +17,7 @@ const SW=[-24,-22], SW_R=12;                                       // sumpen
 const dSw=(x,z)=>Math.hypot(x-SW[0],z-SW[1]);
 const inDesert=(x,z)=>x>14&&z>-30&&rM(x,z)>21;
 const inJungle=(x,z)=>x<-10&&z<16&&rM(x,z)>22&&dSw(x,z)>SW_R+2;
-// bekken: tjern på fjellet → foss → canyon (oase) → havet i øst
+// bekken: tjern på fjellet → foss → canyon (oase) → havet i vest
 const TARN=polM(8.5,22);
 const STREAM=[TARN,polM(10.2,20),polM(12,17),polM(13.4,14),polM(15.6,12),polM(18.5,8),[20,22],[27,17],[33,11],[38,2],[44,-5],[50,-11],[56,-15]];
 const CLIFF=(x,z)=>{const r=rM(x,z),a=aM(x,z);return smt((13.6-r)/1.4)*smt((r-12)/1.0)*smt((a-2)/8)*smt((26-a)/8)};
@@ -28,31 +28,32 @@ const GLACIER=(x,z)=>{const r=rM(x,z),a=aM(x,z);return smt((a-62)/6)*smt((120-a)
 const CH=[
  {id:'jungel',name:'Jungelstien',diff:1,gates:8,desc:'Gjørmesti under urgamle trær. Papegøyer og aper følger med.',
   path:[[-22,-8],[-27,-12],[-33,-8],[-38,0],[-34,7],[-27,6],[-21,1],[-18,-3]],surf:S.DIRT,skip:S.MUD},
- {id:'sump',name:'Sumpen',diff:2,gates:8,needs:{courses:1},desc:'Dyp gjørme, siv og tåke. Hold farten oppe, ellers synker du.',
+ {id:'sump',name:'Sumpen',diff:2,gates:8,desc:'Dyp gjørme, siv og tåke. Hold farten oppe, ellers synker du.',
   path:[[-14,-22],[-19,-27],[-24,-31],[-30,-27],[-32,-20],[-27,-15],[-20,-17]],surf:S.MUD,hw:1.3},
  {id:'strand',name:'Strandsprinten',diff:1,gates:10,desc:'Høyt gir langs vannkanten, med tre hopp. Måkene letter når du kommer.',
   path:[[-8,-38],[0,-40],[8,-39],[16,-40],[24,-38],[29,-34]],surf:S.SAND},
- {id:'canyon',name:'Canyonkrabbingen',diff:3,gates:10,needs:{courses:3},desc:'Rød stein, trange passasjer og en oase. Lavt gir og tålmodighet.',
+ {id:'canyon',name:'Canyonkrabbingen',diff:3,gates:10,desc:'Rød stein, trange passasjer og en oase. Lavt gir og tålmodighet.',
   path:[[24,-20],[30,-16],[34,-9],[39,-2],[36,6],[30,3],[26,-5],[22,-12]],surf:S.GRAVEL,hw:1.1},
- {id:'is',name:'Issvingen',diff:2,gates:10,needs:{courses:3},desc:'Ned isbreen på nordsiden og opp igjen gjennom snøen. Glatt som såpe. Avkjøring fra Toppturen.',
+ {id:'is',name:'Issvingen',diff:2,gates:10,desc:'Ned isbreen på nordsiden og opp igjen gjennom snøen. Glatt som såpe. Avkjøring fra Toppturen.',
   path:[polM(17.6,66),polM(19,74),polM(21.5,82),polM(22.6,92),polM(22.2,102),polM(21.4,110),polM(20.6,116),polM(18.6,118),polM(17.2,112),polM(17,102)],hw:1.3},
- {id:'topp',name:'Toppturen',diff:3,gates:14,needs:{courses:5,nuts:200},desc:'Spiralveien til toppen: over hengebroa ved fossen, gjennom snøen og opp på selve tinden.',
+ {id:'topp',name:'Toppturen',diff:3,gates:14,desc:'Spiralveien til toppen: over hengebroa ved fossen, gjennom snøen og opp på selve tinden.',
   path:(()=>{const p=[[0,6]];for(let d=-80;d<=380;d+=12){const r=20-15.2*(d+80)/460;p.push(polM(r,d))}p.push(polM(2.5,400),polM(1,440));return p})(),hw:1.3,blend:1.8},
- {id:'natt',name:'Nattløpet',diff:2,gates:8,night:true,needs:{courses:1},desc:'En kort runde rundt basen etter mørkets frembrudd. Lysene på!',
+ {id:'natt',name:'Nattløpet',diff:2,gates:8,night:true,desc:'En kort runde rundt basen etter mørkets frembrudd. Lysene på!',
   path:[[6,-13],[12,-17],[9,-25],[0,-27],[-8,-21],[-5,-15],[1,-13]],surf:S.GRAVEL},
 ];
 // hovedveiene fra basen ut til løypene
 const ROADS=[
  [[0,-10],[0,-1],[0,6]],                     // nord: Toppturen
- [[-6,-8],[-14,-8],[-22,-8]],                // vest: Jungelstien
- [[-5,-11],[-10,-17],[-14,-22]],             // sørvest: Sumpen
+ [[-6,-8],[-14,-8],[-22,-8]],                // øst: Jungelstien
+ [[-5,-11],[-10,-17],[-14,-22]],             // sørøst: Sumpen
  [[1,-13],[-2,-28],[-6,-34],[-8,-38]],        // sør: stranden
- [[7,-9],[16,-13],[24,-20]],                  // øst: canyonen
+ [[7,-9],[16,-13],[24,-20]],                  // vest: canyonen
  [[29,-34],[31,-29],[28,-24],[24,-20]],        // kystveien mellom stranden og canyonen
+ [[-12,-8],[-13,-2],[-16,5],[-20,11],[-23.5,16.5],[-26.5,22.1]],   // nordøst: langs jungelen til marinaen
 ];
 
 LEVELS.push(
-{ id:'verden', name:'Sandglow-øya', diff:2, seed:4242, size:120, world:true,
+{ id:'verden', name:'Tromøya', diff:2, seed:4242, size:120, world:true,
   desc:'Hele øya i fri kjøring. Basen i midten, sju løyper rundt omkring. Kjør bort til en startstrek for å begynne.',
   start:[0,-11,0],
   // kaldt lys på fjellet …
@@ -65,7 +66,8 @@ LEVELS.push(
   snow:true, precip:(x,z)=>Math.max(smt((12.5-rM(x,z))/5),GLACIER(x,z)), wind:true, ambience:'jungle',
   biome:(x,z)=>{const r=rM(x,z);return{snow:smt((15-r)/5),jungle:inJungle(x,z)?1:0,swamp:smt((SW_R+4-dSw(x,z))/6),beach:smt((Math.hypot(x,z)-(isl(x,z)-12))/5),desert:inDesert(x,z)?1:0}},
   path:[[0,-10],[4,-7],[0,-3],[-4,-7],[0,-10]], challenges:CH, roads:ROADS, basePos:BASE, garageAt:[BASE[0],BASE[1]-.2], village:{at:[29.1,24.4],out:165},
-  mapLabels:[[-30,-2,'Jungelen'],[-24,-30,'Sumpen'],[8,-45,'Stranden'],[36,-14,'Canyonen'],[-4,24,'Snøfjellet'],[0,-6,'Basen'],[33,12,'Oasen'],[31,30,'Landsbyen'],[-1,46,'Isbreen']],
+  marina:{at:[-36.5,30.5]},   // Captain Theis' marina: parker på den blå ruta, så kan du låne en motorbåt (js/boat.js)
+  mapLabels:[[-30,-2,'Jungelen'],[-24,-30,'Sumpen'],[8,-45,'Stranden'],[36,-14,'Canyonen'],[-4,24,'Snøfjellet'],[0,-6,'Basen'],[33,12,'Oasen'],[31,30,'Landsbyen'],[-1,46,'Isbreen'],[-41,37,'Marinaen']],
   animals:{parrots:14,circling:3,monkeys:9,butterflies:40,crabs:10,crabsAt:[-4,-41],eagle:M,bear:[polM(19,150),polM(21,120)],gulls:{at:[12,-41],n:7},
     deer:[{at:[-18,10],r:7,n:3},{at:[14,20],r:6,n:2}],rabbits:[{at:[-10,-14],r:6,n:4},{at:[10,-30],r:5,n:3}],fish:[{at:[33,11],r:2.5,n:2},{at:[26,34],r:6,n:3},{at:[-8,-44],r:6,n:2}],lizards:[{at:[34,-12],r:8,n:6}]},
   base(x,z,n){const r=rM(x,z),ri=isl(x,z),R=Math.hypot(x,z),ds=lineD(STREAM,x,z),sw=dSw(x,z);
@@ -146,7 +148,7 @@ LEVELS.push(
       const red=inDesert(x,z);rock(x,z,r,h*(rr<16?1.1:red?.9:.6),{ang:R()*6.3,ax,surf:rr<11?S.SNOW:red?S.REDROCK:S.ROCK});if(r>1.0)c.anchor(x,z)}
     for(let i=0;i<30;i++){const t=.3+R()*.68,p=topp.P(t),s=topp.side(t),b=(R()-.5)*2.2;if(topp.nearGate(p.x,p.z,1.4)||lineD(STREAM,p.x,p.z)<4)continue;rock(p.x+s.x*b,p.z+s.z*b,.3+R()*.3,.14+R()*.18,{ang:R()*6.3})}
     for(let i=0;i<10;i++){const t=.8+R()*.17,p=topp.P(t),tn=topp.T(t);if(topp.nearGate(p.x,p.z,1.4))continue;rock(p.x+tn.x*(R()-.5),p.z+tn.z*(R()-.5),.9+R()*.6,.06+R()*.05,{ang:topp.ang(t)+1.57,ax:2.2,sharp:1.2,nz:.15,surf:S.SNOW})}
-    // --- trær: regnskog i vest, før finish ---
+    // --- trær: regnskog i øst, før finish ---
     const slope=(x,z)=>Math.abs(H(x+.5,z)-H(x-.5,z))+Math.abs(H(x,z+.5)-H(x,z-.5));
     const trunkOK=(x,z,r,minPath)=>!(near(x,z,minPath)||c.nearGate(x,z,2.2)||Math.hypot(x,z)>isl(x,z)-8||lineD(STREAM,x,z)<3.2||c.pools.some(p=>Math.hypot(p.x-x,p.z-z)<p.r+1.2)||c.trees.some(t=>Math.hypot(t.x-x,t.z-z)<r+t.r+1.6)||slope(x,z)>.4);
     for(let i=0;i<9000&&c.trees.length<150;i++){const x=-50+R()*44,z=-44+R()*60;if(!inJungle(x,z)||!trunkOK(x,z,.3,2.4))continue;c.tree(x,z,{h:4.5+R()*4,r:.2+R()*.18})}
@@ -194,10 +196,19 @@ LEVELS.push(
     for(let i=0;i<36;i++){const a=R()*6.28,d=4+R()*9,x=M[0]+Math.cos(a)*d,z=M[1]+Math.sin(a)*d;c.fx.push({type:'mist',x,z,y:H(x,z)+.8+R()*.8,s:4+R()*5})}
     // --- drivved på stranden ---
     for(let i=0;i<16;i++){const a=R()*6.28,Rr=isl(0,0)-9+R()*3,x=Math.cos(a)*Rr,z=Math.sin(a)*Rr;if(c.dist(x,z)<1.6||H(x,z)<def.water+.1)continue;const b=R()*6.28,len=.8+R()*1.4;log(x,z,x+Math.sin(b)*len,z+Math.cos(b)*len,.06+R()*.05,S.BARK,()=>'#9a8468')}
+    // --- jungelens planter og dyr (data/vegetasjon.js, data/dyr.js) ---
+    const jg=[-28,-14],JR=26,inJ=(x,z)=>inJungle(x,z)&&lineD(STREAM,x,z)>3;
+    c.sow('jungel_kapok',5,jg,JR,{r:.5,gap:8,ok:inJ,p:R=>({s:1+R()*.5,lianer:1+Math.floor(R()*3)})});
+    c.sow('jungel_bregnetre',12,jg,JR,{r:.3,gap:2.5,ok:inJ,p:R=>({s:.8+R()*.5})});
+    c.sow('jungel_banan',14,jg,JR,{r:.3,gap:2,ok:inJ,p:R=>({s:.8+R()*.4,klase:R()<.4?1:0})});
+    c.sow('jungel_jaguar',2,jg,JR,{r:.5,gap:12,ok:inJ,p:R=>({svart:R()<.3?1:0})});
+    c.sow('jungel_dovendyr',2,jg,JR,{r:.8,gap:8,ok:inJ,p:R=>({unge:R()<.5?1:0})});
+    c.sow('jungel_tukan',4,jg,JR,{r:.2,gap:5,ok:inJ});
+    c.sow('jungel_giftfrosk',6,jg,JR,{r:.15,gap:3,ok:inJ,p:R=>({farge:Math.floor(R()*3)})});
     c.props();
     c.pebbles(1400,['#6f6a63','#8a847a','#4f4a44'],.04,.11);
     c.tufts(160,['#4d7a2f','#6b9a3c']);
-    c.bushes(90,['#3e7a34','#4f8f3c','#2f6a2c','#6a9a40'],(x,z)=>{const r=rM(x,z);return r>16&&!inDesert(x,z)&&dSw(x,z)>SW_R+2&&Math.hypot(x,z)<isl(x,z)-9&&surfAt(x,z)===S.GRASS});
+    c.bushes(90,['#3e7a34','#4f8f3c','#2f6a2c','#6a9a40'],(x,z)=>{const r=rM(x,z);return r>16&&!inDesert(x,z)&&dSw(x,z)>SW_R+2&&Math.hypot(x,z)<isl(x,z)-9&&surfAt(x,z)===S.GRASS},{soft:true});   // de grønne buskene kan du kjøre gjennom
     c.bushes(30,['#8a8a4a','#9a9a5a','#6a7a3a'],(x,z)=>inDesert(x,z)&&Math.hypot(x,z)<isl(x,z)-9);
     c.mushrooms(60,(x,z)=>inJungle(x,z));c.shells(220);
   }}

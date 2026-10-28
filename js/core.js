@@ -112,8 +112,8 @@ function surfColor(s,x,z,n,def){
     case S.SAND:return mix('#b58a46','#d2ab66',v*.7+w*.3);
     case S.ROCK:{const b=col(def.rockCol||'#9a948a'),f=.76+w*.32+v*.12;return[b[0]*f,b[1]*f,b[2]*f]}
     case S.GRAVEL:return mix('#776f62','#a1998b',v*.5+w*.5);
-    case S.DIRT:return mix('#5b412b','#80603f',v*.6+w*.4);
-    case S.GRASS:return mix('#4b6629','#7f9441',v*.7+w*.3);
+    case S.DIRT:return def.dirtCol?mix(def.dirtCol[0],def.dirtCol[1],v*.6+w*.4):mix('#5b412b','#80603f',v*.6+w*.4);   // def.dirtCol/grassCol: the level's own colours (red earth and golden grass on Løveøya)
+    case S.GRASS:return def.grassCol?mix(def.grassCol[0],def.grassCol[1],v*.7+w*.3):mix('#4b6629','#7f9441',v*.7+w*.3);
     case S.MUD:return mix('#3c2f22','#574431',w);
     case S.BOG:return mix('#2a2016','#3f3024',w*.6+v*.4);
     case S.BARK:return mix('#47321f','#6c4b31',w);
@@ -132,11 +132,12 @@ function surfColor(s,x,z,n,def){
 /* ---------- levels ---------- */
 const LEVELS=[]; // fylles av data/levels/*.js
 
-function benchPts(P,hw,blend){
+// levels the ground across a line. tilt (0–1) keeps that part of the slope across the line, so a ski piste on a mountainside may lean a little
+function benchPts(P,hw,blend,tilt=0){
   const hs=P.map(p=>Hterr(p.x,p.z)),sm=hs.map((_,i)=>{let a=0,m=0;for(let k=-8;k<=8;k++){const j=i+k;if(j>=0&&j<hs.length){a+=hs[j];m++}}return a/m});
   const best=new Float32Array(N*N).fill(1e9),bi=new Int32Array(N*N).fill(-1),R=hw+blend;
   for(let i=0;i<P.length;i+=2){const p=P[i];cellsIn(p.x-R,p.z-R,p.x+R,p.z+R,(k,px,pz)=>{const d=Math.hypot(px-p.x,pz-p.z);if(d<best[k]){best[k]=d;bi[k]=i}})}
-  for(let k=0;k<N*N;k++){if(bi[k]<0||best[k]>=R)continue;const d=best[k],f=d<=hw?1:1-(d-hw)/blend,w=f*f*(3-2*f);TH[k]+=(sm[bi[k]]-TH[k])*w}}
+  for(let k=0;k<N*N;k++){if(bi[k]<0||best[k]>=R)continue;const d=best[k],f=d<=hw?1:1-(d-hw)/blend,w=f*f*(3-2*f),i=bi[k];TH[k]+=(sm[i]+tilt*Math.max(-hw,Math.min(hw,TH[k]-hs[i]))-TH[k])*w}}
 function carveLava(s){
   const best=new Float32Array(N*N).fill(1e9),bi=new Int32Array(N*N).fill(-1);
   s.forEach((p,i)=>{const R=p.hw+.8;cellsIn(p.x-R,p.z-R,p.x+R,p.z+R,(k,px,pz)=>{const d=Math.hypot(px-p.x,pz-p.z)-p.hw;if(d<best[k]){best[k]=d;bi[k]=i}})});
@@ -172,7 +173,7 @@ function genLevel(def){
   const coast=def.coast||0;if(coast&&!def._coastBand){const ob=def.waterBand,had=def.water!=null;def._coastBand=true;if(!had)def.water=.3;def.waterBand=(x,z)=>Math.hypot(x,z)>coast-5||(ob?ob(x,z):had)}   // a level without water of its own only gets the sea ring
   const wsea=def.water;
   for(let j=0;j<N;j++)for(let i=0;i<N;i++){const k=j*N+i,x=-HALF+i*CELL,z=-HALF+j*CELL;let h=def.base(x,z,n),sf=def.surf(x,z,n);
-    if(coast){const R=Math.hypot(x,z),kk=smt01((R-coast+3)/6);if(kk>0)h+=((wsea-1.8)-h)*kk;if(R>coast-7&&h>wsea-.05)sf=def.beachSurf??S.SAND}
+    if(coast){const R=Math.hypot(x,z),ex=def.landExtra?def.landExtra(x,z):0,kk=smt01((R-coast+3)/6)*(1-ex);if(kk>0)h+=((wsea-1.8)-h)*kk;if(R>coast-7&&h>wsea-.05&&ex<.5)sf=def.beachSurf??S.SAND}   // landExtra(x,z): 0–1, land built out past the coast (Trinnvik's airport)
     TH[k]=h;TS[k]=sf}
   TB.set(TH);
   const curve=new THREE.CatmullRomCurve3(def.path.map(p=>new V3(p[0],0,p[1])),false,'centripetal');
@@ -264,6 +265,10 @@ function genLevel(def){
         cellsIn(p.x-.7,p.z-.7,p.x+.7,p.z+.7,(k,px,pz)=>{const b=Math.abs((px-p.x)*tz-(pz-p.z)*tx),a=Math.abs((px-p.x)*tx+(pz-p.z)*tz);if(a>L*.6)return;const d=Math.abs(b-.4);if(d>.14)return;
           const w=1-(d/.14)**2;TH[k]-=depth*w*(.8+.4*G.noise(px*3,pz*3))})}},
     steam:(x,z,y,s=.45)=>c.fx.push({type:'smoke',x,z,y:y??H(x,z),small:s}),
+    // a plant or an animal from PROPS (data/vegetasjon.js, data/dyr.js): c.plant('jungel_kapok',x,z,{s:1.2}). Colliders now, drawn after build (js/props.js).
+    plantList:[],plant:(name,x,z,o)=>plantProp(c,name,x,z,o),plants:()=>buildProps(c),
+    // c.sow('subtrop_agave',12,[x,z],radius,{r,gap,ok,p}): scatter props on free spots (see js/props.js). plantOK(x,z,r): is the spot free?
+    sow:(name,n,at,rad,o)=>sowProps(c,name,n,at,rad,o),plantOK:(x,z,r=.5)=>propSpotOK(c,x,z,r),
     // a jungle tree: trunk with buttress roots, branches, canopy and moss. Returns the tree (perches for animals are collected in c.perches)
     trees:[],perches:[],
     tree(x,z,o={}){const t={x,z,h:o.h??(5+rng()*4),r:o.r??(.18+rng()*.16),lean:o.lean??(rng()-.5)*.14,ry:rng()*6.28,moss:o.moss??rng()<.75,kind:o.kind||'jungle',branches:[]};
@@ -337,6 +342,41 @@ function genLevel(def){
       const F0=at(11.2,0),F1=at(18.0,0);const fd=c.bridge(F0[0],F0[1],F1[0],F1[1],1.55,{sag:0,y0:padH+.03,y1:padH+.03,pier:true,ferry:true});
       const fc=at(14.6,0);c.ferry={x:fc[0],z:fc[1],dir:a,dx,dz,y:padH+.04,len:6.8,hw:1.55,quay:{x:A[0],z:A[1]},pad:{x:vx,z:vz,h:padH},deck:fd};
       c.village_=o;return c.ferry},
+    // a marina where you can borrow a motorboat (see README: «Marinaen og båtløpet»): a pad by the shore with a boathouse, a fuel pump,
+    // a plank pier on piles and boats moored beside it. Park on the blue square to be asked. o.at=[x,z] on the beach; o.dir (degrees) points
+    // out to sea (default: away from the island's centre), o.out is the way inland. The rental boat, life rings and flag are drawn by js/boat.js.
+    marina(o){const vx=o.at[0],vz=o.at[1],a=(o.dir??Math.atan2(vz,vx)/Math.PI*180)*Math.PI/180,dx=Math.cos(a),dz=Math.sin(a),px=-dz,pz=dx,w=def.water??0,yaw=Math.atan2(dx,dz);
+      const padH=w+.9,at=(f,s)=>[vx+dx*f+px*s,vz+dz*f+pz*s];c.flat(vx,vz,4.8,padH,3);c.block(vx,vz,6.5);for(let k=-5;k<=5;k+=2)for(let m=-5;m<=5;m+=2)if(Math.hypot(k,m)<5.5)c.xpts.push({x:vx+k,z:vz+m});
+      paint(vx,vz,4.6,S.GRAVEL);
+      // the way inland, levelled like the village road. The pad is steep towards the sea (blend 3), so the water is deep a few steps out.
+      const oa=(o.out??(a/Math.PI*180+180))*Math.PI/180,ox=Math.cos(oa),oz=Math.sin(oa);
+      c.road([[vx+ox*1.5,vz+oz*1.5],[vx+ox*7,vz+oz*7],[vx+ox*13,vz+oz*13]],{hw:1.4,blend:2.2,surf:S.GRAVEL});c.flat(vx,vz,4.8,padH,3);
+      // the pier: a straight plank deck on piles, with a stop at the end so the car does not drive into the sea
+      const S0=-1.2,A=at(4.4,S0),B=at(12.4,S0);c.bridge(A[0],A[1],B[0],B[1],1.0,{sag:0,y0:padH+.02,y1:padH+.02,pier:true});
+      for(let f=5.2;f<12.4;f+=1.6)for(const sd of[-.85,.85]){const[qx,qz]=at(f,S0+sd);const bottom=Math.min(Hterr(qx,qz),w-.2);c.cyl(qx,bottom,qz,.08,padH-bottom+.1,'#4a3a2a')}
+      {const[ex,ez]=at(12.25,S0);c.box(ex,padH,ez,2.0,.3,.16,'#d9432f',yaw);c.colliders.push({x:ex,z:ez,w:2.1,d:.3,ry:yaw})}
+      for(const f of[6.0,9.2])for(const sd of[-.92,.92]){const[qx,qz]=at(f,S0+sd);c.cyl(qx,padH,qz,.06,.16,'#1d1c1a')}   // bollards
+      // the boathouse: red walls, a dark roof, big doors towards the water and the sign over them on the land side
+      {const[hx,hz]=at(1.0,3.2),W=2.5,D=2.8,Hh=1.25;c.box(hx,padH,hz,W,Hh,D,'#b5432f',yaw);c.box(hx,padH,hz,W+.1,.08,D+.1,'#3a3a3a',yaw);
+        for(const sd of[-1,1]){const o2=sd*W*.25;c.box(hx+Math.cos(yaw)*o2,padH+Hh+.24,hz-Math.sin(yaw)*o2,W*.66,.08,D+.3,'#2f2a28',yaw,{rz:-sd*.62})}
+        c.box(hx+Math.sin(yaw)*D/2,padH,hz+Math.cos(yaw)*D/2,W*.7,Hh*.86,.05,'#5a3a22',yaw);c.box(hx+Math.sin(yaw)*D/2,padH+Hh*.86,hz+Math.cos(yaw)*D/2,W*.8,.08,.07,'#f2e8d0',yaw);
+        for(const sd of[-1,1])c.box(hx+Math.cos(yaw)*sd*W/2,padH+.5,hz-Math.sin(yaw)*sd*W/2,.03,.32,.5,'#1a262d',yaw);
+        c.colliders.push({x:hx,z:hz,w:W+.04,d:D+.04,ry:yaw,anchor:true,y:padH+.5})}
+      {const[sx,sz]=at(-1.0,3.2);c.fx.push({type:'sign',x:sx,z:sz,ang:Math.atan2(-dx,-dz),text:'CAPTAIN THEIS',sub:'båtutleie · motorbåtløp',w:1.9})}
+      // the fuel pump at the root of the pier, lamps, barrels
+      {const[fx,fz]=at(3.5,.7);c.box(fx,padH,fz,.34,.62,.26,'#d9432f',yaw);c.box(fx,padH+.62,fz,.3,.12,.22,'#1d1c1a',yaw);c.box(fx+Math.sin(yaw)*.14,padH+.34,fz+Math.cos(yaw)*.14,.18,.14,.03,'#f2e8d0',yaw);c.colliders.push({x:fx,z:fz,r:.24})}
+      for(const[f,s]of[[3.8,-2.5],[-2.6,-.4]]){const[lx,lz]=at(f,s);c.cyl(lx,padH,lz,.05,1.5,'#3a3a3a');c.box(lx,padH+1.45,lz,.22,.16,.22,'#fff0c0');c.colliders.push({x:lx,z:lz,r:.1,anchor:true,y:padH+.6})}
+      for(const[f,s,col]of[[-1.7,4.1,'#5a7a8a'],[-2.1,3.7,'#e5a92b']]){const[bx2,bz2]=at(f,s);c.cyl(bx2,padH,bz2,.17,.42,col);c.colliders.push({x:bx2,z:bz2,r:.2})}
+      // boats moored on the far side of the pier
+      for(const[f,col]of[[8.4,'#e9dcb9'],[10.7,'#4f7bb5']]){const[qx,qz]=at(f,S0+1.85);c.box(qx,w-.1,qz,.66,.36,1.8,col,yaw);c.box(qx,w+.26,qz,.6,.04,1.5,'#f2e8d0',yaw);c.box(qx+Math.sin(yaw)*.1,w+.3,qz+Math.cos(yaw)*.1,.34,.22,.24,'#1a262d',yaw)}
+      // the blue square: park here and you are asked whether you want to take the boat out
+      const Q=at(1.8,-3.0);c.box(Q[0],padH+.004,Q[1],1.9,.012,1.6,'#2f6fd6',yaw);
+      {const[sx,sz]=at(.4,-4.6);c.fx.push({type:'sign',x:sx,z:sz,ang:Math.atan2(-dx,-dz),text:'MARINA',sub:'kjør inn på den blå ruta'})}
+      // posts for the life rings and the flag (their colliders here, the rings and the flag in js/boat.js)
+      const post=(f,s,ry)=>{const[rx,rz]=at(f,s);c.colliders.push({x:rx,z:rz,r:.08});return{x:rx,z:rz,y:padH+.02,ry}};
+      c.marinaDef={x:vx,z:vz,dir:a,dx,dz,yaw,padH,water:w,ask:{x:Q[0],z:Q[1]},boat:(([bx,bz])=>({x:bx,z:bz}))(at(8.0,-3.4)),flag:post(-2.4,-2.8,yaw),
+        rings:[post(7.6,S0-.95,yaw+Math.PI/2),post(11.0,S0+.95,yaw-Math.PI/2),post(2.9,1.9,yaw)]};
+      return c.marinaDef},
     // ---- winter pieces (see README: «Gautefall: vinterøya og skianlegget») ----
     // a spruce with snow on its branches: a trunk and three or four stacked cones, each with a white cap. c.spruces() builds them all (after c.finish).
     spruceList:[],
@@ -348,25 +388,33 @@ function genLevel(def){
           nd.push({x:t.x,y:yb,z:t.z,sx:r,sy:ch,sz:r,ry,c:col});
           sn.push({x:t.x,y:yb+ch*(1-t.snow*.62),z:t.z,sx:r*t.snow*.66,sy:ch*t.snow*.64,sz:r*t.snow*.66,ry:ry+.5,c:'#f1f5f8'})}}
       instanced(DG.trunk,DM.bark,tr,c.decor);instanced(DG.fern,DM.white,nd,c.decor);instanced(DG.fern,DM.white,sn,c.decor,false);c.spruceList=[]},
-    // a ski piste: its own line from the start up the mountain (t=0) to the finish (t=1), levelled across like a groomed slope, painted with
-    // corduroy, marked in TG (the skier glides better there) and kept clear of trees. p={id,name,desc,diff,kind:'fri'|'slalom'|'utfor'|'hopp',
-    // path,gates:[[x,z],...] (the last one is the finish),hw,blend,gw (half width of a gate),ice:[[t0,t1],...]}. Jumps: c.kicker after this.
+    // a ski piste: its own line from the start up the mountain (t=0) to the finish (t=1), levelled across like a groomed slope, marked in TG
+    // (the skier glides better there) and kept clear of trees. The corduroy itself is drawn on top by the game (js/skiresort.js).
+    // p={id,name,desc,diff,kind:'fri'|'slalom'|'utfor'|'hopp',path,gates:[[x,z],...] (the last one is the finish),hw,blend,tilt,berm,gw (half width
+    // of a gate),ice:[[t0,t1],...],nets}. tilt: how much of the mountainside the piste keeps across (0 = dead level, default .22).
+    // berm: the low bank of snow the groomer leaves along both edges (default .07). Jumps: c.kicker after this, bumps: c.moguls.
     pistes:[],
-    piste(p){const k=makeLine(p.path),hw=p.hw??2.2;Object.assign(k,{id:p.id,name:p.name,desc:p.desc,diff:p.diff||1,kind:p.kind||'fri',def:p,hw,kickers:[]});k.len=k.pts.reduce((s,q,i,P)=>i?s+Math.hypot(q.x-P[i-1].x,q.z-P[i-1].z):0,0);
-      benchPts(k.pts,hw,p.blend??2.4);
+    piste(p){const k=makeLine(p.path),hw=p.hw??2.2;Object.assign(k,{id:p.id,name:p.name,desc:p.desc,diff:p.diff||1,kind:p.kind||'fri',def:p,hw,kickers:[],moguls:[],nets:[],ice:p.ice||[]});k.len=k.pts.reduce((s,q,i,P)=>i?s+Math.hypot(q.x-P[i-1].x,q.z-P[i-1].z):0,0);
+      const R=hw+1.4,near=new Map(),n=k.pts.length,berm=p.berm??.07;   // the nearest point of the line and the side of it, for every cell under the piste
+      for(let i=0;i<n;i++){const q=k.pts[i];cellsIn(q.x-R,q.z-R,q.x+R,q.z+R,(kk,px,pz)=>{const d=Math.hypot(px-q.x,pz-q.z);if(d>R)return;const b=near.get(kk);if(!b||d<b[0])near.set(kk,[d,i,px,pz])})}
+      benchPts(k.pts,hw,p.blend??2.4,p.tilt??.22);
+      // the levelling gives every cell the height of the nearest point of the line, which leaves steps where the line bends back on itself
+      // (hairpins, slalom swings). A few passes of blur over the piste turn them into gentle slopes, like a groomed surface.
+      {const cells=[];for(const[kk,v]of near)if(v[0]<=hw+.8)cells.push(kk);const tmp=new Float32Array(cells.length);
+        for(let pass=0;pass<6;pass++){cells.forEach((kk,m)=>{const i=kk%N,j=(kk/N)|0;let a=0,c2=0;for(let dj=-2;dj<=2;dj++)for(let di=-2;di<=2;di++){const ii=i+di,jj=j+dj;if(ii<0||jj<0||ii>=N||jj>=N)continue;a+=TH[jj*N+ii];c2++}tmp[m]=a/c2});cells.forEach((kk,m)=>{TH[kk]=tmp[m]})}}
       const gw=p.gw??(k.kind==='slalom'?.75:Math.min(1.9,hw-.3));
       k.gates=(p.gates||[]).map((q,i,L)=>{const t=k.tOf(q[0],q[1]),tn=k.T(t),s=k.side(t),fin=i===L.length-1,w=fin?hw-.15:gw;
         return{t,c:{x:q[0],z:q[1]},tan:tn,side:s,a:{x:q[0]+s.x*w,z:q[1]+s.z*w},b:{x:q[0]-s.x*w,z:q[1]-s.z*w},w,finish:fin,col:k.kind==='slalom'?(i%2?'#2f6fd6':'#d9432f'):'#e5a92b'}});
       k.start={p:k.P(0),tan:k.T(.004)};
       for(let i=0;i<k.pts.length;i+=2)c.xpts.push(k.pts[i]);
-      // grooming: the nearest point of the line and the side of it, for every cell under the piste
-      const R=hw+1.4,near=new Map(),n=k.pts.length;
-      for(let i=0;i<n;i++){const q=k.pts[i];cellsIn(q.x-R,q.z-R,q.x+R,q.z+R,(kk,px,pz)=>{const d=Math.hypot(px-q.x,pz-q.z);if(d>R)return;const b=near.get(kk);if(!b||d<b[0])near.set(kk,[d,i,px,pz])})}
-      const icy=t=>(p.ice||[]).some(r=>t>=r[0]&&t<=r[1]);
-      for(const[kk,[d,i,px,pz]]of near){const q=k.pts[i],q2=k.pts[Math.min(n-1,i+1)],q1=k.pts[Math.max(0,i-1)];let tx=q2.x-q1.x,tz=q2.z-q1.z;const tl=Math.hypot(tx,tz)||1;tx/=tl;tz/=tl;
-        const lat=(px-q.x)*tz-(pz-q.z)*tx,stripe=Math.floor((lat+20)/.24)%2,nz=G.noise(px*2.3,pz*2.3);
-        if(d<=hw){TG[kk]=1;if(icy(i/(n-1))){TS[kk]=S.ICE;setC(kk,mix('#bcd3e0','#dbe8f0',nz*.7+stripe*.2))}else{TS[kk]=S.SNOW;setC(kk,mix('#e6edf3','#f7fafc',stripe*.6+nz*.35))}}
-        else{if(TS[kk]===S.ROCK||TS[kk]===S.GRAVEL)TS[kk]=S.SNOW;if(TS[kk]===S.SNOW||TS[kk]===S.ICE)setC(kk,mix('#d6dfe7','#e9eff4',nz))}}   // the snow bank along the edge, never bare rock
+      // grooming: snow (or ice) on the piste, a soft bank of snow along the edges
+      const icy=t=>k.ice.some(r=>t>=r[0]&&t<=r[1]);
+      for(const[kk,[d,i,px,pz]]of near){const nz=G.noise(px*2.3,pz*2.3);
+        if(d<=hw){TG[kk]=1;if(icy(i/(n-1))){TS[kk]=S.ICE;setC(kk,mix('#b4cddb','#d4e4ee',nz*.8))}else{TS[kk]=S.SNOW;setC(kk,mix('#e8eef3','#f7fafc',nz*.6))}}
+        else{if(TS[kk]===S.ROCK||TS[kk]===S.GRAVEL)TS[kk]=S.SNOW;if(TS[kk]===S.SNOW||TS[kk]===S.ICE)setC(kk,mix('#dde5ec','#f1f5f8',nz));   // the snow bank along the edge, never bare rock
+          const u=(d-hw)/.9;if(u<1)TH[kk]+=berm*Math.sin(Math.PI*u)*(.8+.4*nz)}}
+      // keep the trees away from the finish area: spectators on one side, the timing board on the other (see dressPistes)
+      const fg=k.gates[k.gates.length-1];if(fg)for(const sd of[-1,1])c.block(fg.c.x+fg.side.x*sd*(hw+2.2),fg.c.z+fg.side.z*sd*(hw+2.2),2.6);
       c.pistes.push(k);return k},
     // a jump on a piste: a snow ramp up to the lip at t (painted blue), then a dug-out steep landing so the skier comes down softly,
     // and a flatter run-out. o={h:lip height,len:ramp length,land:landing length,drop:how deep the landing is dug,w:half width}
@@ -376,13 +424,53 @@ function genLevel(def){
         if(a<=0){const u=(a+len)/len;d=h*Math.pow(u,1.7);if(b<=w+.2)setC(kk,a>-.24?mix('#5a9fd8','#7fb8e6',G.noise(px*4,pz*4)):mix('#e2eaf1','#f1f5f8',G.noise(px*3,pz*3)))}
         else{const u=a/land;d=-drop*(u<.35?smt01(u/.35):1-smt01((u-.35)/.65))}
         TH[kk]+=d*lat});
-      const kc={t,x:p.x,z:p.z,h,len,land};k.kickers.push(kc);c.block(p.x,p.z,len+land);return kc},
-    // piste poles along both edges and a start hut beside every start (called by genLevel after build if the level did not)
+      const kc={t,x:p.x,z:p.z,tx:tn.x,tz:tn.z,h,len,land,w};k.kickers.push(kc);c.block(p.x,p.z,len+land);return kc},
+    // moguls on piste k between t0 and t1: bumps in staggered rows, like the ones skiers carve out of a steep slope in the afternoon.
+    // o={h:height,sp:distance between the rows,sl:distance across}. They fade in and out at both ends and towards the edges.
+    moguls(k,t0,t1,o={}){const h=o.h??.1,sp=o.sp??1.25,sl=o.sl??1.05,n=k.pts.length,i0=Math.round(t0*(n-1)),i1=Math.round(t1*(n-1)),hw=k.hw-.1,near=new Map(),fade=Math.max(1,(i1-i0)*.18);
+      for(let i=i0;i<=i1;i++){const q=k.pts[i];cellsIn(q.x-hw,q.z-hw,q.x+hw,q.z+hw,(kk,px,pz)=>{const d=Math.hypot(px-q.x,pz-q.z);if(d>hw)return;const b=near.get(kk);if(!b||d<b[0])near.set(kk,[d,i,px,pz])})}
+      for(const[kk,[d,i,px,pz]]of near){const q=k.pts[i],q2=k.pts[Math.min(n-1,i+1)],q1=k.pts[Math.max(0,i-1)];let tx=q2.x-q1.x,tz=q2.z-q1.z;const tl=Math.hypot(tx,tz)||1;tx/=tl;tz/=tl;
+        const lat=(px-q.x)*tz-(pz-q.z)*tx,u=i/(n-1)*k.len/sp,row=Math.floor(u),v=(lat+(row%2)*sl/2)/sl;
+        const b=(.5-.5*Math.cos(2*Math.PI*u))*(.5-.5*Math.cos(2*Math.PI*v)),f=smt01((hw-d)/.6)*smt01((i-i0)/fade)*smt01((i1-i)/fade);
+        TH[kk]+=h*b*f*(.8+.4*G.noise(px*1.7,pz*1.7));if(f>.3)setC(kk,mix('#d3dde6','#f4f7fa',b*.8+.2*G.noise(px*5,pz*5)))}
+      k.moguls.push({t0,t1});return k},
+    // piste poles along both edges, a start hut and a sign in the colour of the piste at every start, safety nets on the outside of the bends
+    // (p.nets) and a finish area beside every finish: a fence, spots for the spectators and a timing board (drawn by js/skiresort.js).
+    // Steep banks the levelling cut into the mountain show rock through the snow. Called by genLevel after build if the level did not.
     dressPistes(){c._pisteDressed=true;const PC=['#3fae3a','#3fae3a','#2f6fd6','#d9432f','#1d1c1a'];
+      const L0=c.liftDef,exit=L0?{x:L0.bx+L0.ux*1.6,z:L0.bz+L0.uz*1.6}:null;   // where the skier steps off the chairlift
+      const free=(x,z,r)=>!c.colliders.some(q=>Math.hypot(q.x-x,q.z-z)<(q.r??Math.hypot(q.w,q.d)/2)+r)&&!c.pistes.some(k2=>k2.dist(x,z)<k2.hw+.5)&&!(exit&&Math.hypot(exit.x-x,exit.z-z)<r+1.4)
+        &&!c.pistes.some(k2=>{const p=k2.start.p,t=k2.start.tan,rx=x-p.x,rz=z-p.z,a=rx*t.x+rz*t.z,l=Math.abs(rx*t.z-rz*t.x);return a>-4.2&&a<7&&l<(a<0?2:k2.hw+2.4)+r});   // nor round the camera or in the view down any piste from its start
       for(const k of c.pistes){const col=PC[k.def.color??k.diff],L=k.len;
         for(let d=2.5;d<L-2.5;d+=3.2){const t=d/L,p=k.P(t),s=k.side(t);for(const sd of[-1,1]){const x=p.x+s.x*sd*(k.hw+.4),z=p.z+s.z*sd*(k.hw+.4),y=H(x,z);if(k.kickers.some(q=>Math.hypot(q.x-x,q.z-z)<1.5))continue;c.cyl(x,y-.05,z,.026,.8,col);c.cyl(x,y+.62,z,.03,.1,'#f2c230')}}
-        const s0=k.start.p,tn=k.start.tan,sd=k.side(0),hx=s0.x+sd.x*(k.hw+1.0)-tn.x*.4,hz=s0.z+sd.z*(k.hw+1.0)-tn.z*.4,hy=H(hx,hz),ry=Math.atan2(tn.x,tn.z);
-        c.box(hx,hy-.15,hz,1.0,1.05,.85,'#b0533a',ry);c.box(hx,hy+.9,hz,1.2,.12,1.05,'#eef2f6',ry);c.box(hx-sd.x*.51,hy+.3,hz-sd.z*.51,.03,.32,.4,'#1a262d',ry);c.colliders.push({x:hx,z:hz,w:1.04,d:.9,ry,anchor:true,y:hy+.5})}},
+        // the start hut stands behind the start line, off to the side where there is room, so the skier looks down the piste past it
+        const s0=k.start.p,tn=k.start.tan,s1=k.side(0),ry=Math.atan2(tn.x,tn.z);let sd=0,lat=0,back=0;   // no hut at all if the top is too crowded for one out of the way
+        found:for(const[l,b]of[[1.5,2.6],[1.3,1.8],[.9,3.6],[2.2,2.2],[1.1,1.1],[2.6,.8]])for(const t of[1,-1]){const x=s0.x+s1.x*t*(k.hw+l)-tn.x*b,z=s0.z+s1.z*t*(k.hw+l)-tn.z*b;if(free(x,z,.8)){sd=t;lat=k.hw+l;back=b;break found}}
+        if(sd){const hx=s0.x+s1.x*sd*lat-tn.x*back,hz=s0.z+s1.z*sd*lat-tn.z*back,hy=H(hx,hz);
+          c.box(hx,hy-.15,hz,1.0,1.05,.85,'#b0533a',ry);c.box(hx,hy+.9,hz,1.2,.12,1.05,'#eef2f6',ry);c.box(hx-s1.x*sd*.51,hy+.3,hz-s1.z*sd*.51,.03,.32,.4,'#1a262d',ry);c.colliders.push({x:hx,z:hz,w:1.04,d:.9,ry,anchor:true,y:hy+.5})}else sd=1;
+        // the piste's colour on a sign beside the start gate
+        {const gx=s0.x-s1.x*sd*(k.hw+.3)+tn.x*.15,gz=s0.z-s1.z*sd*(k.hw+.3)+tn.z*.15,gy=H(gx,gz);c.cyl(gx,gy-.05,gz,.022,1.2,'#5a6066');c.box(gx,gy+.82,gz,.4,.4,.05,col,ry);c.box(gx,gy+.79,gz,.46,.46,.03,'#f4f4f0',ry);c.colliders.push({x:gx,z:gz,r:.05})}
+        // safety nets on the outside of the bends: where the line turns more than a little, out at hw+.8
+        if(k.def.nets){const step=.5/L,mark=[];for(let t=.05;t<.95;t+=step){const a=k.T(t),b=k.T(Math.min(1,t+step*3)),cr=a.x*b.z-a.z*b.x;mark.push({t,out:Math.abs(cr)>.045?Math.sign(cr):0})}
+          for(let i=0;i<mark.length;i++){if(!mark[i].out)continue;let j=i;while(j+1<mark.length&&mark[j+1].out===mark[i].out)j++;const out=mark[i].out,ta=Math.max(.04,mark[i].t-3*step),tb=Math.min(.94,mark[j].t+3*step),pts=[];
+            for(let t=ta;t<=tb+1e-6;t+=step){const p=k.P(t),s=k.side(t),x=p.x+s.x*out*(k.hw+.8),z=p.z+s.z*out*(k.hw+.8);pts.push({x,y:H(x,z),z})}
+            for(let m=0;m<pts.length;m++)if(m%2===0)c.colliders.push({x:pts[m].x,z:pts[m].z,r:.08,net:true});k.nets.push(pts);i=j}}
+        // the finish area: a fence along the run-out with spectators behind it on the roomier side, the timing board on the other
+        const fg=k.gates[k.gates.length-1];if(!fg)continue;const fs=fg.side,ft=fg.tan,at=(a,l)=>({x:fg.c.x+ft.x*a+fs.x*l,z:fg.c.z+ft.z*a+fs.z*l});
+        let cs=1,room=-1;for(const t of[1,-1]){let r=0;for(let a=-1.5;a<=2.5;a+=1){const q=at(a,t*(k.hw+1.8));if(free(q.x,q.z,.4))r++}if(r>room){room=r;cs=t}}
+        const fence=[];for(let a=-2.5;a<=3.01;a+=.5){const q=at(a,cs*(k.hw+.75));fence.push({x:q.x,y:H(q.x,q.z),z:q.z})}
+        for(let m=0;m<fence.length;m++){const q=fence[m];c.cyl(q.x,q.y-.05,q.z,.018,.45,'#9aa0a6');if(m%2===0)c.colliders.push({x:q.x,z:q.z,r:.06});const q2=fence[m+1];
+          if(q2){const dx=q2.x-q.x,dz=q2.z-q.z;c.box((q.x+q2.x)/2,Math.min(q.y,q2.y)+.06,(q.z+q2.z)/2,.015,.3,Math.hypot(dx,dz),'#e8641e',Math.atan2(dx,dz))}}
+        const crowd=[];for(let i=0;i<40&&crowd.length<11;i++){const a=-2+c.rng()*5,l=cs*(k.hw+1.05+c.rng()*1.4),q=at(a,l),y=H(q.x,q.z);
+          if(crowd.some(o=>Math.hypot(o.x-q.x,o.z-q.z)<.32)||!free(q.x,q.z,.15)||Math.abs(H(q.x+.2,q.z)-H(q.x-.2,q.z))>.25)continue;crowd.push({x:q.x,y,z:q.z,face:Math.atan2(-fs.x*cs,-fs.z*cs)})}
+        for(const o of crowd)c.colliders.push({x:o.x,z:o.z,r:.12});
+        let bq=at(1.4,-cs*(k.hw+1.4));if(!free(bq.x,bq.z,.6))bq=at(-2.4,cs*(k.hw+2.6));
+        const by=H(bq.x,bq.z);for(const s of[-.7,.7]){const px=bq.x+fs.x*s,pz=bq.z+fs.z*s;c.cyl(px,H(px,pz)-.05,pz,.04,1.75,'#3a3f44');c.colliders.push({x:px,z:pz,r:.07})}
+        k.finishArea={crowd,fence,board:{x:bq.x,y:by,z:bq.z,ry:Math.atan2(-ft.x,-ft.z)}}}
+      // steep banks beside the pistes: wind-blown rock shows through the snow
+      const seen=new Set();for(const k of c.pistes){const R=k.hw+(k.def.blend??2.4)+.4;for(let i=0;i<k.pts.length;i+=4){const q=k.pts[i];cellsIn(q.x-R,q.z-R,q.x+R,q.z+R,(kk,px,pz)=>{if(seen.has(kk)||TG[kk]===1)return;seen.add(kk);
+        const i2=kk%N,j2=(kk/N)|0;if(i2<1||j2<1||i2>N-2||j2>N-2)return;const gx=(TH[kk+1]-TH[kk-1])/(2*CELL),gz=(TH[kk+N]-TH[kk-N])/(2*CELL),sl=Math.hypot(gx,gz);if(sl<.8||TS[kk]!==S.SNOW)return;
+        const f=smt01((sl-.8)/.8)*(.15+.5*smt01(G.noise(px*1.2,pz*1.2)*1.7-.35));setC(kk,mix('#e4ebf0','#858c93',f))})}}},
     // a chairlift from A (bottom station) to B (top station): masts tall enough that the chairs clear the ground, and two stations with a
     // horizontal bullwheel under a roof. The cable and the chairs are drawn and moved by the game (js/ski.js) from G.lift.
     // o.off = half the distance between the up and down cables, o.span = roughly the distance between masts. Call it when the terrain is final.
@@ -394,7 +482,9 @@ function genLevel(def){
       for(let d=0;d<=len;d+=1)c.xpts.push({x:ax+ux*d,z:az+uz*d});
       // masts: a pole, a cross arm and a sheave train under each cable
       for(const nd of nodes){if(nd.fixed)continue;const x=ax+ux*nd.d,z=az+uz*nd.d,gy=H(x,z);c.cyl(x,gy-.1,z,.09,nd.y-gy+.3,'#8a9096');c.box(x,nd.y+.12,z,2*off+.4,.09,.12,'#6d747a',ry);
-        for(const s of[-off,off])c.box(x+px*s,nd.y+.02,z+pz*s,.08,.07,.42,'#2f3336',ry);c.colliders.push({x,z,r:.16,anchor:true,y:gy+.6})}
+        for(const s of[-off,off])c.box(x+px*s,nd.y+.02,z+pz*s,.08,.07,.42,'#2f3336',ry);
+        const pad=c.pistes.some(k=>k.dist(x,z)<k.hw+1.6);if(pad){c.cyl(x,gy-.05,z,.2,.95,'#2f6fd6');c.cyl(x,gy+.7,z,.205,.08,'#f2c230')}   // a padded mat round masts close to a piste
+        c.colliders.push({x,z,r:pad?.22:.16,anchor:true,y:gy+.6})}
       // stations: the bullwheel turns under a roof on four posts; a machine house beside the bottom one, a hut beside the top one
       const station=(x,z,y,dir,house)=>{const gy=y-1.55;c.cyl(x,y-.05,z,off+.02,.07,'#c8463a');c.cyl(x,y-.6,z,.12,.6,'#5a6066');
         for(const sa of[-1,1])for(const sb of[-1,1]){const qx=x+px*sa*(off+.45)+ux*sb*.75,qz=z+pz*sa*(off+.45)+uz*sb*.75;c.cyl(qx,gy-.05,qz,.05,1.95+.05,'#5a6066');c.colliders.push({x:qx,z:qz,r:.07})}
@@ -403,12 +493,24 @@ function genLevel(def){
         c.colliders.push({x:hx,z:hz,w:1.54,d:2.24,ry,anchor:true,y:gy+.6})};
       station(ax,az,y0,-1,'#d9d2c0');station(bx,bz,y1,1,'#b0533a');
       G.lift=c.liftDef={ax,az,bx,bz,ux,uz,px,pz,len,off,hang,ry,nodes:nodes.map(n=>({d:n.d,y:n.y}))};return c.liftDef},
+    // a snow groomer parked on the snow: tracks, cab, the blade in front and the tiller behind. ry: the way it faces.
+    groomer(x,z,ry=0,col='#c8463a'){c.block(x,z,1.6);const y=H(x,z),f=(a,s)=>[x+Math.sin(ry)*a+Math.cos(ry)*s,z+Math.cos(ry)*a-Math.sin(ry)*s];
+      for(const s of[-.42,.42]){const[tx,tz]=f(0,s);c.box(tx,y-.02,tz,.3,.28,1.5,'#2a2c2e',ry)}
+      {const[bx,bz]=f(-.05,0);c.box(bx,y+.24,bz,.62,.3,1.3,col,ry)}{const[cx2,cz2]=f(.25,0);c.box(cx2,y+.52,cz2,.58,.36,.62,col,ry);c.box(cx2,y+.58,cz2,.6,.18,.64,'#1a262d',ry);c.box(cx2,y+.9,cz2,.4,.05,.3,'#f2c230',ry)}
+      {const[bx,bz]=f(1.0,0);c.box(bx,y,bz,1.35,.32,.08,'#d8dde2',ry)}{const[rx,rz]=f(-.95,0);c.box(rx,y,rz,1.0,.16,.3,'#4a4e52',ry)}
+      c.colliders.push({x,z,w:1.4,d:2.3,ry,anchor:true,y:y+.4});return{x,z}},
+    // a snow cannon on a short tower beside a piste, blowing towards dir (radians): its mist is drawn by js/skiresort.js
+    snowgun(x,z,dir=0){const y=H(x,z),hx=x+Math.sin(dir)*.18,hz=z+Math.cos(dir)*.18;c.cyl(x,y-.05,z,.04,1.15,'#9aa0a6');c.box(x,y,z,.36,.08,.36,'#5a6066');
+      c.cyls.push({x:hx,y:y+1.2,z:hz,sx:.14,sy:.46,sz:.14,rx:1.3,ry:dir,ord:'YXZ',c:'#e5a92b'});c.colliders.push({x,z,r:.12});c.fx.push({type:'snowgun',x:hx+Math.sin(dir)*.25,y:y+1.2,z:hz+Math.cos(dir)*.25,dir});return{x,z}},
+    // a board with the map of the pistes (drawn by js/skiresort.js), facing ry
+    trailMap(x,z,ry=0){const y=H(x,z),cs=Math.cos(ry),sn=Math.sin(ry);for(const s of[-.85,.85]){const px=x+cs*s,pz=z-sn*s;c.cyl(px,H(px,pz)-.05,pz,.04,1.7,'#5a3a22');c.colliders.push({x:px,z:pz,r:.07})}
+      c.box(x,y+.7,z,1.9,1.05,.05,'#3a2a1c',ry);c.fx.push({type:'trailmap',x:x+sn*.035,y:y+1.22,z:z+cs*.035,ry})},
     finish(){for(let j=0;j<N;j++)for(let i=0;i<N;i++){const k=j*N+i;if(TCF[k])continue;const cc=surfColor(TS[k],-HALF+i*CELL,-HALF+j*CELL,n,def);TC[k*3]=cc[0];TC[k*3+1]=cc[1];TC[k*3+2]=cc[2]}c._done=true},
     pebbles(cnt,cols,smin,smax){const L=[];for(let i=0;i<cnt;i++){const x=(rng()-.5)*(WORLD-4),z=(rng()-.5)*(WORLD-4);if(def.water!=null&&H(x,z)<def.water+.02)continue;const s=smin+rng()*(smax-smin);
       L.push({x,y:H(x,z)+s*.2,z,sx:s,sy:s*.6,sz:s*(.8+rng()*.5),rx:rng()*3,ry:rng()*3,c:cols[i%cols.length]})}instanced(DG.peb,DM.white,L,c.decor,false)},
-    // bushes: low rounded clumps of two or three canopies, placed where ok(x,z) says yes
-    bushes(cnt,cols,ok){const L=[];for(let i=0;i<cnt*30&&L.length<cnt*3;i++){const x=(rng()-.5)*(WORLD-6),z=(rng()-.5)*(WORLD-6);if(c.dist(x,z)<2.2||(def.water!=null&&H(x,z)<def.water+.1)||(ok&&!ok(x,z)))continue;const s=.35+rng()*.35,n=2+(rng()<.5?1:0);
-        for(let k=0;k<n;k++){const a=rng()*6.28,d=k?s*.6:0;L.push({x:x+Math.cos(a)*d,y:H(x,z)+s*.45,z:z+Math.sin(a)*d,sx:s*(.9+rng()*.3),sy:s*.75,sz:s*(.9+rng()*.3),c:cols[(i+k)%cols.length]})}c.colliders.push({x,z,r:s*.7})}
+    // bushes: low rounded clumps of two or three canopies, placed where ok(x,z) says yes. o.soft: no collider, the car drives through them
+    bushes(cnt,cols,ok,o={}){const L=[];for(let i=0;i<cnt*30&&L.length<cnt*3;i++){const x=(rng()-.5)*(WORLD-6),z=(rng()-.5)*(WORLD-6);if(c.dist(x,z)<2.2||(def.water!=null&&H(x,z)<def.water+.1)||(ok&&!ok(x,z)))continue;const s=.35+rng()*.35,n=2+(rng()<.5?1:0);
+        for(let k=0;k<n;k++){const a=rng()*6.28,d=k?s*.6:0;L.push({x:x+Math.cos(a)*d,y:H(x,z)+s*.45,z:z+Math.sin(a)*d,sx:s*(.9+rng()*.3),sy:s*.75,sz:s*(.9+rng()*.3),c:cols[(i+k)%cols.length]})}if(!o.soft)c.colliders.push({x,z,r:s*.7})}
       instanced(DG.canopy,DM.leaf,L,c.decor)},
     // mushrooms: a stalk and a cap, in the shade of trees
     mushrooms(cnt,ok){const st=[],cp=[];for(let i=0;i<cnt*40&&st.length<cnt;i++){const x=(rng()-.5)*(WORLD-6),z=(rng()-.5)*(WORLD-6);if(c.dist(x,z)<1.5||(def.water!=null&&H(x,z)<def.water+.1)||(ok&&!ok(x,z)))continue;const h=.08+rng()*.1,y=H(x,z);
@@ -426,9 +528,11 @@ function genLevel(def){
     c.gates.push({t,c:p,tan:tn,side:s,a:{x:p.x+s.x*1.25,z:p.z+s.z*1.25},b:{x:p.x-s.x*1.25,z:p.z-s.z*1.25},finish:k===NG})}
   G.waterAt=(x,z)=>{let w=-1e9;if(def.water!=null&&(!def.waterBand||def.waterBand(x,z)))w=def.water;for(const p of c.pools){if((x-p.x)*(x-p.x)+(z-p.z)*(z-p.z)<p.r*p.r&&p.level>w)w=p.level}return w};
   if(def.village)c.village(def.village);
+  if(def.marina)c.marina(def.marina);
   def.build(c);
   if(c.pistes.length&&!c._pisteDressed)c.dressPistes();G.pistes=c.pistes;
   if(!c._done)c.finish();
+  if(c.plantList.length)c.plants();
   if(c.boxes.length||c.cyls.length)c.props();
   // an island that is a race: the race line is also a course you can start from its portal while roaming
   if(def.village&&!def.world){const k=c.course({id:def.id,name:def.name,desc:def.desc,diff:def.diff,path:def.path,gates:def.gates,gateT:def.gateT,bench:false});k.main=true}
@@ -443,6 +547,8 @@ function genLevel(def){
 /* ---------- cars ---------- */
 const CARS=[]; // fylles av data/cars.js
 const TRAVEL=.22, WR=.24, TRACK=.9, MOUNT_Y=-.02;
+// where the wheel centres sit under the body when the car stands still (the model of a car with its own ride height is drawn from this)
+const restWheelY=cfg=>MOUNT_Y+(cfg.ride||0)-.6*TRAVEL*(cfg.susp||1);
 const SAMPLES=[[-.8,0],[-.5,0],[-.2,0],[0,0],[.2,0],[.5,0],[.8,0],[0,.07],[0,-.07]];
 // PARTS og PAINTS ligger i data/parts.js
 function tuneFrom(parts){const g=k=>parts[k]||0,t=g('tyres'),s=g('susp'),mo=g('motor'),w=g('weight'),ge=g('gear');
@@ -451,11 +557,11 @@ function tuneFrom(parts){const g=k=>parts[k]||0,t=g('tyres'),s=g('susp'),mo=g('m
 const TUNE0=tuneFrom({});
 
 function makeCar(cfg,tune){
-  tune=tune||TUNE0;
-  const m=cfg.mass,L=cfg.L,W=.92,car={cfg,m,tune,pos:new V3(),vel:new V3(),q:new Q4(),w:new V3(),steer:0,throttle:0,low:true,assist:true,speedScale:1,
+  tune=tune||TUNE0;const k=cfg.susp||1;if(k!==1)tune=Object.assign({},tune,{travel:tune.travel*k});   // susp: shorter and stiffer springs (a sports car)
+  const m=cfg.mass,L=cfg.L,tr=cfg.track||TRACK,W=Math.max(.92,tr),car={cfg,m,tune,wr:cfg.wr||WR,pos:new V3(),vel:new V3(),q:new Q4(),w:new V3(),steer:0,throttle:0,low:true,assist:true,speedScale:1,
     depth:-1,I:new V3(m/12*(.55*.55+L*L)*1.1,m/12*(W*W+L*L)*1.1,m/12*(W*W+.55*.55)*1.6),wheels:[],pts:[],up:new V3(0,1,0),fw:new V3(0,0,1),lf:new V3(1,0,0)};
-  car.K=m*9.8/4/(.4*TRAVEL);car.C=2*Math.sqrt(car.K*m/4)*[.5,.65,.8,.9][tune.lv?tune.lv.susp:0];
-  for(const fz of[1,-1])for(const sx of[1,-1])car.wheels.push({mount:new V3(sx*TRACK/2,MOUNT_Y+(tune.travel-TRAVEL)-tune.lift,fz*cfg.wb/2),front:fz>0,left:sx>0,comp:0,prev:0,had:false,contact:false,center:new V3(),spin:0,vl:0,slip:0,surf:0,P:new V3()});
+  car.K=m*9.8/4/(.4*TRAVEL*k);car.C=2*Math.sqrt(car.K*m/4)*[.5,.65,.8,.9][tune.lv?tune.lv.susp:0];
+  for(const fz of[1,-1])for(const sx of[1,-1])car.wheels.push({mount:new V3(sx*tr/2,MOUNT_Y+(cfg.ride||0)+(tune.travel-TRAVEL*k)-tune.lift,fz*cfg.wb/2),front:fz>0,left:sx>0,comp:0,prev:0,had:false,contact:false,center:new V3(),spin:0,vl:0,slip:0,surf:0,P:new V3()});
   const roof=.08+.34+cfg.gh+.12;
   for(const sx of[1,-1]){for(const sz of[1,-1]){car.pts.push(new V3(sx*.44,-.06,sz*L*.47),new V3(sx*.42,roof,sz*L*.42),new V3(sx*.42,.03,sz*(L/2+.09)),new V3(sx*.47,.3,sz*L*.3))}}
   car.pts.push(new V3(0,-.14,0),new V3(0,-.13,cfg.wb*.3),new V3(0,-.13,-cfg.wb*.3));
@@ -475,7 +581,7 @@ function stepCar(car,dt){
   const up=car.up.set(0,1,0).applyQuaternion(q),fw=car.fw.set(0,0,1).applyQuaternion(q),lf=car.lf.set(1,0,0).applyQuaternion(q);
   _f.set(0,-g*m,0);_tq.set(0,0,0);
   const TU=car.tune||TUNE0,TRV=TU.travel;
-  const low=car.low,vmax=(low?1.7*TU.vlow:5.6*TU.vhigh)*(car.speedScale||1),fmot=(low?.62:.15)*TU.fmot*m*g,vt=car.throttle*vmax,gripMul=(car.assist?1.12:1)*TU.grip;
+  const low=car.low,vmax=(low?1.7*TU.vlow:5.6*TU.vhigh*(car.cfg.top||1))*(car.speedScale||1),WRc=car.wr,fmot=(low?.62:.15)*TU.fmot*(car.cfg.pow||1)*m*g,vt=car.throttle*vmax,gripMul=(car.assist?1.12:1)*TU.grip;
   const dy=Math.max(.35,up.y);
   for(const wh of car.wheels){
     _M.copy(wh.mount).applyQuaternion(q).add(car.pos);
@@ -484,7 +590,7 @@ function stepCar(car,dt){
     _wf.copy(fw).multiplyScalar(cs).addScaledVector(lf,sn);
     _ff.set(_wf.x,0,_wf.z);if(_ff.lengthSq()<1e-4)_ff.set(up.x,0,up.z);_ff.normalize();_fs.set(_ff.z,0,-_ff.x);
     let best=-1e9,bx=0,bz=0,bh=0;
-    for(const s of SAMPLES){const a=s[0]*WR,b=s[1],px=_C0.x+_ff.x*a+_fs.x*b,pz=_C0.z+_ff.z*a+_fs.z*b,gh=H(px,pz),pen=gh-(_C0.y-Math.sqrt(Math.max(0,WR*WR-a*a)));
+    for(const s of SAMPLES){const a=s[0]*WRc,b=s[1],px=_C0.x+_ff.x*a+_fs.x*b,pz=_C0.z+_ff.z*a+_fs.z*b,gh=H(px,pz),pen=gh-(_C0.y-Math.sqrt(Math.max(0,WRc*WRc-a*a)));
       if(pen>best){best=pen;bx=px;bz=pz;bh=gh}}
     if(best>0){
       const comp=best/dy;wh.contact=true;
@@ -542,5 +648,5 @@ function stepCar(car,dt){
       car.pos.x=c.x+na*cs+nb*sn;car.pos.z=c.z-na*sn+nb*cs;const nx=ea*cs+eb*sn,nz=-ea*sn+eb*cs,vn=car.vel.x*nx+car.vel.z*nz;if(vn<0){car.vel.x-=nx*vn*1.2;car.vel.z-=nz*vn*1.2}continue}
     const d=Math.hypot(dx,dz),R=c.r+.62;
     if(d<R&&d>1e-4){const nx=dx/d,nz=dz/d;car.pos.x=c.x+nx*R;car.pos.z=c.z+nz*R;const vn=car.vel.x*nx+car.vel.z*nz;if(vn<0){car.vel.x-=nx*vn*1.2;car.vel.z-=nz*vn*1.2}}}
-  for(const wh of car.wheels){const target=wh.contact&&wh.slip<.3?wh.vl:vt;wh.spin+=target/WR*dt}
+  for(const wh of car.wheels){const target=wh.contact&&wh.slip<.3?wh.vl:vt;wh.spin+=target/car.wr*dt}
 }

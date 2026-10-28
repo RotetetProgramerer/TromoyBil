@@ -1,8 +1,8 @@
-# Personvernerklæring for Sandglow Crawl
+# Personvernerklæring for Skare Offroad
 
 Sist oppdatert: 25. oktober 2026
 
-Sandglow Crawl er et gratis spill uten reklame og uten kjøp i appen.
+Skare Offroad er et gratis spill uten reklame og uten kjøp i appen.
 
 **Spillet samler ikke inn personopplysninger.** Det finnes ingen brukerkonto, ingen innlogging og ingen sporing.
 
