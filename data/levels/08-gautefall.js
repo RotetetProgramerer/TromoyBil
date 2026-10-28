@@ -46,7 +46,7 @@ const CH=[
   path:[[-19.5,-14],[-22,-17.5],[-27,-18],[-30.5,-14],[-30,-8.5],[-26,-6],[-21.5,-8],[-23,-12],[-27,-12.5]],hw:1.3,bench:false},
  {id:'skog',name:'Granskogen',diff:1,gates:8,desc:'Snødekt skogsvei mellom tunge grantrær på vestsiden av øya.',
   path:[[13,-24],[20,-24],[27,-19],[31,-11],[30,-3],[26,3],[21,1]],surf:S.SNOW,hw:1.3},
- {id:'nord',name:'Nordkysten',diff:2,gates:10,needs:{courses:1},desc:'Langs kysten på nordsiden av fjellet, der vinden har blåst isen blank.',
+ {id:'nord',name:'Nordkysten',diff:2,gates:10,desc:'Langs kysten på nordsiden av fjellet, der vinden har blåst isen blank.',
   path:[[-33.5,4],[-33,14],[-27,24],[-17,31],[-5,35],[6,34],[17,29],[25,21],[29,11]],surf:S.SNOW,hw:1.3},
 ];
 const ROADS=[

@@ -187,7 +187,7 @@ Slik blir en bane til en øy, uten at løypa endres:
 
 I fri kjøring blir banens egen løype en startstrek (`c.course` lages automatisk for øyer som er løp), så du kan starte løpet ute i terrenget som på Tromøya. Beste tid deles mellom Hurtigløp og fri kjøring.
 
-**Låste løyper:** `needs:{courses:3}` på en løype krever tre fullførte løyper på øya; `needs:{courses:5,nuts:200}` kan i tillegg låses opp for muttere. Skiltet og kartet viser hengelås. **Biler til salgs:** `price:600` på en bil i `data/cars.js` gjør at den må kjøpes i verkstedet på basen; `winch:true` gir den ekte vinsj.
+**Biler til salgs:** `price:600` på en bil i `data/cars.js` gjør at den må kjøpes i verkstedet på basen; `winch:true` gir den ekte vinsj.
 
 **Vinsj:** bilen Vinsjen, og alle biler med Utstyr nivå 3, har ekte vinsj. Hold **R** for å sikte (en linje vises til nærmeste festepunkt innen 7 enheter og ca. 70° foran bilen), slipp for å dra; R igjen løsner. Festepunkter er trær, hus, lykter, bropilarer og store steiner (`c.anchor(x,z)` i banefilen, eller `anchor:true` på en kollider). «Hent bilen» i pausemenyen er den gamle vinsjen med straff.
 
@@ -330,7 +330,7 @@ I båtmenyen velger du løp og om dere er én eller to spillere. To spillere del
 |---|---|---|---|
 | Rundt Tromøya | Lett | 7 i en stor runde rundt øya | Marinaen |
 | Skilsø-løpet | Middels | 4 på kryss og tvers | Brygga på Skilsø |
-| Vulkanløpet | Vanskelig (låses opp når du har fullført et annet båtløp) | 6 rundt Hisøya, mens vulkanen kaster lavabomber | Marinaen |
+| Vulkanløpet | Vanskelig | 6 rundt Hisøya, mens vulkanen kaster lavabomber | Marinaen |
 
 Rund bøyene i rekkefølge (lyssøylen og kompasset viser neste) og fortøy ved brygga. Du må sakke farten der, ellers får du ikke lagt til. Turbotønnene gir fart. Piratskutene skyter på alt som beveger seg, og blir du truffet, spinner båten rundt. I Lett-modus er det færre pirater, og de sikter dårligere. Et sted ute i skjærgården ligger en skattekiste (50 ⚙, én gang).
 
@@ -345,7 +345,7 @@ Muttere: 5 per bøye, 3 per turbotønne, 20 for å fortøye, 15 hvis du aldri bl
 
 **Banefelt:** `marina:{at:[x,z],dir,out}` bygger marinaen (`c.marina` i `js/core.js`) før `build(c)`, på samme måte som `village`. `dir` (grader) peker ut mot sjøen, og standard er rett ut fra øyas midtpunkt. `out` er veien inn på øya. Banens egen vei fra resten av øya må ende der marinaveien begynner. Testen kjører den veien inn på den blå ruta.
 
-**Havet og løpene (`data/boats.js`):** Øyene ligger der de ligger på skjærgårdskartet (`pos` i `data/archipelago.js` ganger `SEA.span`), og Skilsø ligger i `SEA.extra`. Et løp har `buoys:[[x,z],…]` (nord er −z), `finish:'marina'` eller `'skilso'`, `pirates`, `par:[tre stjerner, to stjerner]`, eventuelt `needs:{races:1}` og `lava:true`. Kjør `node tools/test-boats.js` etter endringer: den sjekker at bøyene og etappene holder avstand til øyene og lar en autopilot kjøre hvert løp, uten pirater og med pirater fem ganger.
+**Havet og løpene (`data/boats.js`):** Øyene ligger der de ligger på skjærgårdskartet (`pos` i `data/archipelago.js` ganger `SEA.span`), og Skilsø ligger i `SEA.extra`. Et løp har `buoys:[[x,z],…]` (nord er −z), `finish:'marina'` eller `'skilso'`, `pirates`, `par:[tre stjerner, to stjerner]` og eventuelt `lava:true`. Kjør `node tools/test-boats.js` etter endringer: den sjekker at bøyene og etappene holder avstand til øyene og lar en autopilot kjøre hvert løp, uten pirater og med pirater fem ganger.
 
 ## Flyplassen og flyturene
 
@@ -356,7 +356,7 @@ Muttere: 5 per bøye, 3 per turbotønne, 20 for å fortøye, 15 hvis du aldri bl
 | Fly fritt | – | Ingen. Fly dit du vil og land når du er ferdig. |
 | Rundt Trinnvik | Lett | 7 i en runde rundt byøya |
 | Over Tromøya | Middels | 9, nordover rundt snøfjellet og hjem |
-| Vulkanflyget | Vanskelig (låses opp når du har fullført en annen tur) | 10, helt nord til Hisøya og hjem forbi Skilsø |
+| Vulkanflyget | Vanskelig | 10, helt nord til Hisøya og hjem forbi Skilsø |
 
 | Taster | På bakken | I lufta |
 |---|---|---|
@@ -372,7 +372,7 @@ Muttere: 5 per ring, 20 for å komme i mål, 15 uten krasj, 60 første gang og 2
 
 **Banefelt:** Flyplassen bygges i `build(c)` i `data/levels/07-trinnvik.js`, som setter `c.airportDef` (den blå ruta, flyet, vindposen og veien dit). `landExtra(x,z)` på banen (0–1) sier hvor det er fylt ut land utenfor kysten, så sjøen ikke tar det. Testen kjører flyplassveien inn på den blå ruta.
 
-**Havet og turene (`data/flights.js`):** `AIRPORT` er flyplassen sett fra sjøen, målt fra midten av Trinnvik. En tur har `rings:[[x,høyde,z],…]` (nord er −z), `par:[tre stjerner, to stjerner]` og eventuelt `needs:{flights:1}`. Kjør `node tools/test-flights.js` etter endringer. Den sjekker at ringene og etappene holder høyde over øyene, lar en autopilot fly hver tur, og lander på rullebanen.
+**Havet og turene (`data/flights.js`):** `AIRPORT` er flyplassen sett fra sjøen, målt fra midten av Trinnvik. En tur har `rings:[[x,høyde,z],…]` (nord er −z), `par:[tre stjerner, to stjerner]`. Kjør `node tools/test-flights.js` etter endringer. Den sjekker at ringene og etappene holder høyde over øyene, lar en autopilot fly hver tur, og lander på rullebanen.
 
 ## Planter og dyr (`data/vegetasjon.js`, `data/dyr.js`)
 
