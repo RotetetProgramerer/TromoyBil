@@ -338,4 +338,4 @@ body.is-touch #boatHud.two #bPauseB{bottom:auto;transform:none}
 .tb.pedal.on span{color:var(--ink);text-shadow:none}
 body:not(.is-touch) .tb.pedal{opacity:.8;transform:scale(.8);transform-origin:bottom}
 body:not(.is-touch) .tb.pedal.on{transform:scale(.8) translateY(4px)}
-@media (max-width:620px){.cv-fuel{width:120px}.cv-dist b{font-size:1.2rem}.cv-zone{top:calc(64px + env(safe-area-inset-top,0px))}#cvDials{width:180px;height:68px;bottom:calc(16px + env(safe-area-inset-bottom,0px))}.cv-gems b{font-size:1.3rem}}
+@media (max-width:620px){.cv-fuel{width:120px}.cv-dist b{font-size:1.2rem}.cv-zone{top:calc(124px + env(safe-area-inset-top,0px))}#cvDials{width:180px;height:68px;bottom:calc(16px + env(safe-area-inset-bottom,0px))}.cv-gems b{font-size:1.3rem}}
