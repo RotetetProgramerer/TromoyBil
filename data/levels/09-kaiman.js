@@ -48,11 +48,11 @@ const CH=[
   path:[[-11.5,-21],[-15,-24.5],[-19,-30],[-25,-33.5],[-31,-30.5],[-33,-24],[-30,-18],[-24,-16.5],[-18.5,-18],[-15.5,-21.5]],surf:S.MUD,skip:S.BOG,hw:1.3},
  {id:'vad',name:'Vadestedene',diff:2,gates:9,desc:'Tre vadesteder over Storelva og Sølebekken. Kaimanene ligger på bredden og ser på deg.',
   path:[[2,3],[-1,4.2],[-3.6,4.6],[-7,5.5],[-10.5,7.5],[-14.5,9.8],[-17.9,9.7],[-21.4,7.8],[-24.6,5.6],[-24.3,3.4],[-23.3,1.3],[-22.4,-1.4],[-20.5,-5.5],[-17,-8],[-12.5,-9]],surf:S.DIRT,skip:S.MUD},
- {id:'tempel',name:'Tempelstien',diff:2,gates:8,needs:{courses:1},desc:'Gjennom tett regnskog, over Østelva og fram til den gamle tempelruinen. Tør du kjøre opp trappa?',
+ {id:'tempel',name:'Tempelstien',diff:2,gates:8,desc:'Gjennom tett regnskog, over Østelva og fram til den gamle tempelruinen. Tør du kjøre opp trappa?',
   path:[[10.5,-10.5],[12.8,-5],[11.8,0],[11,5],[11.6,8.8],[15.1,9.4],[18.8,10.2],[21.5,9.6],[23,10.6]],surf:S.DIRT,skip:S.MUD},
- {id:'mangrove',name:'Mangrovedeltaet',diff:3,gates:10,needs:{courses:2},desc:'Grunne kanaler mellom mangrovetrærnes stylterøtter. Vått, glatt og fullt av liv.',
+ {id:'mangrove',name:'Mangrovedeltaet',diff:3,gates:10,desc:'Grunne kanaler mellom mangrovetrærnes stylterøtter. Vått, glatt og fullt av liv.',
   path:[[16.5,-24.5],[19.5,-27.5],[22.5,-25],[24.5,-20.5],[28.5,-18],[32.5,-20],[34,-24.5],[32,-29],[28,-31],[24,-30.5],[21.5,-32]],hw:1.3},
- {id:'foss',name:'Fosseklatringen',diff:3,gates:10,needs:{courses:3},desc:'Opp den steinete flanken på Apeberget, rundt toppen og fram til stupkanten der fossen faller.',
+ {id:'foss',name:'Fosseklatringen',diff:3,gates:10,desc:'Opp den steinete flanken på Apeberget, rundt toppen og fram til stupkanten der fossen faller.',
   path:[[3.5,9],[6,13.5],[8.6,18.5],[10.2,24],[10,30],[7,35],[1,38],[-5,37.5],[-10,34],[-12,29],[-10.5,24],[-8.5,21],[-6.2,18.4]],surf:S.DIRT,skip:S.ROCK,hw:1.3,blend:1.8},
 ];
 const ROADS=[

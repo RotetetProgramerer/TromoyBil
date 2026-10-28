@@ -28,7 +28,7 @@ const CH=[
   path:[[0,-19],[7,-23],[14,-25],[21,-22],[26,-16],[28,-9],[25,-3],[19,-5],[13,-8],[7,-11]],surf:S.DIRT,hw:1.3},
  {id:'elva',name:'Krokodilleelva',diff:2,gates:10,desc:'Over to vadesteder i Krokodilleelva og rundt baobablunden. Kjør rolig i vannet, men ikke bli stående: krokodillene ligger på lur.',
   path:[[8,-2],[6,4],[3,8.5],[2,12.5],[1,17],[-3,21],[-9,23.5],[-15,23.5],[-19.5,22],[-22,19],[-23,14],[-20,9]],hw:1.3,bench:false},
- {id:'klippe',name:'Løveklippen',diff:3,gates:10,needs:{courses:1},desc:'Opp granittblokkene og over toppen av Løveklippen, der løvene ligger i skyggen. Lavt gir og ingen stopp.',
+ {id:'klippe',name:'Løveklippen',diff:3,gates:10,desc:'Opp granittblokkene og over toppen av Løveklippen, der løvene ligger i skyggen. Lavt gir og ingen stopp.',
   path:[[-25,-14],[-20,-15],[-15,-13],[-11.5,-9.5],[-10.5,-5.5],[-12,-1.5],[-15.5,.5],[-19,3],[-18.5,7],[-13.5,8.5]],hw:1.3,blend:1.4},
 ];
 const ROADS=[

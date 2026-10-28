@@ -311,7 +311,7 @@ Testen kjører også nedfartene med en autopilot på ski: `node tools/test-level
 |---|---|---|
 | Safarirunden | Lett | En runde over sletta. Gepardene jakter her. |
 | Krokodilleelva | Middels | Over begge vadestedene og rundt baobablunden. |
-| Løveklippen | Vanskelig (krever én fullført løype) | Opp og over klippen, forbi løvene. |
+| Løveklippen | Vanskelig | Opp og over klippen, forbi løvene. |
 
 **Dyrene som angriper** (`js/savannedyr.js`). Kommer du for nær, får du først en advarsel, så angriper de. Et angrep kaster bilen rundt og koster 5 straffepoeng i et løp, eller 3 muttere når du kjører fritt. Etterpå går dyret hjem og hviler en stund.
 
