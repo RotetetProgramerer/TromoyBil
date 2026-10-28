@@ -267,6 +267,7 @@ function fallTexture(){const w=64,h=256,c=document.createElement('canvas');c.wid
   // soft edges, so the sheet of water does not end in a straight line
   const img=x.getImageData(0,0,w,h);for(let j=0;j<h;j++)for(let i=0;i<w;i++){const e=Math.min(i,w-1-i)/w*2,f=Math.min(1,e/.28);img.data[(j*w+i)*4+3]*=f*f}x.putImageData(img,0,0);
   const t=new THREE.CanvasTexture(c);t.wrapS=THREE.ClampToEdgeWrapping;t.wrapT=THREE.RepeatWrapping;t.repeat.set(1,2);return t}
+const _lq=new Q4(),_ls=new V3(),_lm=new THREE.Matrix4();
 const lavaTex=lavaTexture(),lavaMat=new THREE.MeshBasicMaterial({map:lavaTex,side:THREE.DoubleSide});
 const fallTex=fallTexture(),fallTex2=fallTexture(),fallTex3=fallTexture();fallTex2.repeat.set(1,1.5);fallTex3.repeat.set(1,1);
 const fallMat=new THREE.MeshBasicMaterial({map:fallTex,color:0xd8eef8,transparent:true,opacity:.6,depthWrite:false,side:THREE.DoubleSide});
@@ -274,6 +275,22 @@ const fallMat2=new THREE.MeshBasicMaterial({map:fallTex2,color:0xffffff,transpar
 const fallMat3=new THREE.MeshBasicMaterial({map:fallTex3,color:0xffffff,transparent:true,opacity:.75,depthWrite:false,side:THREE.DoubleSide});
 const rippleMat=new THREE.MeshBasicMaterial({color:0xeaf6ff,transparent:true,opacity:.4,depthWrite:false,side:THREE.DoubleSide});
 const mistMat=new THREE.SpriteMaterial({map:dustTex,color:0xffffff,transparent:true,depthWrite:false,opacity:.16});
+// flowing rivers (fx 'river'): faint streaks of foam and light that drift downstream on top of the water, in two layers at different speeds
+function riverTexture(seed,n){const w=128,h=256,c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d'),r=mulberry32(seed);
+  for(let i=0;i<n;i++){const px=8+r()*(w-16),py=r()*h,len=10+r()*50,a=.12+r()*.35,wd=.8+r()*1.6;x.fillStyle=`rgba(255,255,255,${a})`;x.fillRect(px,py,wd,len);if(py+len>h)x.fillRect(px,py-h,wd,len)}
+  for(let i=0;i<n/3;i++){const px=8+r()*(w-16),py=r()*h,rr=1+r()*2.5;x.fillStyle=`rgba(255,255,255,${.15+r()*.3})`;x.beginPath();x.ellipse(px,py,rr,rr*2.2,0,0,6.283);x.fill()}
+  const img=x.getImageData(0,0,w,h);for(let j=0;j<h;j++)for(let i=0;i<w;i++){const e=Math.min(i,w-1-i)/w*2,f=Math.min(1,e/.35);img.data[(j*w+i)*4+3]*=f*f}x.putImageData(img,0,0);
+  const t=new THREE.CanvasTexture(c);t.wrapS=THREE.ClampToEdgeWrapping;t.wrapT=THREE.RepeatWrapping;return t}
+const riverTex=riverTexture(31,90),riverTex2=riverTexture(57,50);
+const riverMat=new THREE.MeshBasicMaterial({map:riverTex,color:0xd8e2cc,transparent:true,opacity:.2,depthWrite:false});
+const riverMat2=new THREE.MeshBasicMaterial({map:riverTex2,color:0xffffff,transparent:true,opacity:.13,depthWrite:false});
+const leafGeo=new THREE.PlaneGeometry(1,1);leafGeo.rotateX(-Math.PI/2);
+const leafMat=new THREE.MeshStandardMaterial({color:0xffffff,roughness:.7,side:THREE.DoubleSide});
+// sunbeams through the canopy (fx 'beam'): three crossed planes with a soft vertical glow, tilted along the sun, fading when you come close
+const beamTex=(()=>{const c=document.createElement('canvas');c.width=64;c.height=256;const x=c.getContext('2d'),img=x.createImageData(64,256);
+  for(let j=0;j<256;j++)for(let i=0;i<64;i++){const u=(i/63-.5)*2,v=j/255,a=Math.pow(Math.max(0,1-u*u),1.6)*Math.pow(1-v,.7)*smt01(v/.08)*(.75+.25*Math.sin(i*.9+j*.03));const k=(j*64+i)*4;img.data[k]=img.data[k+1]=img.data[k+2]=255;img.data[k+3]=a*255}
+  x.putImageData(img,0,0);return new THREE.CanvasTexture(c)})();
+const beamMat=new THREE.MeshBasicMaterial({map:beamTex,color:LIN('#fff0c0'),transparent:true,opacity:.07,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide,fog:false});
 const plankMat=new THREE.MeshStandardMaterial({color:0xffffff,roughness:.9,flatShading:true}),postMat=new THREE.MeshStandardMaterial({color:0x5a3a22,roughness:1});
 const boxGeo=new THREE.BoxGeometry(1,1,1),cylGeo=new THREE.CylinderGeometry(1,1,1,5),SHARED_GEO=new Set([boxGeo,cylGeo,...(typeof ANIMAL_GEO!=='undefined'?Object.values(ANIMAL_GEO):[])]);
 const lavaLight=new THREE.PointLight(0xff6a1a,0,11,2);scene.add(lavaLight);
@@ -282,7 +299,7 @@ const embers=[];for(let i=0;i<48;i++){const sp=new THREE.Sprite(new THREE.Sprite
 function updateEmbers(dt){if(!LV||!LV.hasLava)return;const pts=fxAnim.lavaPts;if(pts.length&&state.gfx==='hi'&&Math.random()<dt*22){const p=pts[Math.floor(Math.random()*pts.length)];const d2=(p.x-car.pos.x)**2+(p.z-car.pos.z)**2;
     if(d2<16*16){const e=embers.find(e=>e.life<=0);if(e){e.life=1.2+Math.random()*.8;e.s.visible=true;e.s.position.set(p.x+(Math.random()-.5)*p.hw*2,p.y+.05,p.z+(Math.random()-.5)*p.hw*2);e.v.set((Math.random()-.5)*.4,.7+Math.random()*.9,(Math.random()-.5)*.4);e.s.scale.setScalar(.06+Math.random()*.05)}}}
   for(const e of embers){if(e.life<=0)continue;e.life-=dt;e.v.x+=(Math.random()-.5)*dt*2;e.v.z+=(Math.random()-.5)*dt*2;e.s.position.addScaledVector(e.v,dt);e.s.material.opacity=Math.min(1,e.life);if(e.life<=0)e.s.visible=false}}
-let fxAnim={falls:[],smoke:[],lavaPts:[],ripples:[],mist:[],drips:[],fallMist:[]};
+let fxAnim={falls:[],smoke:[],lavaPts:[],ripples:[],mist:[],drips:[],fallMist:[],rivers:[],beams:[]};
 function lavaRibbon(s){const n=s.length,pos=new Float32Array(n*6),uv=new Float32Array(n*4),idx=[];let L=0;
   for(let i=0;i<n;i++){const p=s[i],a=s[Math.max(0,i-1)],b=s[Math.min(n-1,i+1)];let dx=b.x-a.x,dz=b.z-a.z;const l=Math.hypot(dx,dz)||1;dx/=l;dz/=l;const px=-dz,pz=dx,w=p.hw+.3;
     if(i)L+=Math.hypot(p.x-s[i-1].x,p.z-s[i-1].z);
@@ -320,6 +337,23 @@ function buildFall(f){const h=f.top-f.bot,ca=Math.cos(f.ang),sa=Math.sin(f.ang);
   // a cloud of mist at the foot
   for(let i=0;i<12;i++){const sp=new THREE.Sprite(mistMat.clone());sp.material.opacity=.22;const u=(i/12-.5)*f.w*1.1;sp.position.set(f.x+ca*u,f.bot+.3,f.z-sa*u);levelGroup.add(sp);fxAnim.fallMist.push({s:sp,t:Math.random(),x:f.x+ca*u,z:f.z-sa*u,y:f.bot})}
   fxAnim.falls.push({x:f.x,z:f.z,y:f.bot,w:f.w,ang:f.ang,top:f.top,spray:!!f.spray,ca:Math.cos(f.ang),sa:Math.sin(f.ang)})}
+function buildRiver(f){const P=[];for(let i=0;i<f.pts.length-1;i++){const a=f.pts[i],c=f.pts[i+1],L=Math.hypot(c[0]-a[0],c[1]-a[1]),m=Math.max(1,Math.ceil(L/.6));for(let k=0;k<m;k++)P.push({x:a[0]+(c[0]-a[0])*k/m,z:a[1]+(c[1]-a[1])*k/m})}
+  const e=f.pts[f.pts.length-1];P.push({x:e[0],z:e[1]});
+  const n=P.length,pos=new Float32Array(n*6),uv=new Float32Array(n*4),idx=[],cum=[0];let L=0;
+  for(let i=0;i<n;i++){const p=P[i],a=P[Math.max(0,i-1)],b=P[Math.min(n-1,i+1)];let dx=b.x-a.x,dz=b.z-a.z;const l=Math.hypot(dx,dz)||1;dx/=l;dz/=l;const px=-dz,pz=dx,w=f.hw+.5;
+    if(i){L+=Math.hypot(p.x-P[i-1].x,p.z-P[i-1].z);cum.push(L)}p.tx=dx;p.tz=dz;
+    pos.set([p.x+px*w,f.y+.012,p.z+pz*w,p.x-px*w,f.y+.012,p.z-pz*w],i*6);uv.set([0,-L/5,1,-L/5],i*4);
+    if(i<n-1){const k=i*2;idx.push(k,k+1,k+2,k+1,k+3,k+2)}}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));g.setAttribute('uv',new THREE.BufferAttribute(uv,2));g.setIndex(idx);
+  for(const[mat,o]of[[riverMat,0],[riverMat2,.004]]){const m=new THREE.Mesh(o?g.clone():g,mat);m.position.y=o;m.renderOrder=3;levelGroup.add(m)}
+  // leaves, twigs and flowers drifting downstream
+  const nl=Math.min(80,Math.round(L/1.6)),im=new THREE.InstancedMesh(leafGeo,leafMat,nl),cc=new THREE.Color(),R=mulberry32(nl*7+n),fl=[];
+  for(let i=0;i<nl;i++){const kind=R();cc.set(kind<.55?['#5a7a2a','#7a8a34','#4a6a22'][i%3]:kind<.85?['#8a6a2a','#a07a3a','#6a4a22'][i%3]:'#e0a03a').convertSRGBToLinear();im.setColorAt(i,cc);
+    fl.push({s:R()*L,lat:(R()-.5)*1.4*f.hw,sp:f.speed*(.7+R()*.5),rot:R()*6.28,spin:(R()-.5)*.8,sx:kind<.85?.07+R()*.05:.035,sz:kind<.85?.12+R()*.08:.3,i:0})}
+  im.frustumCulled=false;im.receiveShadow=true;levelGroup.add(im);fxAnim.rivers.push({P,cum,L,y:f.y,hw:f.hw,im,fl})}
+function buildBeam(f){const def=LEVELS[state.levelIdx],d=new V3(...(def.sunDir||[0,1,0])).normalize(),g=new THREE.Group();
+  for(let k=0;k<3;k++){const m=new THREE.Mesh(new THREE.PlaneGeometry(f.w,f.h),beamMat.clone());m.rotation.y=k*Math.PI/3;m.renderOrder=4;g.add(m)}
+  g.quaternion.setFromUnitVectors(YAX,d);g.position.set(f.x+d.x*f.h/2,f.y+d.y*f.h/2,f.z+d.z*f.h/2);levelGroup.add(g);fxAnim.beams.push({g,x:g.position.x,y:g.position.y,z:g.position.z,ph:Math.random()*6.28})}
 function buildMist(f){const sp=new THREE.Sprite(mistMat.clone());sp.material.opacity=.12+Math.random()*.08;sp.position.set(f.x,f.y,f.z);sp.scale.set(f.s*1.6,f.s*.55,1);levelGroup.add(sp);fxAnim.mist.push({s:sp,x:f.x,z:f.z,ph:Math.random()*6.28})}
 function buildSmoke(f){const L=[],small=f.small||0,n=small?10:26;
   for(let i=0;i<n;i++){const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:dustTex,color:LIN(small?'#8d8880':'#4a4039'),transparent:true,depthWrite:false,opacity:0}));sp.position.set(f.x,f.y,f.z);levelGroup.add(sp);L.push({s:sp,t:i/n,x:f.x,y:f.y,z:f.z})}
@@ -338,12 +372,12 @@ function buildLamps(L){lampGlow=null;if(!L.length)return;const pos=new Float32Ar
   lampGlow=new THREE.Points(g,new THREE.PointsMaterial({map:glowTex,color:LIN('#ffd27a'),size:1.5,transparent:true,opacity:.85,blending:THREE.AdditiveBlending,depthWrite:false,fog:false,sizeAttenuation:true}));
   lampGlow.frustumCulled=false;lampGlow.visible=false;lampGlow.renderOrder=4;levelGroup.add(lampGlow)}
 function buildFx(lv){
-  fxAnim={falls:[],smoke:[],lavaPts:[],ripples:[],mist:[],drips:[],fallMist:[]};
+  fxAnim={falls:[],smoke:[],lavaPts:[],ripples:[],mist:[],drips:[],fallMist:[],rivers:[],beams:[]};
   buildLamps(lv.fx.filter(f=>f.type==='lamp'));
   for(const f of lv.fx){
     if(f.type==='lava'){const m=new THREE.Mesh(lavaRibbon(f.s),lavaMat);m.renderOrder=1;levelGroup.add(m);fxAnim.lavaPts.push(...f.s)}
     else if(f.type==='lavadisc'){const m=new THREE.Mesh(new THREE.CircleGeometry(f.r+.3,40),lavaMat);m.rotation.x=-Math.PI/2;m.position.set(f.x,f.y+.02,f.z);m.renderOrder=1;levelGroup.add(m);fxAnim.lavaPts.push({x:f.x,z:f.z,y:f.y,hw:f.r})}
-    else if(f.type==='deck')buildBridge(f);else if(f.type==='fall')buildFall(f);else if(f.type==='smoke')buildSmoke(f);else if(f.type==='sign')buildSign(f);else if(f.type==='mist')buildMist(f);else if(f.type==='drip')fxAnim.drips.push(f)}
+    else if(f.type==='deck')buildBridge(f);else if(f.type==='fall')buildFall(f);else if(f.type==='smoke')buildSmoke(f);else if(f.type==='sign')buildSign(f);else if(f.type==='mist')buildMist(f);else if(f.type==='drip')fxAnim.drips.push(f);else if(f.type==='river')buildRiver(f);else if(f.type==='beam')buildBeam(f)}
   lavaLight.intensity=0}
 // volcano: now and then the ground rumbles and lava bombs shoot up from the vents. Only for show: nothing hurts the car.
 const ERU={phase:0,tp:0,next:1e9,amp:0,acc:0},bombs=[];
@@ -390,6 +424,12 @@ function updateFx(dt){
   for(const m of fxAnim.fallMist){m.t+=dt*.35;if(m.t>1)m.t-=1;const k=m.t;m.s.position.set(m.x+Math.sin(k*6+m.x)*.3,m.y+.2+k*1.6,m.z+Math.cos(k*5+m.z)*.3);m.s.scale.set(1.2+k*2.2,.9+k*1.6,1);m.s.material.opacity=.26*Math.sin(Math.PI*k)}
   for(const m of fxAnim.mist){m.s.position.x=m.x+Math.sin(tm*.08+m.ph)*1.6;m.s.position.z=m.z+Math.cos(tm*.06+m.ph)*1.1}
   for(const d of fxAnim.drips){if(Math.random()<dt*7){_c2.set(d.x0+Math.random()*(d.x1-d.x0),d.y,d.z);const sp=dust[dustI++%dust.length];sp.s.material.color.set('#dff0f6');sp.s.position.copy(_c2);sp.life=.7;sp.big=1;sp.v.set(0,-.5,0);sp.s.scale.setScalar(.05);sp.s.visible=true}}
+  // rivers: the streaks drift downstream; leaves follow the current, faster in the middle, and turn slowly
+  if(fxAnim.rivers.length){riverTex.offset.y+=dt*.11;riverTex2.offset.y+=dt*.07;
+    for(const rv of fxAnim.rivers){const P=rv.P,cum=rv.cum;rv.fl.forEach((l,i)=>{l.s+=dt*l.sp*(1-.5*(l.lat/rv.hw)**2);if(l.s>=rv.L){l.s=0;l.i=0}while(l.i<cum.length-2&&cum[l.i+1]<l.s)l.i++;
+      const a=P[l.i],b=P[l.i+1]||a,u=(l.s-cum[l.i])/((cum[l.i+1]-cum[l.i])||1),x=a.x+(b.x-a.x)*u-a.tz*l.lat,z=a.z+(b.z-a.z)*u+a.tx*l.lat;l.rot+=l.spin*dt;
+      const vis=WL(x,z)>H(x,z)+.02;_c2.set(x,vis?rv.y+.016+.006*Math.sin(tm*1.7+i):-50,z);_lq.setFromAxisAngle(YAX,l.rot);_ls.set(l.sx,1,l.sz);_lm.compose(_c2,_lq,_ls);rv.im.setMatrixAt(i,_lm)});rv.im.instanceMatrix.needsUpdate=true}}
+  for(const b of fxAnim.beams){const d=camera.position.distanceTo(_c2.set(b.x,b.y,b.z)),k=smt01((d-3)/7)*smt01((30-d)/12)*(.8+.2*Math.sin(tm*.6+b.ph));for(const m of b.g.children)m.material.opacity=.07*k;b.g.visible=k>.01}
   updateEmbers(dt);
   // the glow of the nearest lava lights up the car and the ground
   if(LV.hasLava&&state.gfx==='hi'){let bd=1e9,bp=null;for(const p of fxAnim.lavaPts){const d=(p.x-car.pos.x)**2+(p.z-car.pos.z)**2;if(d<bd){bd=d;bp=p}}
@@ -420,7 +460,7 @@ function applyZone(x,z){if(!ZL.on)return;let k=ZL.d.zone(x,z);if(ZL.k<0)ZL.k=k;e
 function loadLevel(i){
   state.levelIdx=i;const def=LEVELS[i];store.set('level',def.id);
   // free what the old level created; shared geometry and materials stay
-  const keepGeo=new Set([...Object.values(DG),...SHARED_GEO,flagGeo,crateGeo,crateBand]),keepMat=new Set([...Object.values(M),...Object.values(DM),gateMat.pole,gateMat.cap,waterMat]);
+  const keepGeo=new Set([...Object.values(DG),...SHARED_GEO,flagGeo,crateGeo,crateBand,leafGeo]),keepMat=new Set([...Object.values(M),...Object.values(DM),gateMat.pole,gateMat.cap,waterMat,riverMat,riverMat2,leafMat]);
   levelGroup.traverse(o=>{if((o.isInstancedMesh||o.isMesh||o.isPoints)&&o.geometry&&!keepGeo.has(o.geometry))o.geometry.dispose();
     if(o.material&&!keepMat.has(o.material)){if(o.material.map)o.material.map.dispose();o.material.dispose()}});
   scene.remove(levelGroup);levelGroup=new THREE.Group();scene.add(levelGroup);gateVis=[];
@@ -429,7 +469,7 @@ function loadLevel(i){
   for(let k=0;k<N*N;k++){const i2=k%N,j=(k/N)|0;tPos[k*3]=-HALF+i2*CELL;tPos[k*3+1]=TH[k];tPos[k*3+2]=-HALF+j*CELL;tCol[k*3]=TC[k*3];tCol[k*3+1]=TC[k*3+1];tCol[k*3+2]=TC[k*3+2]}
   shadeTerrain();syncTerrain();
   levelGroup.add(LV.decor);
-  water.visible=def.water!=null;if(water.visible)water.position.y=def.water;waterMat.color.set(def.waterCol||'#3f5c4d').convertSRGBToLinear();waterMat.opacity=def.waterOpacity??.7;
+  water.visible=def.water!=null;if(water.visible)water.position.y=def.water;waterMat.color.set(def.waterCol||'#3f5c4d').convertSRGBToLinear();waterMat.opacity=def.waterOpacity??.7;waterMat.envMapIntensity=mudMat.envMapIntensity=def.waterEnv??1.2;
   buildPools(LV);buildCrates(LV);rain.visible=!!(def.rain||def.ash||def.snow);ashMode=!!def.ash;snowMode=!!def.snow;rain.material.color.set(ashMode?'#ffb070':snowMode?'#ffffff':'#dfe8ee');rain.material.size=ashMode?.06:snowMode?.075:.045;rain.material.opacity=.55;precipK=1;
   if(skyDome.material.map)skyDome.material.map.dispose();if(scene.environment)scene.environment.dispose();
   const sky=skyTex(def);skyDome.material.map=sky;skyDome.material.needsUpdate=true;

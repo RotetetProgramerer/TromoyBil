@@ -72,6 +72,13 @@ function updateAmbience(dt){if(!AC||!LV)return;initAmbience();if(!AMB)return;con
 // a frog croaking somewhere in the reeds
 function ambFrog(x,z){const v=ambVoice(x,z,18);if(!v)return;const ac=AMB.ac,o=ac.createOscillator();o.type='sawtooth';const f=ac.createBiquadFilter();f.type='lowpass';f.frequency.value=520;o.connect(f);f.connect(v.g);const t=v.t,f0=85+Math.random()*60;
   o.frequency.setValueAtTime(f0,t);o.frequency.linearRampToValueAtTime(f0*1.25,t+.12);o.frequency.linearRampToValueAtTime(f0*.9,t+.3);v.g.gain.setValueAtTime(0,t);v.g.gain.linearRampToValueAtTime(.07*v.vol,t+.03);v.g.gain.linearRampToValueAtTime(0,t+.32);o.start(t);o.stop(t+.35)}
+// a caiman hissing as it slides into the river: a short burst of filtered noise
+function ambHiss(x,z){initAmbience();const v=ambVoice(x,z,14);if(!v)return;const ac=AMB.ac,s=noiseSrc(ac,noiseBuf(ac,.8)),f=ac.createBiquadFilter();f.type='bandpass';f.frequency.value=3200;f.Q.value=.8;s.connect(f);f.connect(v.g);const t=v.t;
+  v.g.gain.setValueAtTime(0,t);v.g.gain.linearRampToValueAtTime(.12*v.vol,t+.06);v.g.gain.exponentialRampToValueAtTime(.001,t+.7);s.stop(t+.75)}
+// the jaguar: a low, rough growl (two detuned saws through a lowpass, with a rumble of noise)
+function ambGrowl(x,z){initAmbience();const v=ambVoice(x,z,24);if(!v)return;const ac=AMB.ac,t=v.t,f=ac.createBiquadFilter();f.type='lowpass';f.frequency.value=380;f.connect(v.g);
+  for(const d of[1,1.07]){const o=ac.createOscillator();o.type='sawtooth';o.frequency.setValueAtTime(62*d,t);o.frequency.linearRampToValueAtTime(48*d,t+1.1);o.connect(f);o.start(t);o.stop(t+1.25)}
+  const s=noiseSrc(ac,noiseBuf(ac,1.3));s.connect(f);s.stop(t+1.25);v.g.gain.setValueAtTime(0,t);v.g.gain.linearRampToValueAtTime(.16*v.vol,t+.15);v.g.gain.setValueAtTime(.16*v.vol,t+.7);v.g.gain.linearRampToValueAtTime(0,t+1.2)}
 // a pigeon cooing: two soft, low triangle notes with a wobble
 function ambCoo(x,z){initAmbience();const v=ambVoice(x,z,16);if(!v)return;const ac=AMB.ac,o=ac.createOscillator();o.type='triangle';const f=ac.createBiquadFilter();f.type='lowpass';f.frequency.value=900;o.connect(f);f.connect(v.g);const t=v.t;
   for(let i=0;i<2;i++){const t0=t+i*.42;o.frequency.setValueAtTime(380,t0);o.frequency.linearRampToValueAtTime(470,t0+.08);o.frequency.linearRampToValueAtTime(340,t0+.3);v.g.gain.setValueAtTime(0,t0);v.g.gain.linearRampToValueAtTime(.05*v.vol,t0+.04);v.g.gain.linearRampToValueAtTime(0,t0+.32)}o.start(t);o.stop(t+.9)}
