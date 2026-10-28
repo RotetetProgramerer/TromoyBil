@@ -228,6 +228,9 @@ html{box-sizing:border-box}*,*::before,*::after{box-sizing:inherit}body{margin:0
 .ski-help{position:fixed;z-index:12;left:50%;transform:translateX(-50%);bottom:calc(22px + env(safe-area-inset-bottom,0px));background:var(--panel);color:var(--paper);padding:7px 14px;font-size:.98rem;text-align:center;max-width:calc(100% - 32px);pointer-events:none}
 .ski-help kbd{font-family:inherit;font-weight:700;color:#9fd2ff}
 body.is-touch .ski-help{bottom:calc(190px + env(safe-area-inset-bottom,0px))}
+.ski-split{position:fixed;z-index:12;left:50%;top:calc(28% + env(safe-area-inset-top,0px));transform:translateX(-50%);font-family:var(--f-display);font-size:clamp(1.6rem,5vw,2.4rem);font-variant-numeric:tabular-nums;
+  padding:4px 16px;background:var(--panel);pointer-events:none;text-shadow:0 2px 0 var(--ink)}
+.ski-split.ahead{color:#8bbb4a}.ski-split.behind{color:var(--signal)}
 .tb.sk{display:none}
 #hud.ski .tb.sk{display:grid}
 .alist .pdot{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:7px;border:1px solid var(--paper);vertical-align:1px}

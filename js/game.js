@@ -13,7 +13,7 @@ const state={mode:'menu',carIdx:idxOf(CARS,store.get('car',0)),levelIdx:idxOf(LE
   time:0,started:false,penalty:0,next:0,flipT:0,checkpoint:null,missed:0,touched:0,winches:0,log:[],input:{gas:0,rev:0,left:0,right:0}};
 let best=store.get('best',{});
 // player profile: currency, parts, paint
-const prof=Object.assign({nuts:0,parts:{},paint:0,paints:[0],first:{},runs:0,lastDay:'',secrets:{},cars:[],unlocked:[]},store.get('prof',{}));if(!prof.secrets)prof.secrets={};if(!prof.cars)prof.cars=[];if(!prof.unlocked)prof.unlocked=[];
+const prof=Object.assign({nuts:0,parts:{},paint:0,paints:[0],first:{},runs:0,lastDay:'',secrets:{},cars:[]},store.get('prof',{}));if(!prof.secrets)prof.secrets={};if(!prof.cars)prof.cars=[];
 const ownsCar=c=>!c.price||prof.cars.includes(c.id);
 if(!PAINTS[prof.paint])prof.paint=0;
 const saveProf=()=>store.set('prof',prof);
@@ -518,7 +518,7 @@ function finishRun(){
   // the daily double needs a full run (no missed gates) and is saved for later otherwise
   const today=new Date().toDateString();let dbl=false,dblNote='';
   if(prof.lastDay!==today){if(state.missed===0){prof.lastDay=today;dbl=true;e*=2}else dblNote='Ta alle portene for å få dagens dobbel. '}
-  prof.nuts+=e;prof.runs++;saveProf();if(state.world)rebuildPortalSign(null);
+  prof.nuts+=e;prof.runs++;saveProf();
   $('rNuts').textContent='+'+fmtN(e);$('rNutsNote').textContent=(dbl?'Dagens første tur: dobbelt! ':dblNote)+el.join(' · ');
   $('rLog').innerHTML=items.join('');
   $('rNext').textContent=state.world?'Kjør videre':state.levelIdx<LEVELS.length-1?'Neste bane':'Første bane';
@@ -678,7 +678,7 @@ function syncVisuals(dt){
   const ng=LV.gates[state.next];
   if(ng&&state.mode==='play'){beacon.visible=true;beacon.position.set(ng.c.x,H(ng.c.x,ng.c.z),ng.c.z);beacon.userData.ring.scale.setScalar(1+.08*Math.sin(performance.now()*.005));
     arrow.visible=car.assist;if(arrow.visible){arrow.position.copy(car.pos).add(_c2.set(0,1.25,0));_c1.set(ng.c.x-car.pos.x,0,ng.c.z-car.pos.z).normalize();arrow.quaternion.setFromUnitVectors(YAX,_c1)}}
-  else if(state.free&&car.assist&&state.world){const n=nearestPortal();let tx=null,tz=null;if(n&&!courseLock(n.k)&&n.d>6){tx=n.k.start.p.x;tz=n.k.start.p.z}
+  else if(state.free&&car.assist&&state.world){const n=nearestPortal();let tx=null,tz=null;if(n&&n.d>6){tx=n.k.start.p.x;tz=n.k.start.p.z}
     if(tx!==null){arrow.visible=true;arrow.position.copy(car.pos).add(_c2.set(0,1.25,0));_c1.set(tx-car.pos.x,0,tz-car.pos.z).normalize();arrow.quaternion.setFromUnitVectors(YAX,_c1)}else arrow.visible=false;beacon.visible=false}
   else{beacon.visible=false;arrow.visible=false}
   updateDust(dt);updateRain(dt);updateFx(dt);applyZone(fp.x,fp.z);nightTint();updateCoat(dt);updateWinch(dt);updateAnimals(dt);updateBoulder(dt);
@@ -726,7 +726,7 @@ function frame(now){
       if(ll>-1e8&&car.pos.y<ll+.12){const cp=state.checkpoint;for(let i=0;i<14;i++)spawnDust(car.pos,15,true);placeCar(car,cp.x,cp.z,cp.h);state.lavaFalls++;state.flood=0;addPenalty(10,'Lava: tilbake til forrige port');camSnap=true}
       else LV.bonuses.forEach((b,bi)=>{if(!state.bonusDone[bi]&&Math.hypot(b.x-car.pos.x,b.z-car.pos.z)<b.r&&(ll<-1e8||car.pos.y>ll+.35)){state.bonusDone[bi]=1;state.bonusNuts+=b.nuts;toast(b.msg)}})}
     // airtime
-    if(car.wheels.every(w=>!w.contact)&&car.pos.y>H(car.pos.x,car.pos.z)+.3){state.air+=dt;state.fallV=Math.min(state.fallV||0,car.vel.y)}else if(state.air>0){const hit=-(state.fallV||0);if(state.air>.2&&hit>2.2){landShake=Math.min(.05,hit*.012);ambThump(Math.min(1,hit/8));for(let i=0;i<Math.min(14,hit*2|0);i++)for(const w of car.wheels)if(w.contact&&Math.random()<.5)spawnDust(w.P,w.surf,true)}state.fallV=0;if(state.air>.32){state.jumps++;if(state.air>.5)state.longJumps++;state.bestAir=Math.max(state.bestAir,state.air);toast('Hopp! '+state.air.toFixed(1).replace('.',',')+' s'+(state.air>.5?' · +20 ⚙':''))}state.air=0}
+    if(car.wheels.every(w=>!w.contact)&&car.pos.y>H(car.pos.x,car.pos.z)+.3){state.air+=dt;state.fallV=Math.min(state.fallV||0,car.vel.y)}else if(state.air>0){const hit=-(state.fallV||0);if(state.air>.2&&hit>2.2){landShake=Math.min(.05,hit*.012);ambThump(Math.min(1,hit/8));for(let i=0;i<Math.min(14,hit*2|0);i++)for(const w of car.wheels)if(w.contact&&Math.random()<.5)spawnDust(w.P,w.surf,true)}state.fallV=0;if(state.air>.32&&!(state.thrown&&performance.now()-state.thrown<4000)){state.jumps++;if(state.air>.5)state.longJumps++;state.bestAir=Math.max(state.bestAir,state.air);toast('Hopp! '+state.air.toFixed(1).replace('.',',')+' s'+(state.air>.5?' · +20 ⚙':''))}state.air=0}
     // crates
     for(const c of crateVis){if(c.taken)continue;const dx=c.cr.x-car.pos.x,dz=c.cr.z-car.pos.z;if(dx*dx+dz*dz<.42&&Math.abs(c.cr.y-car.pos.y)<.9){c.taken=true;c.g.visible=false;state.crates++;toast('Kasse '+state.crates+'/'+LV.crates.length+' · +15 ⚙');for(let i=0;i<6;i++)spawnDust(c.g.position,0,true)}}
     if(car.pos.y<-3||Math.abs(car.pos.x)>HALF-.5||Math.abs(car.pos.z)>HALF-.5){winch();toast('Utenfor banen: vinsj',true)}

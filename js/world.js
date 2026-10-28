@@ -8,16 +8,12 @@
 let portals=[],courseArrows=null,countT=0,gateWake=null,nightOn=false,cpT=0;
 const coursesDone=()=>LV.courses.filter(k=>best[courseKey(LEVELS[state.levelIdx],k)]).length;
 const DIFFCOL=['#8bbb4a','#8bbb4a','#f2c230','#d9432f'];
-// a locked course needs a number of finished courses on this island, or can be bought open for nuts
-function courseLock(k){const n=k.def&&k.def.needs;if(!n)return null;const lvl=LEVELS[state.levelIdx];if(prof.unlocked.includes(courseKey(lvl,k)))return null;const done=coursesDone();if(n.courses&&done>=n.courses)return null;
-  const need=n.courses?('Fullfør '+n.courses+' løype'+(n.courses>1?'r':'')+' på øya først ('+done+' fullført)'):'';return{text:need,nuts:n.nuts||0}}
 function startFree(){state.mode='play';state.free=true;state.course=null;resetRunState();LV.gates=[];LV.crates=[];buildGates(LV);buildCrates(LV);
   resetToStart();car.low=true;clearTracks();showHud();updateGearUI();state.checkpoint={x:car.pos.x,z:car.pos.z,h:Math.atan2(car.fw.x,car.fw.z)};toast('Fri kjøring: kjør bort til en startstrek')}
 // the start of every course: two flag poles, tyre barriers, a string of festival lights and a sign
 function portalSign(k){const c=document.createElement('canvas');c.width=256;c.height=128;const x=c.getContext('2d');x.fillStyle='#f2e8d0';x.fillRect(0,0,256,128);x.fillStyle=DIFFCOL[k.diff];x.fillRect(0,0,256,22);
   x.strokeStyle='#14120E';x.lineWidth=6;x.strokeRect(3,3,250,122);x.fillStyle='#14120E';x.textAlign='center';x.font='700 40px "Barlow Condensed",sans-serif';x.fillText(k.name,128,72);
   x.font='600 22px "Barlow Condensed",sans-serif';x.fillText(['','Lett','Middels','Vanskelig'][k.diff]+' · '+k.gates.length+' porter',128,106);
-  if(courseLock(k)){x.fillStyle='rgba(20,18,14,.55)';x.fillRect(0,0,256,128);x.fillStyle='#f2e8d0';x.font='700 56px sans-serif';x.fillText('🔒',128,84)}
   const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;return t}
 function buildPortals(lv){portals=[];if(!lv.courses||!lv.courses.length)return;
   for(const k of lv.courses){const g=new THREE.Group(),p=k.start.p,tn=k.start.tan,s=new V3(tn.z,0,-tn.x),col=DIFFCOL[k.diff];
@@ -44,28 +40,23 @@ function openAsk(k){state.mode='ask';state.askK=k;$('aList').hidden=true;$('aYes
     $('aList').innerHTML=dests.map(l=>`<button data-dest="${l.id}"><span><span class="nm">${l.name}</span><span class="sub">${l.desc}</span></span><span class="pr">5 ⚙</span></button>`).join('');$('aList').hidden=false;$('aYes').hidden=true;$('aNo').textContent='Bli her';$('ask').hidden=false;return}
   $('aQ').textContent='Vil du starte denne utfordringen?';$('aNo').textContent='NEI, kjør videre';
   if(k==='garage'){$('aName').textContent='Verkstedet';$('aKind').textContent='Basen';$('aDesc').textContent='Mekanikerne står klare. Her bruker du mutterne på dekk, fjæring, motor, vekt, utstyr og lakk.';$('aBest').textContent='Du har '+fmtN(prof.nuts)+' muttere.';$('ask').hidden=false;$('aYes').focus();return}
-  const key=courseKey(LEVELS[state.levelIdx],k),b=best[key],lock=courseLock(k);
+  const key=courseKey(LEVELS[state.levelIdx],k),b=best[key];
   $('aName').textContent=k.name;$('aDesc').textContent=k.desc;$('aKind').textContent=['','Lett løype','Middels løype','Vanskelig løype'][k.diff]+' · '+k.gates.length+' porter';
   $('aBest').textContent=b?'Din beste: '+fmtTime(b.t)+' med '+b.p+' straffepoeng, '+b.s+' av 3 stjerner.':'Ikke kjørt ennå. Første gang i mål gir banebonus.';
-  if(lock){$('aKind').textContent='🔒 Låst løype';$('aBest').textContent=lock.text+(lock.nuts?(lock.text?', eller lås opp for ':'Lås opp for ')+lock.nuts+' ⚙ (du har '+fmtN(prof.nuts)+').':'.');
-    if(lock.nuts&&prof.nuts>=lock.nuts){$('aQ').textContent='Vil du låse opp løypa for '+lock.nuts+' muttere?';state.askUnlock=lock.nuts}else{$('aQ').textContent='';$('aYes').hidden=true;state.askUnlock=0}}else state.askUnlock=0;
   $('ask').hidden=false;$('aYes').focus()}
 // the start banner: shown while the car is near a start portal. The game goes on; Enter or START begins the course.
 function setOffer(k){if(state.offerK===k)return;state.offerK=k;const el=$('offer');if(!k){el.hidden=true;return}
-  const b=best[courseKey(LEVELS[state.levelIdx],k)],lock=courseLock(k);
-  $('oKind').textContent=lock?'🔒 Låst løype':['','Lett løype','Middels løype','Vanskelig løype'][k.diff]+' · '+k.gates.length+' porter';$('oName').textContent=k.name;
-  $('oBest').textContent=b?'Din beste: '+fmtTime(b.t):'Ikke kjørt ennå';$('oGo').firstChild.textContent=lock?'LÅS OPP ':'START ';el.hidden=false}
-function acceptOffer(){const k=state.offerK;if(!k||state.mode!=='play'||state.course)return;setOffer(null);if(courseLock(k))openAsk(k);else startCourse(k)}
+  const b=best[courseKey(LEVELS[state.levelIdx],k)];
+  $('oKind').textContent=['','Lett løype','Middels løype','Vanskelig løype'][k.diff]+' · '+k.gates.length+' porter';$('oName').textContent=k.name;
+  $('oBest').textContent=b?'Din beste: '+fmtTime(b.t):'Ikke kjørt ennå';$('oGo').firstChild.textContent='START ';el.hidden=false}
+function acceptOffer(){const k=state.offerK;if(!k||state.mode!=='play'||state.course)return;setOffer(null);startCourse(k)}
 function answerAsk(yes){if(state.mode!=='ask')return;$('ask').hidden=true;const k=state.askK;state.askK=null;
   if(typeof k==='string'&&k.startsWith('ski')){skiAnswer(k,yes);return}
   if(typeof k==='string'&&k.startsWith('boat')){boatAnswer(k,yes);return}
   if(k==='fly'){flyAnswer(k,yes);return}
   if(k==='garage'){state.askCool='garage';if(yes){state.mode='play';toGarage()}else{state.mode='play';toast('Kjør videre når du vil')}return}
   if(k==='ferry'){state.askCool='ferry';state.mode='play';if(yes&&yes.dest)startFerry(yes.dest);return}
-  if(yes&&state.askUnlock){prof.nuts-=state.askUnlock;prof.unlocked.push(courseKey(LEVELS[state.levelIdx],k));saveProf();state.askUnlock=0;state.mode='play';state.askCool=k.id;rebuildPortalSign(k);toast(k.name+' er låst opp · −'+(k.def.needs.nuts)+' ⚙');return}
   if(yes)startCourse(k);else{state.mode='play';state.askCool=k.id;toast('Kjør videre når du vil')}}
-// after an unlock or a finished course the signs may change
-function rebuildPortalSign(k){for(const p of portals){if(k&&p.k!==k)continue;const b=p.g.children.find(o=>o.isMesh&&o.material.map&&o.geometry.parameters&&o.geometry.parameters.width===1.2);if(b){b.material.map.dispose();b.material.map=portalSign(p.k);b.material.needsUpdate=true}}}
 function startCourse(k){setOffer(null);placeCar(car,k.start.p.x,k.start.p.z,Math.atan2(k.start.tan.x,k.start.tan.z));camSnap=true;state.course=k;state.free=false;resetRunState();LV.gates=k.gates;LV.crates=k.crates;buildGates(LV);buildCrates(LV);resetCrates();
   gateVis.forEach((g,i)=>{g.touched=false;setGateState(i,'pending')});gateWake={i:0,t:0};buildCourseArrows(k);
   if(k.def.night)setNight(true);

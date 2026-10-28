@@ -12,7 +12,6 @@ const FL={on:false,fade:null,phase:'',cam:null,pl:null,mesh:null,route:null,flig
   hudT:0,res:null,airport:null,sock:null,snd:null,notes:[],took:false,landed:false,wake:0,orbit:0,from:new THREE.Vector3()};
 const flyKey=f=>'trinnvik/fly/'+f.id;
 const flyDone=()=>FLIGHTS.filter(f=>best[flyKey(f)]).length;
-function flyLock(f){const n=f.needs&&f.needs.flights;if(!n)return null;return FLIGHTS.filter(q=>q!==f&&best[flyKey(q)]).length>=n?null:'Fullfør en annen flytur først'}
 const _fv=new THREE.Vector3(),_fv2=new THREE.Vector3(),_fv3=new THREE.Vector3();
 
 /* ---------- the plane: a high-wing two-seater, forward is −z, the wheels 3.2 under its middle ---------- */
@@ -100,15 +99,15 @@ function flyExit(){if(FL.fade||!FL.on)return;$('fade').classList.add('on');
   FL.fade={t:0,hold:.2,cb:()=>{FL.on=false;FL.phase='';FL.result=false;FL.paused=false;if(FL.snd)FL.snd.master.gain.setTargetAtTime(0,AC.currentTime,.1);if(BT.snd)BT.snd.master.gain.setTargetAtTime(0,AC.currentTime,.1);const H=$('boatHud');H.hidden=true;H.classList.remove('fly','menu','won');
     $('flyMenu').hidden=true;$('flyPause').hidden=true;if(!$('result').hidden){$('result').hidden=true;bResultReset()}
     renderer.setScissorTest(false);renderer.setViewport(0,0,innerWidth,innerHeight);state.mode='play';state.askCool='fly';camSnap=true;showHud();toast('Tilbake ved bilen')}}}
-const fSel=()=>{const id=store.get('flyPick','fri');if(id==='fri')return null;const f=FLIGHTS.find(q=>q.id===id);return f&&!flyLock(f)?f:null};
+const fSel=()=>{const id=store.get('flyPick','fri');if(id==='fri')return null;const f=FLIGHTS.find(q=>q.id===id);return f||null};
 // on the runway, nose to the north: a course (its rings) or null to fly where you like
 function fSetup(f){FL.flight=f;FL.route=flightRoute(f);fRings(FL.route);const s=FL.route.start;FL.pl=makePlane(s.x,s.y,s.z,s.a);
   if(!FL.mesh){FL.mesh=fPlaneMesh((PAINTS[prof.paint]||PAINTS[0]).c);BT.scene.add(FL.mesh)}else fPaint(FL.mesh,(PAINTS[prof.paint]||PAINTS[0]).c);FL.mesh.visible=true;
   FL.camYaw=s.a;FL.time=0;FL.acc=0;FL.took=false;FL.landed=false;FL.result=false;FL.paused=false;FL.res=null;fPose(0)}
 function flyMenu(){FL.result=false;FL.paused=false;$('result').hidden=true;$('flyPause').hidden=true;$('boatHud').classList.add('menu');FL.phase='menu';fSetup(fSel());fMenuRender();$('flyMenu').hidden=false;$('fmGo').focus()}
-function fMenuRender(){const sel=fSel(),row=(id,name,desc,diff,b,lock,on)=>`<button data-fly="${id}" aria-pressed="${on}"${lock?' class="lk"':''}><span><span class="nm"><i class="pdot" style="background:${DIFFCOL[diff]}"></i>${name}${lock?' 🔒':''}</span><span class="sub">${lock?lock+'.':desc}${b?' Beste: '+fmtTime(b.t)+'.':''}</span></span><span class="pr">${id==='fri'?'':b?'★'.repeat(b.s)+'☆'.repeat(3-b.s):'☆☆☆'}</span></button>`;
-  $('fmList').innerHTML=row('fri','Fly fritt','Ingen ringer og ingen klokke. Fly dit du vil, se båtene og de andre, og land på rullebanen når du er ferdig.',1,null,null,!sel)+
-    FLIGHTS.map(f=>row(f.id,f.name,f.desc,f.diff,best[flyKey(f)],flyLock(f),sel===f)).join('');
+function fMenuRender(){const sel=fSel(),row=(id,name,desc,diff,b,on)=>`<button data-fly="${id}" aria-pressed="${on}"><span><span class="nm"><i class="pdot" style="background:${DIFFCOL[diff]}"></i>${name}</span><span class="sub">${desc}${b?' Beste: '+fmtTime(b.t)+'.':''}</span></span><span class="pr">${id==='fri'?'':b?'★'.repeat(b.s)+'☆'.repeat(3-b.s):'☆☆☆'}</span></button>`;
+  $('fmList').innerHTML=row('fri','Fly fritt','Ingen ringer og ingen klokke. Fly dit du vil, se båtene og de andre, og land på rullebanen når du er ferdig.',1,null,!sel)+
+    FLIGHTS.map(f=>row(f.id,f.name,f.desc,f.diff,best[flyKey(f)],sel===f)).join('');
   const touch=document.body.classList.contains('is-touch');$('fmKeys').textContent=touch?'Knappene på skjermen: opp og ned stiger og synker, piler svinger, ⚡ gir full fart.':'W eller ↑ for gass og stige, S eller ↓ for å synke og bremse, A/D eller ←/→ for å svinge, mellomrom for full fart.'}
 function flyBegin(){fSetup(fSel());$('flyMenu').hidden=true;$('flyPause').hidden=true;$('result').hidden=true;$('boatHud').classList.remove('menu','won');FL.phase='fly';
   fNotice(FL.flight?'Hold gass for å ta av · ring 1 venter':'Hold gass for å ta av',2600);fHUD()}
@@ -238,7 +237,7 @@ function seaDraw(now,t){if(!BT.built)return;for(const o of SEA_O.values()){const
   o.tag.position.set(o.x,o.y+18,o.z)}}
 
 function initFly(){
-  $('fmList').addEventListener('click',e=>{const b=e.target.closest('[data-fly]');if(!b)return;const f=FLIGHTS.find(q=>q.id===b.dataset.fly);if(f&&flyLock(f)){toast(flyLock(f),true);return}
+  $('fmList').addEventListener('click',e=>{const b=e.target.closest('[data-fly]');if(!b)return;
     store.set('flyPick',b.dataset.fly);fSetup(fSel());fMenuRender()});
   $('fmGo').onclick=()=>{if(FL.phase==='menu')flyBegin()};$('fmBack').onclick=()=>flyExit();
   $('fpResume').onclick=()=>fPause(false);$('fpRestart').onclick=()=>{fPause(false);flyBegin()};$('fpMenu').onclick=()=>{fPause(false);flyMenu()};$('fpCar').onclick=()=>{fPause(false);flyExit()};

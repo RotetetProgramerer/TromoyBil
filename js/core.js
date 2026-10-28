@@ -112,8 +112,8 @@ function surfColor(s,x,z,n,def){
     case S.SAND:return mix('#b58a46','#d2ab66',v*.7+w*.3);
     case S.ROCK:{const b=col(def.rockCol||'#9a948a'),f=.76+w*.32+v*.12;return[b[0]*f,b[1]*f,b[2]*f]}
     case S.GRAVEL:return mix('#776f62','#a1998b',v*.5+w*.5);
-    case S.DIRT:return mix('#5b412b','#80603f',v*.6+w*.4);
-    case S.GRASS:return mix('#4b6629','#7f9441',v*.7+w*.3);
+    case S.DIRT:return def.dirtCol?mix(def.dirtCol[0],def.dirtCol[1],v*.6+w*.4):mix('#5b412b','#80603f',v*.6+w*.4);   // def.dirtCol/grassCol: the level's own colours (red earth and golden grass on Løveøya)
+    case S.GRASS:return def.grassCol?mix(def.grassCol[0],def.grassCol[1],v*.7+w*.3):mix('#4b6629','#7f9441',v*.7+w*.3);
     case S.MUD:return mix('#3c2f22','#574431',w);
     case S.BOG:return mix('#2a2016','#3f3024',w*.6+v*.4);
     case S.BARK:return mix('#47321f','#6c4b31',w);
@@ -132,11 +132,12 @@ function surfColor(s,x,z,n,def){
 /* ---------- levels ---------- */
 const LEVELS=[]; // fylles av data/levels/*.js
 
-function benchPts(P,hw,blend){
+// levels the ground across a line. tilt (0–1) keeps that part of the slope across the line, so a ski piste on a mountainside may lean a little
+function benchPts(P,hw,blend,tilt=0){
   const hs=P.map(p=>Hterr(p.x,p.z)),sm=hs.map((_,i)=>{let a=0,m=0;for(let k=-8;k<=8;k++){const j=i+k;if(j>=0&&j<hs.length){a+=hs[j];m++}}return a/m});
   const best=new Float32Array(N*N).fill(1e9),bi=new Int32Array(N*N).fill(-1),R=hw+blend;
   for(let i=0;i<P.length;i+=2){const p=P[i];cellsIn(p.x-R,p.z-R,p.x+R,p.z+R,(k,px,pz)=>{const d=Math.hypot(px-p.x,pz-p.z);if(d<best[k]){best[k]=d;bi[k]=i}})}
-  for(let k=0;k<N*N;k++){if(bi[k]<0||best[k]>=R)continue;const d=best[k],f=d<=hw?1:1-(d-hw)/blend,w=f*f*(3-2*f);TH[k]+=(sm[bi[k]]-TH[k])*w}}
+  for(let k=0;k<N*N;k++){if(bi[k]<0||best[k]>=R)continue;const d=best[k],f=d<=hw?1:1-(d-hw)/blend,w=f*f*(3-2*f),i=bi[k];TH[k]+=(sm[i]+tilt*Math.max(-hw,Math.min(hw,TH[k]-hs[i]))-TH[k])*w}}
 function carveLava(s){
   const best=new Float32Array(N*N).fill(1e9),bi=new Int32Array(N*N).fill(-1);
   s.forEach((p,i)=>{const R=p.hw+.8;cellsIn(p.x-R,p.z-R,p.x+R,p.z+R,(k,px,pz)=>{const d=Math.hypot(px-p.x,pz-p.z)-p.hw;if(d<best[k]){best[k]=d;bi[k]=i}})});
@@ -387,25 +388,33 @@ function genLevel(def){
           nd.push({x:t.x,y:yb,z:t.z,sx:r,sy:ch,sz:r,ry,c:col});
           sn.push({x:t.x,y:yb+ch*(1-t.snow*.62),z:t.z,sx:r*t.snow*.66,sy:ch*t.snow*.64,sz:r*t.snow*.66,ry:ry+.5,c:'#f1f5f8'})}}
       instanced(DG.trunk,DM.bark,tr,c.decor);instanced(DG.fern,DM.white,nd,c.decor);instanced(DG.fern,DM.white,sn,c.decor,false);c.spruceList=[]},
-    // a ski piste: its own line from the start up the mountain (t=0) to the finish (t=1), levelled across like a groomed slope, painted with
-    // corduroy, marked in TG (the skier glides better there) and kept clear of trees. p={id,name,desc,diff,kind:'fri'|'slalom'|'utfor'|'hopp',
-    // path,gates:[[x,z],...] (the last one is the finish),hw,blend,gw (half width of a gate),ice:[[t0,t1],...]}. Jumps: c.kicker after this.
+    // a ski piste: its own line from the start up the mountain (t=0) to the finish (t=1), levelled across like a groomed slope, marked in TG
+    // (the skier glides better there) and kept clear of trees. The corduroy itself is drawn on top by the game (js/skiresort.js).
+    // p={id,name,desc,diff,kind:'fri'|'slalom'|'utfor'|'hopp',path,gates:[[x,z],...] (the last one is the finish),hw,blend,tilt,berm,gw (half width
+    // of a gate),ice:[[t0,t1],...],nets}. tilt: how much of the mountainside the piste keeps across (0 = dead level, default .22).
+    // berm: the low bank of snow the groomer leaves along both edges (default .07). Jumps: c.kicker after this, bumps: c.moguls.
     pistes:[],
-    piste(p){const k=makeLine(p.path),hw=p.hw??2.2;Object.assign(k,{id:p.id,name:p.name,desc:p.desc,diff:p.diff||1,kind:p.kind||'fri',def:p,hw,kickers:[]});k.len=k.pts.reduce((s,q,i,P)=>i?s+Math.hypot(q.x-P[i-1].x,q.z-P[i-1].z):0,0);
-      benchPts(k.pts,hw,p.blend??2.4);
+    piste(p){const k=makeLine(p.path),hw=p.hw??2.2;Object.assign(k,{id:p.id,name:p.name,desc:p.desc,diff:p.diff||1,kind:p.kind||'fri',def:p,hw,kickers:[],moguls:[],nets:[],ice:p.ice||[]});k.len=k.pts.reduce((s,q,i,P)=>i?s+Math.hypot(q.x-P[i-1].x,q.z-P[i-1].z):0,0);
+      const R=hw+1.4,near=new Map(),n=k.pts.length,berm=p.berm??.07;   // the nearest point of the line and the side of it, for every cell under the piste
+      for(let i=0;i<n;i++){const q=k.pts[i];cellsIn(q.x-R,q.z-R,q.x+R,q.z+R,(kk,px,pz)=>{const d=Math.hypot(px-q.x,pz-q.z);if(d>R)return;const b=near.get(kk);if(!b||d<b[0])near.set(kk,[d,i,px,pz])})}
+      benchPts(k.pts,hw,p.blend??2.4,p.tilt??.22);
+      // the levelling gives every cell the height of the nearest point of the line, which leaves steps where the line bends back on itself
+      // (hairpins, slalom swings). A few passes of blur over the piste turn them into gentle slopes, like a groomed surface.
+      {const cells=[];for(const[kk,v]of near)if(v[0]<=hw+.8)cells.push(kk);const tmp=new Float32Array(cells.length);
+        for(let pass=0;pass<6;pass++){cells.forEach((kk,m)=>{const i=kk%N,j=(kk/N)|0;let a=0,c2=0;for(let dj=-2;dj<=2;dj++)for(let di=-2;di<=2;di++){const ii=i+di,jj=j+dj;if(ii<0||jj<0||ii>=N||jj>=N)continue;a+=TH[jj*N+ii];c2++}tmp[m]=a/c2});cells.forEach((kk,m)=>{TH[kk]=tmp[m]})}}
       const gw=p.gw??(k.kind==='slalom'?.75:Math.min(1.9,hw-.3));
       k.gates=(p.gates||[]).map((q,i,L)=>{const t=k.tOf(q[0],q[1]),tn=k.T(t),s=k.side(t),fin=i===L.length-1,w=fin?hw-.15:gw;
         return{t,c:{x:q[0],z:q[1]},tan:tn,side:s,a:{x:q[0]+s.x*w,z:q[1]+s.z*w},b:{x:q[0]-s.x*w,z:q[1]-s.z*w},w,finish:fin,col:k.kind==='slalom'?(i%2?'#2f6fd6':'#d9432f'):'#e5a92b'}});
       k.start={p:k.P(0),tan:k.T(.004)};
       for(let i=0;i<k.pts.length;i+=2)c.xpts.push(k.pts[i]);
-      // grooming: the nearest point of the line and the side of it, for every cell under the piste
-      const R=hw+1.4,near=new Map(),n=k.pts.length;
-      for(let i=0;i<n;i++){const q=k.pts[i];cellsIn(q.x-R,q.z-R,q.x+R,q.z+R,(kk,px,pz)=>{const d=Math.hypot(px-q.x,pz-q.z);if(d>R)return;const b=near.get(kk);if(!b||d<b[0])near.set(kk,[d,i,px,pz])})}
-      const icy=t=>(p.ice||[]).some(r=>t>=r[0]&&t<=r[1]);
-      for(const[kk,[d,i,px,pz]]of near){const q=k.pts[i],q2=k.pts[Math.min(n-1,i+1)],q1=k.pts[Math.max(0,i-1)];let tx=q2.x-q1.x,tz=q2.z-q1.z;const tl=Math.hypot(tx,tz)||1;tx/=tl;tz/=tl;
-        const lat=(px-q.x)*tz-(pz-q.z)*tx,stripe=Math.floor((lat+20)/.24)%2,nz=G.noise(px*2.3,pz*2.3);
-        if(d<=hw){TG[kk]=1;if(icy(i/(n-1))){TS[kk]=S.ICE;setC(kk,mix('#bcd3e0','#dbe8f0',nz*.7+stripe*.2))}else{TS[kk]=S.SNOW;setC(kk,mix('#e6edf3','#f7fafc',stripe*.6+nz*.35))}}
-        else{if(TS[kk]===S.ROCK||TS[kk]===S.GRAVEL)TS[kk]=S.SNOW;if(TS[kk]===S.SNOW||TS[kk]===S.ICE)setC(kk,mix('#d6dfe7','#e9eff4',nz))}}   // the snow bank along the edge, never bare rock
+      // grooming: snow (or ice) on the piste, a soft bank of snow along the edges
+      const icy=t=>k.ice.some(r=>t>=r[0]&&t<=r[1]);
+      for(const[kk,[d,i,px,pz]]of near){const nz=G.noise(px*2.3,pz*2.3);
+        if(d<=hw){TG[kk]=1;if(icy(i/(n-1))){TS[kk]=S.ICE;setC(kk,mix('#b4cddb','#d4e4ee',nz*.8))}else{TS[kk]=S.SNOW;setC(kk,mix('#e8eef3','#f7fafc',nz*.6))}}
+        else{if(TS[kk]===S.ROCK||TS[kk]===S.GRAVEL)TS[kk]=S.SNOW;if(TS[kk]===S.SNOW||TS[kk]===S.ICE)setC(kk,mix('#dde5ec','#f1f5f8',nz));   // the snow bank along the edge, never bare rock
+          const u=(d-hw)/.9;if(u<1)TH[kk]+=berm*Math.sin(Math.PI*u)*(.8+.4*nz)}}
+      // keep the trees away from the finish area: spectators on one side, the timing board on the other (see dressPistes)
+      const fg=k.gates[k.gates.length-1];if(fg)for(const sd of[-1,1])c.block(fg.c.x+fg.side.x*sd*(hw+2.2),fg.c.z+fg.side.z*sd*(hw+2.2),2.6);
       c.pistes.push(k);return k},
     // a jump on a piste: a snow ramp up to the lip at t (painted blue), then a dug-out steep landing so the skier comes down softly,
     // and a flatter run-out. o={h:lip height,len:ramp length,land:landing length,drop:how deep the landing is dug,w:half width}
@@ -415,13 +424,53 @@ function genLevel(def){
         if(a<=0){const u=(a+len)/len;d=h*Math.pow(u,1.7);if(b<=w+.2)setC(kk,a>-.24?mix('#5a9fd8','#7fb8e6',G.noise(px*4,pz*4)):mix('#e2eaf1','#f1f5f8',G.noise(px*3,pz*3)))}
         else{const u=a/land;d=-drop*(u<.35?smt01(u/.35):1-smt01((u-.35)/.65))}
         TH[kk]+=d*lat});
-      const kc={t,x:p.x,z:p.z,h,len,land};k.kickers.push(kc);c.block(p.x,p.z,len+land);return kc},
-    // piste poles along both edges and a start hut beside every start (called by genLevel after build if the level did not)
+      const kc={t,x:p.x,z:p.z,tx:tn.x,tz:tn.z,h,len,land,w};k.kickers.push(kc);c.block(p.x,p.z,len+land);return kc},
+    // moguls on piste k between t0 and t1: bumps in staggered rows, like the ones skiers carve out of a steep slope in the afternoon.
+    // o={h:height,sp:distance between the rows,sl:distance across}. They fade in and out at both ends and towards the edges.
+    moguls(k,t0,t1,o={}){const h=o.h??.1,sp=o.sp??1.25,sl=o.sl??1.05,n=k.pts.length,i0=Math.round(t0*(n-1)),i1=Math.round(t1*(n-1)),hw=k.hw-.1,near=new Map(),fade=Math.max(1,(i1-i0)*.18);
+      for(let i=i0;i<=i1;i++){const q=k.pts[i];cellsIn(q.x-hw,q.z-hw,q.x+hw,q.z+hw,(kk,px,pz)=>{const d=Math.hypot(px-q.x,pz-q.z);if(d>hw)return;const b=near.get(kk);if(!b||d<b[0])near.set(kk,[d,i,px,pz])})}
+      for(const[kk,[d,i,px,pz]]of near){const q=k.pts[i],q2=k.pts[Math.min(n-1,i+1)],q1=k.pts[Math.max(0,i-1)];let tx=q2.x-q1.x,tz=q2.z-q1.z;const tl=Math.hypot(tx,tz)||1;tx/=tl;tz/=tl;
+        const lat=(px-q.x)*tz-(pz-q.z)*tx,u=i/(n-1)*k.len/sp,row=Math.floor(u),v=(lat+(row%2)*sl/2)/sl;
+        const b=(.5-.5*Math.cos(2*Math.PI*u))*(.5-.5*Math.cos(2*Math.PI*v)),f=smt01((hw-d)/.6)*smt01((i-i0)/fade)*smt01((i1-i)/fade);
+        TH[kk]+=h*b*f*(.8+.4*G.noise(px*1.7,pz*1.7));if(f>.3)setC(kk,mix('#d3dde6','#f4f7fa',b*.8+.2*G.noise(px*5,pz*5)))}
+      k.moguls.push({t0,t1});return k},
+    // piste poles along both edges, a start hut and a sign in the colour of the piste at every start, safety nets on the outside of the bends
+    // (p.nets) and a finish area beside every finish: a fence, spots for the spectators and a timing board (drawn by js/skiresort.js).
+    // Steep banks the levelling cut into the mountain show rock through the snow. Called by genLevel after build if the level did not.
     dressPistes(){c._pisteDressed=true;const PC=['#3fae3a','#3fae3a','#2f6fd6','#d9432f','#1d1c1a'];
+      const L0=c.liftDef,exit=L0?{x:L0.bx+L0.ux*1.6,z:L0.bz+L0.uz*1.6}:null;   // where the skier steps off the chairlift
+      const free=(x,z,r)=>!c.colliders.some(q=>Math.hypot(q.x-x,q.z-z)<(q.r??Math.hypot(q.w,q.d)/2)+r)&&!c.pistes.some(k2=>k2.dist(x,z)<k2.hw+.5)&&!(exit&&Math.hypot(exit.x-x,exit.z-z)<r+1.4)
+        &&!c.pistes.some(k2=>{const p=k2.start.p,t=k2.start.tan,rx=x-p.x,rz=z-p.z,a=rx*t.x+rz*t.z,l=Math.abs(rx*t.z-rz*t.x);return a>-4.2&&a<7&&l<(a<0?2:k2.hw+2.4)+r});   // nor round the camera or in the view down any piste from its start
       for(const k of c.pistes){const col=PC[k.def.color??k.diff],L=k.len;
         for(let d=2.5;d<L-2.5;d+=3.2){const t=d/L,p=k.P(t),s=k.side(t);for(const sd of[-1,1]){const x=p.x+s.x*sd*(k.hw+.4),z=p.z+s.z*sd*(k.hw+.4),y=H(x,z);if(k.kickers.some(q=>Math.hypot(q.x-x,q.z-z)<1.5))continue;c.cyl(x,y-.05,z,.026,.8,col);c.cyl(x,y+.62,z,.03,.1,'#f2c230')}}
-        const s0=k.start.p,tn=k.start.tan,sd=k.side(0),hx=s0.x+sd.x*(k.hw+1.0)-tn.x*.4,hz=s0.z+sd.z*(k.hw+1.0)-tn.z*.4,hy=H(hx,hz),ry=Math.atan2(tn.x,tn.z);
-        c.box(hx,hy-.15,hz,1.0,1.05,.85,'#b0533a',ry);c.box(hx,hy+.9,hz,1.2,.12,1.05,'#eef2f6',ry);c.box(hx-sd.x*.51,hy+.3,hz-sd.z*.51,.03,.32,.4,'#1a262d',ry);c.colliders.push({x:hx,z:hz,w:1.04,d:.9,ry,anchor:true,y:hy+.5})}},
+        // the start hut stands behind the start line, off to the side where there is room, so the skier looks down the piste past it
+        const s0=k.start.p,tn=k.start.tan,s1=k.side(0),ry=Math.atan2(tn.x,tn.z);let sd=0,lat=0,back=0;   // no hut at all if the top is too crowded for one out of the way
+        found:for(const[l,b]of[[1.5,2.6],[1.3,1.8],[.9,3.6],[2.2,2.2],[1.1,1.1],[2.6,.8]])for(const t of[1,-1]){const x=s0.x+s1.x*t*(k.hw+l)-tn.x*b,z=s0.z+s1.z*t*(k.hw+l)-tn.z*b;if(free(x,z,.8)){sd=t;lat=k.hw+l;back=b;break found}}
+        if(sd){const hx=s0.x+s1.x*sd*lat-tn.x*back,hz=s0.z+s1.z*sd*lat-tn.z*back,hy=H(hx,hz);
+          c.box(hx,hy-.15,hz,1.0,1.05,.85,'#b0533a',ry);c.box(hx,hy+.9,hz,1.2,.12,1.05,'#eef2f6',ry);c.box(hx-s1.x*sd*.51,hy+.3,hz-s1.z*sd*.51,.03,.32,.4,'#1a262d',ry);c.colliders.push({x:hx,z:hz,w:1.04,d:.9,ry,anchor:true,y:hy+.5})}else sd=1;
+        // the piste's colour on a sign beside the start gate
+        {const gx=s0.x-s1.x*sd*(k.hw+.3)+tn.x*.15,gz=s0.z-s1.z*sd*(k.hw+.3)+tn.z*.15,gy=H(gx,gz);c.cyl(gx,gy-.05,gz,.022,1.2,'#5a6066');c.box(gx,gy+.82,gz,.4,.4,.05,col,ry);c.box(gx,gy+.79,gz,.46,.46,.03,'#f4f4f0',ry);c.colliders.push({x:gx,z:gz,r:.05})}
+        // safety nets on the outside of the bends: where the line turns more than a little, out at hw+.8
+        if(k.def.nets){const step=.5/L,mark=[];for(let t=.05;t<.95;t+=step){const a=k.T(t),b=k.T(Math.min(1,t+step*3)),cr=a.x*b.z-a.z*b.x;mark.push({t,out:Math.abs(cr)>.045?Math.sign(cr):0})}
+          for(let i=0;i<mark.length;i++){if(!mark[i].out)continue;let j=i;while(j+1<mark.length&&mark[j+1].out===mark[i].out)j++;const out=mark[i].out,ta=Math.max(.04,mark[i].t-3*step),tb=Math.min(.94,mark[j].t+3*step),pts=[];
+            for(let t=ta;t<=tb+1e-6;t+=step){const p=k.P(t),s=k.side(t),x=p.x+s.x*out*(k.hw+.8),z=p.z+s.z*out*(k.hw+.8);pts.push({x,y:H(x,z),z})}
+            for(let m=0;m<pts.length;m++)if(m%2===0)c.colliders.push({x:pts[m].x,z:pts[m].z,r:.08,net:true});k.nets.push(pts);i=j}}
+        // the finish area: a fence along the run-out with spectators behind it on the roomier side, the timing board on the other
+        const fg=k.gates[k.gates.length-1];if(!fg)continue;const fs=fg.side,ft=fg.tan,at=(a,l)=>({x:fg.c.x+ft.x*a+fs.x*l,z:fg.c.z+ft.z*a+fs.z*l});
+        let cs=1,room=-1;for(const t of[1,-1]){let r=0;for(let a=-1.5;a<=2.5;a+=1){const q=at(a,t*(k.hw+1.8));if(free(q.x,q.z,.4))r++}if(r>room){room=r;cs=t}}
+        const fence=[];for(let a=-2.5;a<=3.01;a+=.5){const q=at(a,cs*(k.hw+.75));fence.push({x:q.x,y:H(q.x,q.z),z:q.z})}
+        for(let m=0;m<fence.length;m++){const q=fence[m];c.cyl(q.x,q.y-.05,q.z,.018,.45,'#9aa0a6');if(m%2===0)c.colliders.push({x:q.x,z:q.z,r:.06});const q2=fence[m+1];
+          if(q2){const dx=q2.x-q.x,dz=q2.z-q.z;c.box((q.x+q2.x)/2,Math.min(q.y,q2.y)+.06,(q.z+q2.z)/2,.015,.3,Math.hypot(dx,dz),'#e8641e',Math.atan2(dx,dz))}}
+        const crowd=[];for(let i=0;i<40&&crowd.length<11;i++){const a=-2+c.rng()*5,l=cs*(k.hw+1.05+c.rng()*1.4),q=at(a,l),y=H(q.x,q.z);
+          if(crowd.some(o=>Math.hypot(o.x-q.x,o.z-q.z)<.32)||!free(q.x,q.z,.15)||Math.abs(H(q.x+.2,q.z)-H(q.x-.2,q.z))>.25)continue;crowd.push({x:q.x,y,z:q.z,face:Math.atan2(-fs.x*cs,-fs.z*cs)})}
+        for(const o of crowd)c.colliders.push({x:o.x,z:o.z,r:.12});
+        let bq=at(1.4,-cs*(k.hw+1.4));if(!free(bq.x,bq.z,.6))bq=at(-2.4,cs*(k.hw+2.6));
+        const by=H(bq.x,bq.z);for(const s of[-.7,.7]){const px=bq.x+fs.x*s,pz=bq.z+fs.z*s;c.cyl(px,H(px,pz)-.05,pz,.04,1.75,'#3a3f44');c.colliders.push({x:px,z:pz,r:.07})}
+        k.finishArea={crowd,fence,board:{x:bq.x,y:by,z:bq.z,ry:Math.atan2(-ft.x,-ft.z)}}}
+      // steep banks beside the pistes: wind-blown rock shows through the snow
+      const seen=new Set();for(const k of c.pistes){const R=k.hw+(k.def.blend??2.4)+.4;for(let i=0;i<k.pts.length;i+=4){const q=k.pts[i];cellsIn(q.x-R,q.z-R,q.x+R,q.z+R,(kk,px,pz)=>{if(seen.has(kk)||TG[kk]===1)return;seen.add(kk);
+        const i2=kk%N,j2=(kk/N)|0;if(i2<1||j2<1||i2>N-2||j2>N-2)return;const gx=(TH[kk+1]-TH[kk-1])/(2*CELL),gz=(TH[kk+N]-TH[kk-N])/(2*CELL),sl=Math.hypot(gx,gz);if(sl<.8||TS[kk]!==S.SNOW)return;
+        const f=smt01((sl-.8)/.8)*(.15+.5*smt01(G.noise(px*1.2,pz*1.2)*1.7-.35));setC(kk,mix('#e4ebf0','#858c93',f))})}}},
     // a chairlift from A (bottom station) to B (top station): masts tall enough that the chairs clear the ground, and two stations with a
     // horizontal bullwheel under a roof. The cable and the chairs are drawn and moved by the game (js/ski.js) from G.lift.
     // o.off = half the distance between the up and down cables, o.span = roughly the distance between masts. Call it when the terrain is final.
@@ -433,7 +482,9 @@ function genLevel(def){
       for(let d=0;d<=len;d+=1)c.xpts.push({x:ax+ux*d,z:az+uz*d});
       // masts: a pole, a cross arm and a sheave train under each cable
       for(const nd of nodes){if(nd.fixed)continue;const x=ax+ux*nd.d,z=az+uz*nd.d,gy=H(x,z);c.cyl(x,gy-.1,z,.09,nd.y-gy+.3,'#8a9096');c.box(x,nd.y+.12,z,2*off+.4,.09,.12,'#6d747a',ry);
-        for(const s of[-off,off])c.box(x+px*s,nd.y+.02,z+pz*s,.08,.07,.42,'#2f3336',ry);c.colliders.push({x,z,r:.16,anchor:true,y:gy+.6})}
+        for(const s of[-off,off])c.box(x+px*s,nd.y+.02,z+pz*s,.08,.07,.42,'#2f3336',ry);
+        const pad=c.pistes.some(k=>k.dist(x,z)<k.hw+1.6);if(pad){c.cyl(x,gy-.05,z,.2,.95,'#2f6fd6');c.cyl(x,gy+.7,z,.205,.08,'#f2c230')}   // a padded mat round masts close to a piste
+        c.colliders.push({x,z,r:pad?.22:.16,anchor:true,y:gy+.6})}
       // stations: the bullwheel turns under a roof on four posts; a machine house beside the bottom one, a hut beside the top one
       const station=(x,z,y,dir,house)=>{const gy=y-1.55;c.cyl(x,y-.05,z,off+.02,.07,'#c8463a');c.cyl(x,y-.6,z,.12,.6,'#5a6066');
         for(const sa of[-1,1])for(const sb of[-1,1]){const qx=x+px*sa*(off+.45)+ux*sb*.75,qz=z+pz*sa*(off+.45)+uz*sb*.75;c.cyl(qx,gy-.05,qz,.05,1.95+.05,'#5a6066');c.colliders.push({x:qx,z:qz,r:.07})}
@@ -442,6 +493,18 @@ function genLevel(def){
         c.colliders.push({x:hx,z:hz,w:1.54,d:2.24,ry,anchor:true,y:gy+.6})};
       station(ax,az,y0,-1,'#d9d2c0');station(bx,bz,y1,1,'#b0533a');
       G.lift=c.liftDef={ax,az,bx,bz,ux,uz,px,pz,len,off,hang,ry,nodes:nodes.map(n=>({d:n.d,y:n.y}))};return c.liftDef},
+    // a snow groomer parked on the snow: tracks, cab, the blade in front and the tiller behind. ry: the way it faces.
+    groomer(x,z,ry=0,col='#c8463a'){c.block(x,z,1.6);const y=H(x,z),f=(a,s)=>[x+Math.sin(ry)*a+Math.cos(ry)*s,z+Math.cos(ry)*a-Math.sin(ry)*s];
+      for(const s of[-.42,.42]){const[tx,tz]=f(0,s);c.box(tx,y-.02,tz,.3,.28,1.5,'#2a2c2e',ry)}
+      {const[bx,bz]=f(-.05,0);c.box(bx,y+.24,bz,.62,.3,1.3,col,ry)}{const[cx2,cz2]=f(.25,0);c.box(cx2,y+.52,cz2,.58,.36,.62,col,ry);c.box(cx2,y+.58,cz2,.6,.18,.64,'#1a262d',ry);c.box(cx2,y+.9,cz2,.4,.05,.3,'#f2c230',ry)}
+      {const[bx,bz]=f(1.0,0);c.box(bx,y,bz,1.35,.32,.08,'#d8dde2',ry)}{const[rx,rz]=f(-.95,0);c.box(rx,y,rz,1.0,.16,.3,'#4a4e52',ry)}
+      c.colliders.push({x,z,w:1.4,d:2.3,ry,anchor:true,y:y+.4});return{x,z}},
+    // a snow cannon on a short tower beside a piste, blowing towards dir (radians): its mist is drawn by js/skiresort.js
+    snowgun(x,z,dir=0){const y=H(x,z),hx=x+Math.sin(dir)*.18,hz=z+Math.cos(dir)*.18;c.cyl(x,y-.05,z,.04,1.15,'#9aa0a6');c.box(x,y,z,.36,.08,.36,'#5a6066');
+      c.cyls.push({x:hx,y:y+1.2,z:hz,sx:.14,sy:.46,sz:.14,rx:1.3,ry:dir,ord:'YXZ',c:'#e5a92b'});c.colliders.push({x,z,r:.12});c.fx.push({type:'snowgun',x:hx+Math.sin(dir)*.25,y:y+1.2,z:hz+Math.cos(dir)*.25,dir});return{x,z}},
+    // a board with the map of the pistes (drawn by js/skiresort.js), facing ry
+    trailMap(x,z,ry=0){const y=H(x,z),cs=Math.cos(ry),sn=Math.sin(ry);for(const s of[-.85,.85]){const px=x+cs*s,pz=z-sn*s;c.cyl(px,H(px,pz)-.05,pz,.04,1.7,'#5a3a22');c.colliders.push({x:px,z:pz,r:.07})}
+      c.box(x,y+.7,z,1.9,1.05,.05,'#3a2a1c',ry);c.fx.push({type:'trailmap',x:x+sn*.035,y:y+1.22,z:z+cs*.035,ry})},
     finish(){for(let j=0;j<N;j++)for(let i=0;i<N;i++){const k=j*N+i;if(TCF[k])continue;const cc=surfColor(TS[k],-HALF+i*CELL,-HALF+j*CELL,n,def);TC[k*3]=cc[0];TC[k*3+1]=cc[1];TC[k*3+2]=cc[2]}c._done=true},
     pebbles(cnt,cols,smin,smax){const L=[];for(let i=0;i<cnt;i++){const x=(rng()-.5)*(WORLD-4),z=(rng()-.5)*(WORLD-4);if(def.water!=null&&H(x,z)<def.water+.02)continue;const s=smin+rng()*(smax-smin);
       L.push({x,y:H(x,z)+s*.2,z,sx:s,sy:s*.6,sz:s*(.8+rng()*.5),rx:rng()*3,ry:rng()*3,c:cols[i%cols.length]})}instanced(DG.peb,DM.white,L,c.decor,false)},

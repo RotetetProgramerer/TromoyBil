@@ -11,9 +11,12 @@ js/core.js            Motoren: terreng, baneverktøy, bilfysikk. Trenger du sjel
 js/props.js           Planter og dyr du setter ut ett og ett (c.plant, c.sow). Innholdet ligger i data/.
 js/game.js            Spillet: grafikk, kamera, lyd, meny, garasje, poeng.
 js/animals.js         Dyr (papegøyer, apekatter, sommerfugler, krabber) og den rullende steinen.
+js/savannedyr.js      Dyrene på Løveøya: løver, geparder og krokodiller som angriper, flokkene som flykter og gribbene.
 js/ambience.js        Jungellyd laget med WebAudio (ingen lydfiler).
-js/skier.js           Fysikken for skiløperen i Gautefall (ingen DOM, testes uten nettleser).
-js/ski.js             Skianlegget i spillet: stolheisen, skiløperen, turen opp og ned, kamera og lyd.
+js/skier.js           Fysikken for skiløperen i Gautefall: carving, skrens, hockeystopp, hopp og landing (ingen DOM, testes uten nettleser).
+js/ski.js             Skianlegget i spillet: stolheisen, skiløperen (modell og stillinger), turen opp og ned, kamera, mellomtider, spøkelset og lyd.
+js/skiresort.js       Livet i skianlegget: kordfløyel og is på løypene, gamle skispor, startgrind, nett, målområder med publikum
+                      og tidtavle, løypekartet, snøkanoner, andre skiløpere og folk i stolheisen.
 js/boatsim.js         Fysikken for motorbåtløpet: båtene, bøyene, piratene og vulkanen (ingen DOM, testes uten nettleser).
 js/boat.js            Motorbåtløpet fra marinaen på Tromøya: havet, øyene, båtene, delt skjerm, HUD, lyd og løp mot andre i rommet.
 js/planesim.js        Flyfysikken: avgang, flyging, landing, krasj og ringene (ingen DOM, testes uten nettleser).
@@ -24,6 +27,7 @@ data/levels/NN-id.js  Én fil per bane.         ← legg til nye baner her
 data/parts.js         Garasjedeler og lakkfarger.
 data/vegetasjon.js    Trær og planter for jungel, subtropisk og arktisk.   ← legg til nye planter her
 data/dyr.js           Dyr for de samme tre miljøene (står i ro).          ← legg til nye dyr her
+data/savanne.js       Savannens trær, termittuer, gress, elefanter og flodhester (står i ro).
 data/boats.js         Havet og båtløpene fra marinaen.                    ← legg til nye båtløp her
 data/flights.js       Flyplassen på havet og flyturene med ringer.        ← legg til nye flyturer her
 tools/test-levels.js  Autopilot som tester alle baner uten nettleser.
@@ -189,7 +193,7 @@ Slik blir en bane til en øy, uten at løypa endres:
 
 I fri kjøring blir banens egen løype en startstrek (`c.course` lages automatisk for øyer som er løp), så du kan starte løpet ute i terrenget som på Tromøya. Beste tid deles mellom Hurtigløp og fri kjøring.
 
-**Låste løyper:** `needs:{courses:3}` på en løype krever tre fullførte løyper på øya; `needs:{courses:5,nuts:200}` kan i tillegg låses opp for muttere. Skiltet og kartet viser hengelås. **Biler til salgs:** `price:600` på en bil i `data/cars.js` gjør at den må kjøpes i verkstedet på basen; `winch:true` gir den ekte vinsj.
+**Biler til salgs:** `price:600` på en bil i `data/cars.js` gjør at den må kjøpes i verkstedet på basen; `winch:true` gir den ekte vinsj.
 
 **Vinsj:** bilen Vinsjen, og alle biler med Utstyr nivå 3, har ekte vinsj. Hold **R** for å sikte (en linje vises til nærmeste festepunkt innen 7 enheter og ca. 70° foran bilen), slipp for å dra; R igjen løsner. Festepunkter er trær, hus, lykter, bropilarer og store steiner (`c.anchor(x,z)` i banefilen, eller `anchor:true` på en kollider). «Hent bilen» i pausemenyen er den gamle vinsjen med straff.
 
@@ -244,31 +248,83 @@ Testen: `node tools/test-levels.js trinnvik` kjører landsbytesten og alle sju l
 
 ## Gautefall: vinterøya og skianlegget
 
-`data/levels/08-gautefall.js` er en vinterøy med et fjell i midten og et flatt platå på toppen. Fjellveien går fra kaia opp til parkeringsplassen ved bunnstasjonen. Kjør inn på den blå ruta foran heisen, så kommer spørsmålet «Vil du stå på ski?». JA: bilen blir stående, og en skiløper (i samme farge som lakken på bilen) tar stolheisen til toppen (ca. 10 sekunder, hopp over med Enter). På toppen velger du nedfart:
+`data/levels/08-gautefall.js` er en vinterøy med et fjell i midten og et flatt platå på toppen. Fjellveien går fra kaia opp til parkeringsplassen ved bunnstasjonen. Kjør inn på den blå ruta foran heisen, så kommer spørsmålet «Vil du stå på ski?». JA: bilen blir stående, og en skiløper (i samme farge som lakken på bilen, med startnummer på ryggen) tar stolheisen til toppen (ca. 10 sekunder, hopp over med Enter). Andre skiløpere sitter i heisen og kjører rolig ned Familiebakken. På toppen står et løypekart, og du velger nedfart:
 
 | Løype | Farge | Type | Slik vinner du |
 |---|---|---|---|
-| Familiebakken | Grønn | Friløp i sikksakk | Tid. Brede kontrollporter. |
+| Familiebakken | Grønn | Friløp i tre lange strekk i sikksakk | Tid. Brede kontrollporter. Se opp for de andre skiløperne. |
 | Slalåmbakken | Blå | Slalåm | Tid. Røde og blå porter; bom gir +5 sekunder. |
-| Utforløypa | Rød | Utfor | Tid. Bratt, rask, med isflekker i svingene. |
-| Big Jumps | Svart | Hoppløype | Poeng: 120 per sekund i lufta, +150 for hver hele snurr (360°) med ren landing. |
+| Utforløypa | Rød | Utfor | Tid. Bratt og rask, med is i svingene, røde sikkerhetsnett på yttersiden og kuler før mål. |
+| Big Jumps | Svart | Hoppløype | Poeng: 120 per sekund i lufta, +150 for hver hele snurr (360°) med ren landing, +50 for perfekt sats. |
 
-Styring: **← →** svinger (og snurrer i lufta), **↓** bremser (plog), **↑** staker på flatene og går i hockestilling i fart, **mellomrom** hopper, **C** bytter kamera, **Esc** pause. På mobil er det en egen hoppknapp. I Lett-modus har skiløperen en fartsgrense og tåler hardere landinger. Treffer du et tre, lander på tvers eller for hardt, faller du og starter igjen fra forrige port. Resultatet gir stjerner, rekorder (`best['gautefall/ski/slalom']` osv.) og muttere.
+Du står bak startgrinda under nedtellingen. Tiden starter når du dytter deg gjennom staven, og et spøkelse (en lys, gjennomsiktig skiløper) kjører din beste tur i den samme løypa ved siden av deg. Ved hver port ser du mellomtiden mot beste tur: grønn når du ligger foran, rød når du ligger bak. Tidtavla i målområdet viser tiden din mens du kommer ned, og publikum bak gjerdet jubler og ringer med kubjeller når du nærmer deg mål.
+
+**Styring:** **← →** svinger (og snurrer i lufta), **↓** bremser i plog, **↓ og ← eller →** gir hockeystopp med skiene på tvers, **↑** gir stavtak på flatene (skøyting der det er flatt) og hockestilling i fart, **mellomrom** hopper, **C** bytter kamera (nært, langt bak og hjelmkamera), **Esc** pause. På mobil er det en egen hoppknapp.
+
+**Slik kjører skiløperen:**
+
+- **Carving og skrens.** Svinger du jevnt, tipper skiene over på kanten og skjærer en ren bue (smale spor, en sprø lyd og lite fartstap). Svinger du brattere enn skiene klarer å bøye seg, sklir halene ut: farten går ned, snøen spruter, og sporene blir brede. Kantene tåler bare så mye sidekraft, og på is mye mindre. Kjører du for fort inn i en isete sving, sklir du ut av svingen. Resultatet viser hvor stor del av svingene du carvet.
+- **Underlaget.** Preparert snø glir best. Utenfor løypa er det dyp pudder: du synker ned, svinger tregere, bremser og lager en sky av snø. Kulene i Utforløypa kaster deg opp i lufta.
+- **Fart.** I hockestilling går det opp mot 90 km/t i de bratteste partiene, oppreist rundt 50 km/t.
+- **Hopp.** Mellomrom gir et lite hopp hvor som helst. Trykker du rett før kanten på et hopp, får du en perfekt sats og kommer mye høyere. Lander du litt på skrå eller litt hardt, vingler du et halvt sekund og må styre rett for å holde balansen. Lander du helt på tvers eller veldig hardt, faller du.
+- **Fall.** Ski og staver flyr, skiløperen ruller rundt, blir liggende et øyeblikk og reiser seg. Er du fortsatt i løypa, fortsetter du der du falt; ellers starter du ved forrige port. I Lett-modus har skiløperen en fartsgrense og tåler hardere landinger.
+
+Resultatet gir stjerner, rekorder (`best['gautefall/ski/slalom']` osv., med mellomtidene) og muttere. Spøkelset for hver løype lagres i `localStorage` (`ghost:gautefall/ski/slalom` osv.).
 
 Verktøy i `build(c)` for vinter og ski:
 
 | Verktøy | Betydning |
 |---|---|
 | `c.spruce(x,z,{h,snow})`, `c.spruces()` | Grantre med snø på greinene (kollider og festepunkt for vinsjen). `c.spruces()` bygger alle etter `c.finish()`. |
-| `c.piste({id,name,desc,diff,color,kind,path,gates,hw,blend,gw,ice,par})` | En nedfart: egen linje fra toppen (t=0) til målet (t=1), jevnet ut på tvers, preparert (kordfløyelsstriper, glir bedre, merket i `TG`) og holdt fri for trær. `kind` er `'fri'`, `'slalom'`, `'utfor'` eller `'hopp'`. `gates` er portene som `[x,z]`, den siste er målet. `color` 1–4 er grønn, blå, rød og svart. `ice:[[t0,t1]]` legger is på løypa. `par:[3 stjerner, 2 stjerner]` er tid i sekunder, eller poeng for hoppløypa. |
+| `c.piste({id,name,desc,diff,color,kind,path,gates,hw,blend,tilt,berm,gw,ice,nets,par})` | En nedfart: egen linje fra toppen (t=0) til målet (t=1), jevnet ut på tvers og glattet, merket som preparert i `TG` (glir bedre) og holdt fri for trær. Kordfløyelen tegnes oppå av `js/skiresort.js`. `kind` er `'fri'`, `'slalom'`, `'utfor'` eller `'hopp'`. `gates` er portene som `[x,z]`, den siste er målet. `color` 1–4 er grønn, blå, rød og svart. `tilt` (0–1, standard 0,22) er hvor mye av fjellsiden løypa får helle på tvers; 0 gir helt flatt (slalåm). `berm` er høyden på snøkanten langs løypa (standard 0,07). `ice:[[t0,t1]]` legger blank is på løypa. `nets:true` setter røde sikkerhetsnett på yttersiden av svingene. `par:[3 stjerner, 2 stjerner]` er tid i sekunder, eller poeng for hoppløypa. |
 | `c.kicker(k,t,{h,len,land,drop,w})` | Et hopp i løype `k` ved `t`: rampe opp til en blå kant, og et gravd ut, bratt landingsområde etterpå. Kall etter `c.piste`. |
-| `c.dressPistes()` | Løypestikker langs kantene og en startbu ved hver start (kalles automatisk hvis banen ikke gjør det). |
-| `c.lift([x,z],[x,z],{off,span,hang,clear})` | Stolheis fra bunnstasjon til toppstasjon. Mastene blir høye nok til at stolene går klar av bakken. Kall når terrenget er ferdig. Kabelen og stolene tegnes og flyttes av `js/ski.js`. |
+| `c.moguls(k,t0,t1,{h,sp,sl})` | Kuler i løype `k` mellom `t0` og `t1`, i forskjøvne rader (`sp` mellom radene, `sl` på tvers). Kall etter `c.piste`. |
+| `c.dressPistes()` | Løypestikker langs kantene, en startbu bak hver start (der det er plass utenfor synsfeltet), et skilt i løypas farge, nettene, og et målområde ved hvert mål med gjerde, plass til publikum og en tidtavle. Bratte skrenter langs løypene får stein som stikker fram. Kalles automatisk hvis banen ikke gjør det. |
+| `c.lift([x,z],[x,z],{off,span,hang,clear})` | Stolheis fra bunnstasjon til toppstasjon. Mastene blir høye nok til at stolene går klar av bakken, og master nær en løype får madrass. Kall når terrenget er ferdig. Kabelen, stolene og folkene i dem tegnes og flyttes av `js/ski.js` og `js/skiresort.js`. |
+| `c.groomer(x,z,ry,farge)` | En pistemaskin som står parkert (belter, førerhus, skjær og fres). |
+| `c.snowgun(x,z,retning)` | En snøkanon på et lite tårn som blåser snøtåke i retningen (radianer). |
+| `c.trailMap(x,z,ry)` | En tavle med løypekartet, tegnet ut fra løypene og heisen på banen. |
 | `skiAt:[x,z]` | Der bilen må stå for å få spørsmålet om å stå på ski. |
 | `beachSurf:S.GRAVEL` | Underlaget på stranda rundt en øy (standard sand). |
 | `village:{…,snow:true}` | Snø på takene i landsbyen. |
 
-Testen kjører også nedfartene med en autopilot på ski: `node tools/test-levels.js gautefall`. Hver løype skal vise `MÅL`, helst `kræsj 0` og `fast 0`. For hoppløypa vises lufttiden for hvert hopp og den hardeste landingen (over 8,2 er et fall).
+Baner med `snow:true` får glitter i snøen med høy grafikk.
+
+Testen kjører også nedfartene med en autopilot på ski: `node tools/test-levels.js gautefall`. Hver løype skal vise `MÅL`, helst `kræsj 0` og `fast 0`. For hoppløypa vises lufttiden for hvert hopp og den hardeste landingen (over 6,2 vingler skiløperen, over 9,2 er et fall).
+
+## Løveøya: savannen og dyrene som angriper
+
+`data/levels/11-savanne.js` er en savanneøy: gyllent gress og rød jord, spredte akasier, baobaber og termittuer. Husk at på øyene er +x vest og +z nord (se øykartet).
+
+| Sted | Hva |
+|---|---|
+| Kaia | Landsbyen i sørøst. Veien inn går til safarileiren. |
+| Safarileiren | Midt på øya: telt, vakttårn, safaribiler og bålplass. |
+| Løveklippen | Øst på øya: en haug av granittblokker der løvene ligger. Løypa går over toppen. |
+| Vannhullet | Vest på øya: elefanter som drikker, flodhester og krokodiller i vannet. |
+| Krokodilleelva | Renner fra vannhullet nordøstover til havet. To vadesteder og en hengebro. |
+| Sletta | Sørvest: sebraer, gnuer, gaseller, geparder og gribber. |
+| Baobablunden | Nord for elva, med sjiraffer. |
+
+| Løype | Vanskelighet | Hva |
+|---|---|---|
+| Safarirunden | Lett | En runde over sletta. Gepardene jakter her. |
+| Krokodilleelva | Middels | Over begge vadestedene og rundt baobablunden. |
+| Løveklippen | Vanskelig (krever én fullført løype) | Opp og over klippen, forbi løvene. |
+
+**Dyrene som angriper** (`js/savannedyr.js`). Kommer du for nær, får du først en advarsel, så angriper de. Et angrep kaster bilen rundt og koster 5 straffepoeng i et løp, eller 3 muttere når du kjører fritt. Etterpå går dyret hjem og hviler en stund.
+
+| Dyr | Hvor | Slik angriper det | Slik slipper du unna |
+|---|---|---|---|
+| Løve | Løveklippen og ved vannhullet | Reiser seg ved 9 enheter, brøler og stormer mot bilen ved 6,5 | Kjør unna: etter 5 sekunder, eller 17 enheter hjemmefra, gir den opp |
+| Gepard | Sletta | Spurter ved 10,5. Raskere enn bilen, men bare i ca. 3 sekunder | Sving skarpt: geparden svinger dårlig i full fart |
+| Krokodille | Elva og vannhullet | Ligger under vann med bare øynene oppe, og kaster seg mot bilen i vannet eller i vannkanten | Ikke bli stående i vannet. Kjør over broa |
+
+Banefeltet `animals` tar `lions`, `cheetahs`, `crocs`, `zebras`, `gnus`, `gazelles` og `giraffes` som lister med `{at:[x,z],r,n}`, og `vultures:{at,n,r}` (gribber som sirkler). Krokodillene plasseres i vann, de andre på land. Flokkdyrene beiter og flykter fra bilen som rådyrene i `js/animals.js`. Tallene for hvert rovdyr (når det ser deg, hvor fort det løper, hvor langt det følger etter) står i `SAV_KIND` øverst i `js/savannedyr.js`.
+
+Planter og stillestående dyr ligger i `data/savanne.js` (se «Planter og dyr» under). `grassCol` og `dirtCol` på banen gir gresset og jorda egne farger. `c.bushes(antall,farger,ok,{soft:true})` lager busker uten kollider, slik de grønne buskene på Tromøya er.
+
+Testen: `node tools/test-levels.js savanne`. Dyrene er ikke med i testen, de finnes bare i nettleseren.
 
 ## Marinaen og båtløpet
 
@@ -280,7 +336,7 @@ I båtmenyen velger du løp og om dere er én eller to spillere. To spillere del
 |---|---|---|---|
 | Rundt Tromøya | Lett | 7 i en stor runde rundt øya | Marinaen |
 | Skilsø-løpet | Middels | 4 på kryss og tvers | Brygga på Skilsø |
-| Vulkanløpet | Vanskelig (låses opp når du har fullført et annet båtløp) | 6 rundt Hisøya, mens vulkanen kaster lavabomber | Marinaen |
+| Vulkanløpet | Vanskelig | 6 rundt Hisøya, mens vulkanen kaster lavabomber | Marinaen |
 
 Rund bøyene i rekkefølge (lyssøylen og kompasset viser neste) og fortøy ved brygga. Du må sakke farten der, ellers får du ikke lagt til. Turbotønnene gir fart. Piratskutene skyter på alt som beveger seg, og blir du truffet, spinner båten rundt. I Lett-modus er det færre pirater, og de sikter dårligere. Et sted ute i skjærgården ligger en skattekiste (50 ⚙, én gang).
 
@@ -295,7 +351,7 @@ Muttere: 5 per bøye, 3 per turbotønne, 20 for å fortøye, 15 hvis du aldri bl
 
 **Banefelt:** `marina:{at:[x,z],dir,out}` bygger marinaen (`c.marina` i `js/core.js`) før `build(c)`, på samme måte som `village`. `dir` (grader) peker ut mot sjøen, og standard er rett ut fra øyas midtpunkt. `out` er veien inn på øya. Banens egen vei fra resten av øya må ende der marinaveien begynner. Testen kjører den veien inn på den blå ruta.
 
-**Havet og løpene (`data/boats.js`):** Øyene ligger der de ligger på skjærgårdskartet (`pos` i `data/archipelago.js` ganger `SEA.span`), og Skilsø ligger i `SEA.extra`. Et løp har `buoys:[[x,z],…]` (nord er −z), `finish:'marina'` eller `'skilso'`, `pirates`, `par:[tre stjerner, to stjerner]`, eventuelt `needs:{races:1}` og `lava:true`. Kjør `node tools/test-boats.js` etter endringer: den sjekker at bøyene og etappene holder avstand til øyene og lar en autopilot kjøre hvert løp, uten pirater og med pirater fem ganger.
+**Havet og løpene (`data/boats.js`):** Øyene ligger der de ligger på skjærgårdskartet (`pos` i `data/archipelago.js` ganger `SEA.span`), og Skilsø ligger i `SEA.extra`. Et løp har `buoys:[[x,z],…]` (nord er −z), `finish:'marina'` eller `'skilso'`, `pirates`, `par:[tre stjerner, to stjerner]` og eventuelt `lava:true`. Kjør `node tools/test-boats.js` etter endringer: den sjekker at bøyene og etappene holder avstand til øyene og lar en autopilot kjøre hvert løp, uten pirater og med pirater fem ganger.
 
 ## Flyplassen og flyturene
 
@@ -306,7 +362,7 @@ Muttere: 5 per bøye, 3 per turbotønne, 20 for å fortøye, 15 hvis du aldri bl
 | Fly fritt | – | Ingen. Fly dit du vil og land når du er ferdig. |
 | Rundt Trinnvik | Lett | 7 i en runde rundt byøya |
 | Over Tromøya | Middels | 9, nordover rundt snøfjellet og hjem |
-| Vulkanflyget | Vanskelig (låses opp når du har fullført en annen tur) | 10, helt nord til Hisøya og hjem forbi Skilsø |
+| Vulkanflyget | Vanskelig | 10, helt nord til Hisøya og hjem forbi Skilsø |
 
 | Taster | På bakken | I lufta |
 |---|---|---|
@@ -322,11 +378,11 @@ Muttere: 5 per ring, 20 for å komme i mål, 15 uten krasj, 60 første gang og 2
 
 **Banefelt:** Flyplassen bygges i `build(c)` i `data/levels/07-trinnvik.js`, som setter `c.airportDef` (den blå ruta, flyet, vindposen og veien dit). `landExtra(x,z)` på banen (0–1) sier hvor det er fylt ut land utenfor kysten, så sjøen ikke tar det. Testen kjører flyplassveien inn på den blå ruta.
 
-**Havet og turene (`data/flights.js`):** `AIRPORT` er flyplassen sett fra sjøen, målt fra midten av Trinnvik. En tur har `rings:[[x,høyde,z],…]` (nord er −z), `par:[tre stjerner, to stjerner]` og eventuelt `needs:{flights:1}`. Kjør `node tools/test-flights.js` etter endringer. Den sjekker at ringene og etappene holder høyde over øyene, lar en autopilot fly hver tur, og lander på rullebanen.
+**Havet og turene (`data/flights.js`):** `AIRPORT` er flyplassen sett fra sjøen, målt fra midten av Trinnvik. En tur har `rings:[[x,høyde,z],…]` (nord er −z), `par:[tre stjerner, to stjerner]`. Kjør `node tools/test-flights.js` etter endringer. Den sjekker at ringene og etappene holder høyde over øyene, lar en autopilot fly hver tur, og lander på rullebanen.
 
 ## Planter og dyr (`data/vegetasjon.js`, `data/dyr.js`)
 
-Hver plante og hvert dyr er en oppføring `PROPS.navn={navn,info,params,place,build}`. Prefikset i navnet forteller miljøet: `jungel_*`, `subtrop_*` og `arktis_*`.
+Hver plante og hvert dyr er en oppføring `PROPS.navn={navn,info,params,place,build}`. Prefikset i navnet forteller miljøet: `jungel_*`, `subtrop_*`, `arktis_*` og `savanne_*`.
 
 | Navn | Hva |
 |---|---|
@@ -336,6 +392,8 @@ Hver plante og hvert dyr er en oppføring `PROPS.navn={navn,info,params,place,bu
 | `subtrop_flamingo`, `subtrop_skilpadde`, `subtrop_perleogle` | Flamingo, landskilpadde, perleøgle på stein |
 | `arktis_dvergbjork`, `arktis_gran`, `arktis_myrull` | Dvergbjørk, snøgran, myrull (dvergbjørk og myrull har ingen kollider) |
 | `arktis_isbjorn`, `arktis_snougle`, `arktis_fjellrev` | Isbjørn med unge, snøugle på snøhaug, fjellrev |
+| `savanne_akasie`, `savanne_baobab`, `savanne_termitt`, `savanne_gress`, `savanne_knokler` | Akasie med veverreir, baobab, termittue, elefantgress (ingen kollider) og knokler (`data/savanne.js`) |
+| `savanne_elefant`, `savanne_flodhest` | Elefant (kan drikke og ha kalv) og flodhest i vannet (`y` er vannflaten) |
 
 Verktøy i `build(c)`:
 
@@ -345,7 +403,7 @@ Verktøy i `build(c)`:
 | `c.sow(navn,n,[x,z],radius,{r,gap,ok,p})` | Opptil `n` på tilfeldige ledige steder innenfor `radius`. `r` er fotavtrykket, `gap` avstanden mellom dem, `ok(x,z)` en ekstra test, `p` parametrene (et objekt, eller en funksjon av tilfeldighetsgeneratoren, f.eks. `R=>({s:.8+R()*.4})`). |
 | `c.plantOK(x,z,r)` | Sant hvis stedet er ledig: på land, ikke i vann, minst 3 fra løyper og veier, ikke ved porter, start, blokkerte områder eller andre kollidere. |
 
-Plantene og dyrene plasseres (kollidere) med en gang, men tegnes etter `build(c)`, når terrenget er ferdig. De bruker sin egen tilfeldighetsgenerator, så resten av banen blir lik selv om du legger til flere. Bykkevika har de subtropiske, jungelen på Tromøya de tropiske og Gautefall de arktiske.
+Plantene og dyrene plasseres (kollidere) med en gang, men tegnes etter `build(c)`, når terrenget er ferdig. De bruker sin egen tilfeldighetsgenerator, så resten av banen blir lik selv om du legger til flere. Bykkevika har de subtropiske, jungelen på Tromøya de tropiske, Gautefall de arktiske og Løveøya savannens.
 
 Ny plante eller nytt dyr: kopier en oppføring. `place(x,z,o,env)` leser parametrene med `propParams` og legger til kollidere i `env.colliders`; `build(t,env,out)` tegner med `out.add(geometri,materiale,{x,y,z,sx,sy,sz,c})`. Geometrier: `PG.blob` (kule, sx/sy/sz er halvakser), `PG.trunk` og `DG.branch`. Hjelpere: `stemBetween(a,b,r,{c})` (gren fra a til b; med `PG.blob` blir det en avlang kule mellom punktene), `footY`, `shade`, `dirVec`, og `DYR.*` i `data/dyr.js` for kropper, øyne og buer. Sitteplasser for fugler legges i `env.perches`.
 
