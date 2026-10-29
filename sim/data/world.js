@@ -4,5 +4,7 @@
 export const WORLD = {
   islands: [
     { id: 'tromoya', name: 'Tromøya', real: true, ox: 0, oz: 0, seed: 4242, sea: 0 },
+    // the real coast round Tromøya (mainland, Hisøy, the skerries), 48 × 48 km, coarse; always last: it covers everything
+    { id: 'backdrop', name: 'Kysten', real: true, backdrop: true, ox: 0, oz: 0, seed: 77, sea: 0 },
   ],
 };
