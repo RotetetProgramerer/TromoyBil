@@ -162,8 +162,8 @@ function scatterNordic(isl, ci, cj) {
     const y = isl.grid.bicubic(x, z);
     if (y < 0.6) continue;
     const q = isl.roads.query(x, z);
-    if (q && q.d < q.hw + 2.2) continue;
-    if (isl.inBuilding(x, z, 2.5)) continue;
+    if (q && q.d < q.hw + (q.c <= 4 ? 4.5 : q.c <= 5 ? 3.0 : 1.6)) continue;     // the verge is kept clear along the roads
+    if (isl.inBuilding(x, z, 3)) continue;
     const h1 = isl.grid.bilinear(x + 2, z), h2 = isl.grid.bilinear(x, z + 2), slope = Math.hypot(h1 - y, h2 - y) / 2;
     const v = vnoise(x / 60, z / 60, isl.seed), w = vnoise(x / 17, z / 17, isl.seed + 5), r2 = R();
     let k, s;
@@ -181,6 +181,8 @@ function scatterNordic(isl, ci, cj) {
       else { k = dry > 0.45 ? K.PINE : K.SPRUCE; s = 0.55 + R() * 0.6; }
     }
     if (slope > 0.9 && k !== K.ROCK) continue;
+    // big trees need more room from the road: their crowns reach out
+    if (q && (k === K.SPRUCE || k === K.OAK) && q.d < q.hw + 1.6 + s * (k === K.SPRUCE ? 5 : 4.5)) continue;
     const col = k === K.ROCK ? s * 0.9 : k === K.BUSH || k === K.JUNIPER || k === K.REED || k === K.FERN || k === K.GRASSCLUMP ? 0 : 0.1 + s * 0.2;
     out.push({ x, z, y, k, s, a: R() * 6.283, col });
   }

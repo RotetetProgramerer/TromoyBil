@@ -2,7 +2,7 @@
 // File: 'TRMG', uint32 header length, JSON header {nx,nz,x0,z0,cell,scale?,delta?}, then int16 (heights, each row as differences) or uint8.
 
 export async function loadBytes(url) {
-  if (typeof window === 'undefined') {                      // Node (tests and tools)
+  if (typeof process !== 'undefined' && process.versions && process.versions.node) {   // Node (tests and tools)
     const fs = await import('fs'), zlib = await import('zlib'), path = await import('path');
     const p = url.startsWith('file:') ? new URL(url) : path.resolve(url);
     const raw = fs.readFileSync(p);

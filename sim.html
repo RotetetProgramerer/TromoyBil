@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="nb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>TromøyBil</title>
+<meta name="description" content="Bilsimulator på den ekte Tromøya og øyene rundt, i ekte størrelse.">
+<meta name="theme-color" content="#14120E">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" crossorigin="anonymous" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=Saira+Stencil+One&display=swap">
+<link rel="stylesheet" href="sim/style.css">
+<script type="importmap">{"imports":{"three":"./vendor/three/three.module.min.js","three/addons/":"./vendor/three/addons/"}}</script>
+</head>
+<body>
+<div id="stage"></div>
+<div id="hud">
+  <div class="gauge"><b id="hudSpeed">0</b><small>km/t</small><span id="hudGear">1</span><div class="rpm"><i id="hudRpm"></i></div><em id="hudAids"></em></div>
+  <div class="dbg" id="hudDbg"></div>
+</div>
+<section id="loading"><h1>Tromøy<br>Bil</h1><p id="loadText">Laster …</p></section>
+<script type="module" src="sim/main.js"></script>
+</body>
+</html>
