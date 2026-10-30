@@ -57,15 +57,19 @@ function foliageAtlas() {
   });
   // 1 pine tuft: long needles radiating from short shoots
   cell(1, () => {
-    for (let k = 0; k < 14; k++) {
-      const cx = C * (0.2 + R() * 0.6), cy = C * (0.2 + R() * 0.6), n = 40;
-      for (let i = 0; i < n; i++) { const a = R() * Math.PI * 2, L = C * (0.08 + R() * 0.12); g.strokeStyle = col(95 + R() * 30, 30 + R() * 20, 18 + R() * 14); g.lineWidth = 1.8; g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(a) * L, cy + Math.sin(a) * L * 0.8); g.stroke(); }
+    for (let k = 0; k < 22; k++) {
+      const cx = C * (0.2 + R() * 0.6), cy = C * (0.2 + R() * 0.6), n = 50;
+      for (let i = 0; i < n; i++) { const a = R() * Math.PI * 2, L = C * (0.08 + R() * 0.12); g.strokeStyle = col(95 + R() * 30, 30 + R() * 20, 18 + R() * 14); g.lineWidth = 2.8; g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(a) * L, cy + Math.sin(a) * L * 0.8); g.stroke(); }
     }
   });
   // leaves: 2 birch (small, light), 3 oak (lobed, darker), 4 aspen (round), 5 bush, 9 olive (silvery), 11 acacia, 12 jungle (big)
   const leaves = (n, size, hue, sat, lit, shape) => {
+    // twigs from the base of the cell out to the edge; the leaves sit in clumps along them, so the cluster has gaps and a ragged edge
+    const tw = []; for (let i = 0; i < 6; i++) { const a = -Math.PI / 2 + (i - 2.5) * 0.45 + (R() - 0.5) * 0.3, L = C * (0.32 + R() * 0.14); tw.push([C / 2 + (R() - 0.5) * C * 0.1, C * 0.82, a, L]); }
+    g.strokeStyle = 'rgba(55,42,28,.9)'; g.lineWidth = 2.2; for (const [x0, y0, a, L] of tw) { g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo(x0 + Math.cos(a) * L * 0.5, y0 + Math.sin(a) * L * 0.5 + C * 0.04, x0 + Math.cos(a) * L, y0 + Math.sin(a) * L); g.stroke(); }
     for (let i = 0; i < n; i++) {
-      const r = Math.sqrt(R()) * C * 0.45, a = R() * Math.PI * 2, x = C / 2 + Math.cos(a) * r, y = C / 2 + Math.sin(a) * r * 0.9, s = size * (0.7 + R() * 0.6), rot = R() * 6.28;
+      const [x0, y0, a0, L] = tw[i % tw.length], t = 0.35 + 0.65 * Math.sqrt(R()), sp = size * (1.2 + t * 1.6);
+      const x = x0 + Math.cos(a0) * L * t + (R() - 0.5) * 2 * sp, y = y0 + Math.sin(a0) * L * t + (R() - 0.5) * 2 * sp, s = size * (0.7 + R() * 0.6), rot = a0 + Math.PI / 2 + (R() - 0.5) * 2.2;
       g.save(); g.translate(x, y); g.rotate(rot);
       g.fillStyle = col(hue + R() * 14 - 7, sat + R() * 15, lit + R() * 16 - 8);
       g.beginPath();
@@ -79,20 +83,21 @@ function foliageAtlas() {
     // a few twigs through the cluster
     g.strokeStyle = 'rgba(60,45,30,.8)'; g.lineWidth = 2.5; for (let i = 0; i < 5; i++) { g.beginPath(); g.moveTo(C / 2, C * 0.95); g.quadraticCurveTo(C * (0.3 + R() * 0.4), C * 0.5, C * (0.1 + R() * 0.8), C * (0.1 + R() * 0.3)); g.stroke(); }
   };
-  cell(2, () => leaves(230, C * 0.035, 85, 45, 38, 'thin'));
-  cell(3, () => leaves(120, C * 0.07, 95, 40, 26, 'oak'));
-  cell(4, () => leaves(170, C * 0.045, 75, 45, 36, 'round'));
-  cell(5, () => leaves(260, C * 0.04, 100, 35, 26, 'thin'));
+  cell(2, () => leaves(400, C * 0.036, 84, 42, 32, 'thin'));
+  cell(3, () => leaves(210, C * 0.064, 96, 38, 23, 'oak'));
+  cell(4, () => leaves(300, C * 0.045, 76, 42, 30, 'round'));
+  cell(5, () => leaves(400, C * 0.04, 100, 33, 23, 'thin'));
   cell(9, () => leaves(260, C * 0.035, 80, 15, 48, 'thin'));
   cell(11, () => leaves(320, C * 0.025, 78, 40, 34, 'round'));
   cell(12, () => leaves(40, C * 0.16, 110, 55, 28, 'big'));
   // 6 juniper: dense prickly blue-green
-  cell(6, () => { for (let i = 0; i < 1400; i++) { const x = R() * C, y = R() * C, a = R() * 6.28, L = C * 0.03; g.strokeStyle = col(150 + R() * 20, 15 + R() * 15, 22 + R() * 15); g.lineWidth = 1.5; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * L, y + Math.sin(a) * L); g.stroke(); } });
+  cell(6, () => { for (let i = 0; i < 260; i++) { const r = Math.sqrt(R()) * C * 0.4, a = R() * 6.28; g.fillStyle = col(150 + R() * 20, 18 + R() * 12, 14 + R() * 10); g.beginPath(); g.ellipse(C / 2 + Math.cos(a) * r, C / 2 + Math.sin(a) * r, C * (0.03 + R() * 0.03), C * (0.03 + R() * 0.03), R() * 3, 0, 6.28); g.fill(); }
+    for (let i = 0; i < 1400; i++) { const x = R() * C, y = R() * C, a = R() * 6.28, L = C * 0.03; g.strokeStyle = col(150 + R() * 20, 15 + R() * 15, 22 + R() * 15); g.lineWidth = 1.5; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * L, y + Math.sin(a) * L); g.stroke(); } });
   // 7 grass and reeds: blades from the bottom edge
   cell(7, () => { for (let i = 0; i < 160; i++) { const x = C * (0.1 + R() * 0.8), h = C * (0.4 + R() * 0.55), b = (R() - 0.5) * C * 0.25; g.strokeStyle = col(70 + R() * 30, 35 + R() * 20, 28 + R() * 22); g.lineWidth = 2 + R() * 2; g.beginPath(); g.moveTo(x, C); g.quadraticCurveTo(x + b * 0.3, C - h * 0.6, x + b, C - h); g.stroke(); } });
   // 8 palm frond, 10 cypress, 13 fern, 14 agave
-  cell(8, () => { g.strokeStyle = '#5a6a2a'; g.lineWidth = 4; g.beginPath(); g.moveTo(C * 0.05, C * 0.5); g.quadraticCurveTo(C * 0.5, C * 0.3, C * 0.97, C * 0.55); g.stroke(); for (let t = 0.05; t < 0.97; t += 0.025) { const x = C * t, y = C * (0.5 - 0.4 * t * (1 - t)); for (const s of [-1, 1]) { g.strokeStyle = col(85 + R() * 20, 45, 30 + R() * 10); g.lineWidth = 3; g.beginPath(); g.moveTo(x, y); g.lineTo(x + C * 0.05, y + s * C * 0.22 * (1 - Math.abs(t - 0.45))); g.stroke(); } } });
-  cell(10, () => { for (let i = 0; i < 2500; i++) { const y = R() * C, w = C * 0.32 * Math.sin(Math.PI * y / C) ** 0.6, x = C / 2 + (R() - 0.5) * 2 * w; g.fillStyle = col(130 + R() * 20, 30, 16 + R() * 12); g.fillRect(x, y, 3, 5); } });
+  cell(8, () => { g.strokeStyle = '#5a6a2a'; g.lineWidth = 4; g.beginPath(); g.moveTo(C * 0.05, C * 0.5); g.quadraticCurveTo(C * 0.5, C * 0.3, C * 0.97, C * 0.55); g.stroke(); for (let t = 0.05; t < 0.97; t += 0.014) { const x = C * t, y = C * (0.5 - 0.4 * t * (1 - t)); for (const s of [-1, 1]) { g.strokeStyle = col(85 + R() * 20, 45, 26 + R() * 10); g.lineWidth = 7; g.beginPath(); g.moveTo(x, y); g.lineTo(x + C * 0.05, y + s * C * 0.22 * (1 - Math.abs(t - 0.45))); g.stroke(); } } });
+  cell(10, () => { for (let i = 0; i < 9000; i++) { const y = R() * C, w = C * 0.34 * Math.sin(Math.PI * y / C) ** 0.6, x = C / 2 + (R() - 0.5) * 2 * w; g.fillStyle = col(130 + R() * 20, 30, 14 + R() * 12); g.fillRect(x, y, 5, 8); } });
   cell(13, () => { for (let f = 0; f < 6; f++) { const a = -Math.PI / 2 + (f - 2.5) * 0.35; const x0 = C / 2, y0 = C; for (let t = 0; t < 1; t += 0.02) { const x = x0 + Math.cos(a) * C * 0.9 * t, y = y0 + Math.sin(a) * C * 0.9 * t + C * 0.25 * t * t; for (const s of [-1, 1]) { g.strokeStyle = col(100 + R() * 15, 50, 28 + R() * 10); g.lineWidth = 3; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a + s * 1.4) * C * 0.08 * (1 - t), y + Math.sin(a + s * 1.4) * C * 0.08 * (1 - t)); g.stroke(); } } } });
   cell(14, () => { for (let f = 0; f < 14; f++) { const a = -Math.PI / 2 + (f - 6.5) * 0.2; g.fillStyle = col(150, 20, 40 + R() * 10); g.beginPath(); g.moveTo(C / 2 - 8, C); g.lineTo(C / 2 + Math.cos(a) * C * 0.9, C + Math.sin(a) * C * 0.9); g.lineTo(C / 2 + 8, C); g.fill(); } });
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter;
@@ -110,16 +115,22 @@ class GB {
     const base = this.P.length / 3;
     for (let i = 0; i <= seg; i++) {
       const an = i / seg * Math.PI * 2, cs = Math.cos(an), sn = Math.sin(an), n = new THREE.Vector3().addScaledVector(u, cs).addScaledVector(v, sn);
-      this.v(a.x + n.x * r0, a.y + n.y * r0, a.z + n.z * r0, n.x, n.y, n.z, 0.001, 0.001, c, w0);
-      this.v(b.x + n.x * r1, b.y + n.y * r1, b.z + n.z * r1, n.x, n.y, n.z, 0.001, 0.001, c, w1);
+      this.v(a.x + n.x * r0, a.y + n.y * r0, a.z + n.z * r0, n.x, n.y, n.z, 0.001, 0.999, c, w0);
+      this.v(b.x + n.x * r1, b.y + n.y * r1, b.z + n.z * r1, n.x, n.y, n.z, 0.001, 0.999, c, w1);
     }
     for (let i = 0; i < seg; i++) { const q = base + i * 2; this.I.push(q, q + 2, q + 1, q + 1, q + 2, q + 3); }
   }
   // a foliage card: centre p, facing n (normal used for lighting), size w×h, atlas cell, up direction
-  card(p, right, up, w, h, cellI, nrm, c, sway, uvFlip = false) {
+  // center (optional): bend each corner's normal away from it, so a crown made of cards shades like one round volume
+  card(p, right, up, w, h, cellI, nrm, c, sway, uvFlip = false, center = null) {
     const cx = (cellI % 4) / 4, cy = Math.floor(cellI / 4) / 4, e = 0.004;
     const u0 = cx + e, u1 = cx + 0.25 - e, v0 = 1 - (cy + 0.25 - e), v1 = 1 - (cy + e);
-    const q = (sx, sy, uu, vv) => this.v(p.x + right.x * sx * w + up.x * sy * h, p.y + right.y * sx * w + up.y * sy * h, p.z + right.z * sx * w + up.z * sy * h, nrm.x, nrm.y, nrm.z, uu, vv, c, sway);
+    const q = (sx, sy, uu, vv) => {
+      const x = p.x + right.x * sx * w + up.x * sy * h, y = p.y + right.y * sx * w + up.y * sy * h, z = p.z + right.z * sx * w + up.z * sy * h;
+      let nx = nrm.x, ny = nrm.y, nz = nrm.z;
+      if (center) { const dx = x - center.x, dy = y - center.y, dz = z - center.z, l = Math.hypot(dx, dy, dz) || 1; nx = nx * 0.35 + dx / l * 0.65; ny = ny * 0.35 + dy / l * 0.65 + 0.15; nz = nz * 0.35 + dz / l * 0.65; const m = Math.hypot(nx, ny, nz); nx /= m; ny /= m; nz /= m; }
+      return this.v(x, y, z, nx, ny, nz, uu, vv, c, sway);
+    };
     const a = q(-0.5, -0.5, uvFlip ? u1 : u0, v0), b = q(0.5, -0.5, uvFlip ? u0 : u1, v0), d = q(0.5, 0.5, uvFlip ? u0 : u1, v1), f = q(-0.5, 0.5, uvFlip ? u1 : u0, v1);
     this.I.push(a, b, d, a, d, f);
   }
@@ -138,13 +149,13 @@ function buildKind(k) {
   const bark = lin(s.bark || '#5a4a3a');
   const leafCol = () => { const v = 0.75 + R() * 0.4; return [v, v, v]; };
   const outN = (p, c) => V(p.x - c.x, (p.y - c.y) * 0.7 + 0.35, p.z - c.z).normalize();
-  const cardAround = (p, center, size, cell, sway) => {
+  const cardAround = (p, center, size, cell, sway, shade = 1, nc = null) => {
     const n = outN(p, center), up = V((R() - 0.5) * 0.6, 1, (R() - 0.5) * 0.6).normalize(), right = new THREE.Vector3().crossVectors(up, n).normalize();
     if (right.lengthSq() < 0.1) right.set(1, 0, 0);
-    const up2 = new THREE.Vector3().crossVectors(n, right).normalize();
-    b.card(p, right, up2, size, size, cell, n, leafCol(), sway, R() < 0.5);
+    const up2 = new THREE.Vector3().crossVectors(n, right).normalize(), c1 = leafCol().map(v => v * shade), c2 = leafCol().map(v => v * shade);
+    b.card(p, right, up2, size, size, cell, n, c1, sway, R() < 0.5, nc);
     // and one across it, so the cluster has volume from every side
-    b.card(p, n.clone().cross(up2).normalize().lerp(right, 0.3).normalize(), up2, size * 0.9, size * 0.9, cell, n, leafCol(), sway, R() < 0.5);
+    b.card(p, n.clone().cross(up2).normalize().lerp(right, 0.3).normalize(), up2, size * 0.9, size * 0.9, cell, n, c2, sway, R() < 0.5, nc);
   };
   if (s.rock) {
     const g = new THREE.IcosahedronGeometry(1, 2), pos = g.attributes.position;
@@ -196,24 +207,34 @@ function buildKind(k) {
   } else if (k === K.PALM) {
     let p = V(0, -0.2, 0); const lean = V(R() - 0.5, 0, R() - 0.5).multiplyScalar(0.25);
     for (let i = 0; i < 6; i++) { const q = V(lean.x * H * (i + 1) / 6 * (i + 1) / 6, H * (i + 1) / 6, lean.z * H * (i + 1) / 6 * (i + 1) / 6); b.cyl(p, q, H * 0.03, H * 0.026, bark, 7, i / 6, (i + 1) / 6); p = q; }
-    for (let f = 0; f < 11; f++) { const a = f / 11 * 6.28, d = V(Math.cos(a), -0.25, Math.sin(a)).normalize(), side = V(-Math.sin(a), 0, Math.cos(a)); b.card(p.clone().addScaledVector(d, H * 0.24), d, side, H * 0.48, H * 0.22, 8, V(0, 1, 0), leafCol(), 1); }
+    for (let f = 0; f < 13; f++) {
+      const a = f / 13 * 6.28 + R() * 0.3, rise = 0.25 + R() * 0.35, d0 = V(Math.cos(a), rise, Math.sin(a)).normalize(), d1 = V(Math.cos(a), -0.6 - R() * 0.4, Math.sin(a)).normalize();
+      const side = V(-Math.sin(a), 0, Math.cos(a)), L0 = H * (0.17 + R() * 0.05), L1 = H * (0.2 + R() * 0.06), mid = p.clone().addScaledVector(d0, L0);
+      for (const [o, d, L, w] of [[p, d0, L0, 0.9], [mid, d1, L1, 1]]) for (const sg of [-1, 1]) {
+        const up = side.clone().multiplyScalar(sg).multiplyScalar(0.82).add(V(0, 0.57, 0)).normalize();
+        b.card(o.clone().addScaledVector(d, L * 0.5).addScaledVector(up, H * 0.05), d, up, L * 1.05, H * 0.11, 8, V(0, 1, 0), leafCol(), w);
+      }
+    }
   } else {
     // broadleaf trees and bushes: a trunk splitting into boughs, leaf clusters in a rounded crown
     const bush = k === K.BUSH, crownY = bush ? H * 0.55 : H * (k === K.BIRCH ? 0.64 : 0.6), crownR = bush ? H * 0.55 : H * (k === K.OAK || k === K.ACACIA ? 0.38 : k === K.BAOBAB ? 0.32 : 0.27);
-    const c = V(0, crownY, 0);
+    const c = V(0, crownY, 0), lobes = [c.clone()];
     if (!bush) {
-      const tr = k === K.BAOBAB ? 0.11 : k === K.OAK ? 0.035 : 0.022;
+      const tr = k === K.BAOBAB ? 0.11 : k === K.OAK ? 0.035 : 0.022, nb = k === K.ACACIA ? 6 : 5;
       b.cyl(V(0, -0.3, 0), V(0, crownY * 0.7, 0), H * tr, H * tr * 0.75, bark, 8, 0, 0.2);
-      for (let i = 0; i < (k === K.ACACIA ? 6 : 5); i++) {
-        const a = i / 5 * 6.28 + R(), up = k === K.ACACIA ? 0.35 : 0.8, end = V(Math.cos(a) * crownR * 0.7, crownY + crownR * up * (0.3 + R() * 0.5), Math.sin(a) * crownR * 0.7);
+      for (let i = 0; i < nb; i++) {
+        const a = i / nb * 6.28 + R(), up = k === K.ACACIA ? 0.35 : 0.8, end = V(Math.cos(a) * crownR * 0.7, crownY + crownR * up * (0.3 + R() * 0.5), Math.sin(a) * crownR * 0.7);
         b.cyl(V(0, crownY * 0.68, 0), end, H * tr * 0.55, H * 0.004, bark, 6, 0.2, 0.8);
+        if (i < 4) lobes.push(end.clone().lerp(c, 0.25));
       }
     }
-    const nCl = bush ? 22 : k === K.JUNGLE ? 40 : 34, flat = k === K.ACACIA ? 0.35 : k === K.BIRCH ? 1.25 : 0.85;
+    const nCl = bush ? 30 : k === K.JUNGLE ? 54 : 50, flat = k === K.ACACIA ? 0.35 : k === K.BIRCH ? 1.25 : 0.85, lr = crownR * (bush ? 1 : 0.62);
     for (let j = 0; j < nCl; j++) {
-      const u = R() * 2 - 1, a = R() * 6.28, rr = Math.pow(R(), 0.35);
-      const p = V(Math.cos(a) * Math.sqrt(1 - u * u) * crownR * rr, crownY + u * crownR * flat * rr, Math.sin(a) * Math.sqrt(1 - u * u) * crownR * rr);
-      cardAround(p, c, crownR * (bush ? 0.65 : 0.5), s.leaf, bush ? 0.6 : 0.9);
+      const L = lobes[j % lobes.length], u = R() * 2 - 1, a = R() * 6.28, rr = Math.pow(R(), 0.4);
+      const p = V(L.x + Math.cos(a) * Math.sqrt(1 - u * u) * lr * rr, L.y + u * lr * flat * rr, L.z + Math.sin(a) * Math.sqrt(1 - u * u) * lr * rr);
+      // light reaches the outside and the top of the crown; deep inside and underneath the leaves are in shade
+      const shade = 0.5 + 0.38 * rr + 0.16 * (u * 0.5 + 0.5);
+      cardAround(p, c, crownR * (bush ? 0.6 : 0.47), s.leaf, bush ? 0.6 : 0.9, shade, c);
     }
   }
   return b.geometry();
@@ -231,7 +252,8 @@ function treeMaterial(gfx, atlas, impostor) {
         transformed.z += cos(ph * 0.8) * amp * 0.8;
       #endif`);
     // foliage is see-through for light: lit from behind it glows a little, and it is never pitch black
-    sh.fragmentShader = sh.fragmentShader.replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n reflectedLight.indirectDiffuse += diffuseColor.rgb * 0.08;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n reflectedLight.indirectDiffuse += diffuseColor.rgb * 0.08;')
+      .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n normal = normalize(vNormal);');
   };
   patch.key = 'tree';
   prep(mat, patch); gfx.shadowed(mat);
@@ -281,13 +303,14 @@ export class Forest {
     const sc = new THREE.Scene(), cam = new THREE.OrthographicCamera(-0.5, 0.5, 1, 0, 0.1, 100);
     sc.add(new THREE.HemisphereLight(0xdfeaff, 0x4a4030, 1.6)); const dl = new THREE.DirectionalLight(0xffffff, 2.2); dl.position.set(0.5, 1, 0.8); sc.add(dl);
     const mat = new THREE.MeshStandardMaterial({ map: this.atlas, vertexColors: true, alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.9 });
+    mat.onBeforeCompile = sh => { sh.fragmentShader = sh.fragmentShader.replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n normal = normalize(vNormal);'); };
     const rockM = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 });
     const old = r.getRenderTarget(), oc = r.getClearColor(new THREE.Color()), oa = r.getClearAlpha(), tm = r.toneMapping;
     r.setRenderTarget(rt); r.setClearColor(0x000000, 0); r.clear(); r.toneMapping = THREE.NoToneMapping;
     TREE_KINDS.forEach((k, i) => {
       const m = new THREE.Mesh(this.geo[k], SPEC[k].rock ? rockM : mat), h = SPEC[k].h * (SPEC[k].rock ? 1.4 : 1.05);
       sc.add(m);
-      cam.left = -h * 0.5; cam.right = h * 0.5; cam.top = h; cam.bottom = 0; cam.position.set(0, h * 0.5, 50); cam.lookAt(0, h * 0.5, 0); cam.updateProjectionMatrix();
+      cam.left = -h * 0.5; cam.right = h * 0.5; cam.top = h; cam.bottom = 0; cam.position.set(0, 0, 50); cam.lookAt(0, 0, 0); cam.updateProjectionMatrix();
       const col = i % 8, row = Math.floor(i / 8);
       rt.viewport.set(col * 256, H - (row + 1) * 256, 256, 256); rt.scissor.copy(rt.viewport); rt.scissorTest = true;
       r.setRenderTarget(rt); r.render(sc, cam); sc.remove(m);
@@ -296,7 +319,7 @@ export class Forest {
     r.setRenderTarget(old); r.setClearColor(oc, oa); r.toneMapping = tm;
     this.impIndex = Object.fromEntries(TREE_KINDS.map((k, i) => [k, i]));
     this.impScale = Object.fromEntries(TREE_KINDS.map(k => [k, SPEC[k].h * (SPEC[k].rock ? 1.4 : 1.05)]));
-    rt.texture.generateMipmaps = true;
+    rt.texture.generateMipmaps = true; this.impRT = rt;
     return rt.texture;
   }
   update(cam) {

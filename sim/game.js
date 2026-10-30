@@ -18,7 +18,7 @@ const DT = 1 / 400;
 // default export a class made with the game, with optional async init() and frame(dt))
 const ACTS = ['boat', 'plane', 'ski'], EXTRAS = ['life/animals', 'net/net'];
 const TIMES = { morgen: [7.5, 172], dag: [13, 172], kveld: [20.5, 172], natt: [22.5, 300] };
-const WEATHER = { klart: { fog: 0.00007, fall: 0.0018, wet: 0, turb: 3.5, cover: 0.32 }, skyet: { fog: 0.00016, fall: 0.0014, wet: 0, turb: 9, cover: 0.72 }, regn: { fog: 0.00045, fall: 0.0010, wet: 1, turb: 12, rain: 1, cover: 0.97 }, taake: { fog: 0.0025, fall: 0.0022, wet: 0.4, turb: 6, cover: 0.8 } };
+const WEATHER = { klart: { fog: 0.00007, fall: 0.0018, wet: 0, turb: 3.5, cover: 0.3 }, skyet: { fog: 0.00016, fall: 0.0014, wet: 0, turb: 9, cover: 0.62 }, regn: { fog: 0.00045, fall: 0.0010, wet: 1, turb: 12, rain: 1, cover: 0.95 }, taake: { fog: 0.0025, fall: 0.0022, wet: 0.4, turb: 6, cover: 0.8 } };
 
 export class Game {
   constructor(ctx) {

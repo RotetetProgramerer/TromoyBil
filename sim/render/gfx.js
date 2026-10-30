@@ -77,12 +77,13 @@ void main(){
   if (d.y < 0.005) discard;
   float t = (1800.0 - uCam.y) / d.y; vec2 p = uCam.xz + d.xz * min(t, 60000.0);
   vec2 q = p * 0.00032 + vec2(0.006, 0.0025) * uTime;
-  float n = fbm(q), lo = 1.0 - uCover;
-  float c = smoothstep(lo, lo + 0.28, n);
+  float n = fbm(q), lo = mix(0.74, 0.24, uCover);              // fbm is mostly 0.3–0.7: the cover moves the threshold through it
+  float c = smoothstep(lo, lo + 0.16, n);
   float n2 = fbm(q + uSunDir.xz * 0.06);
   float lit = clamp(0.6 + (n - n2) * 3.0, 0.0, 1.0);
   float ov = smoothstep(0.55, 1.0, uCover);
-  vec3 dark = mix(vec3(0.5, 0.54, 0.6), vec3(0.36, 0.38, 0.42), ov), bright = mix(vec3(1.0), vec3(0.72, 0.74, 0.77), ov);
+  lit *= 0.75 + 0.25 * smoothstep(lo, lo + 0.4, n);              // thick parts are darker underneath
+  vec3 dark = mix(vec3(0.46, 0.5, 0.57), vec3(0.3, 0.32, 0.36), ov), bright = mix(vec3(1.0), vec3(0.66, 0.68, 0.71), ov);
   vec3 col = mix(dark, bright, lit) * mix(uSunCol * 0.85 + 0.15, vec3(1.0), 0.35) * (0.05 + 0.95 * (1.0 - uNight));
   float sunGlow = pow(max(dot(d, uSunDir), 0.0), 12.0);
   col += uSunCol * sunGlow * (1.0 - c) * 0.8;
