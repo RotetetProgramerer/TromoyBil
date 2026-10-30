@@ -21,7 +21,8 @@ function outcrops(K, k = 0.5, cap = 7, keep = 0.5) {
   K.rockH = new Float32Array(K.H.length);
   K.each((kk, x, z) => {
     const d = K.D[kk]; if (d <= 0 || K.KEEP[kk]) return;
-    const o = K.oldAt(x, z), e = o.th - o.tb; if (o.ts !== OS.ROCK || e < 0.08) return;
+    const wx = x + 80 * fbm(K.n2, x / 170 + 7, z / 170, 3), wz = z + 80 * fbm(K.n2, x / 170, z / 170 + 7, 3);      // the old round boulders, warped into ragged outcrops
+    const o = K.oldAt(wx, wz), e = o.th - o.tb; if (o.ts !== OS.ROCK || e < 0.08) return;
     const t = 0.5 + 0.5 * fbm(K.n3, x / 32, z / 32, 3), brk = smooth(1 - keep - 0.07, 1 - keep + 0.07, t), r = ridged(K.noise, x / 28 + 3, z / 28, 3);
     const add = Math.min(cap, Math.pow(e * K.V * k, 0.8)) * brk * (0.4 + 0.8 * r) * smooth(0, 60, d);
     K.H[kk] += add; K.rockH[kk] = add;
@@ -129,9 +130,9 @@ const RECIPES = {
     tarns(K, 1, 'Steintjern');
     const V = K.village({ at: vil, h: vh, name: 'Spornes', houses: 8 });
     const P = K.PL(o.def.path);
-    K.road([V.out, [-380, 560], [120, 470], [560, 700], [820, 840]], { c: 5, s: 1, n: 'Spornesveien', g: 0.12 });
-    K.road([[-380, 560], [-560, 60], [-700, -520], [-790, -860]], { c: 5, s: 1, n: 'Nordveien', g: 0.12 });
-    K.road([[120, 470], [300, 0], [390, -440]], { c: 6, s: 1, n: 'Lyngveien', g: 0.14 });
+    K.road(curvy(K, [V.out, [-380, 560], [120, 470], [560, 700], [820, 840]]), { c: 5, s: 1, n: 'Spornesveien', g: 0.12 });
+    K.road(curvy(K, [[-380, 560], [-560, 60], [-700, -520], [-790, -860]]), { c: 5, s: 1, n: 'Nordveien', g: 0.12 });
+    K.road(curvy(K, [[120, 470], [300, 0], [390, -440]]), { c: 6, s: 1, n: 'Lyngveien', g: 0.14 });
     trackCourse(K, { id: 'steintrapp', name: 'Steintrappa', kind: 'terreng', diff: 3, pts: P.slice(0, 8), road: 'Steinrøysa',
       desc: 'Over svaberg og steinrøyser fra sørstranda, opp steintrappa og gjennom regnpytten. Her trengs presisjon.',
       bumps: [0, 1, 2, 3, 4].map(i => [0.3 + i * 0.0022, 0.4, 1.8]), holes: [[0.88, 14, 'water']] });
@@ -160,9 +161,9 @@ const RECIPES = {
     tarns(K, 1, 'Myrtjern');
     const V = K.village({ at: vil, h: vh, name: 'Froland', houses: 8 });
     const P = K.PL(o.def.path);
-    K.road([V.out, [-360, 700], [-80, 380], [120, 80], [80, -300]], { c: 5, s: 1, n: 'Skogsveien', g: 0.12 });
-    K.road([[-80, 380], [400, 520], [760, 700], [890, 800]], { c: 5, s: 1, n: 'Sørveien', g: 0.12 });
-    K.road([[80, -300], [140, -620], [150, -880]], { c: 6, s: 1, n: 'Nordre skogsbilvei', g: 0.14 });
+    K.road(curvy(K, [V.out, [-360, 700], [-80, 380], [120, 80], [80, -300]]), { c: 5, s: 1, n: 'Skogsveien', g: 0.12 });
+    K.road(curvy(K, [[-80, 380], [400, 520], [760, 700], [890, 800]]), { c: 5, s: 1, n: 'Sørveien', g: 0.12 });
+    K.road(curvy(K, [[80, -300], [140, -620], [150, -880]]), { c: 6, s: 1, n: 'Nordre skogsbilvei', g: 0.14 });
     trackCourse(K, { id: 'tommer', name: 'Tømmerløypa', kind: 'terreng', diff: 2, pts: P.slice(0, 8), road: 'Tømmerveien', ford: true,
       desc: 'Gjennom granskogen, over tømmerstokkene og gjennom myrhullet. Regnet gjør det glatt.',
       bumps: [[0.34, 0.45, 2], [0.77, 0.5, 2]], holes: [[0.92, 16, 'bog']] });
@@ -192,9 +193,9 @@ const RECIPES = {
     for (const [x, z, r] of fords) K.paint(x, z, r * 0.6, C.GRAVEL, c => c !== C.LAKE);
     const V = K.village({ at: vil, h: vh, name: 'Nidelva', houses: 8 });
     const P = K.PL(o.def.path);
-    K.road([V.out, [640, -520], [700, -100], [760, 300], [860, 700], [900, 790]], { c: 4, s: 1, n: 'Elveveien', g: 0.1 });
-    K.road([[640, -520], [200, -560], [-300, -620], [-700, -720], [-860, -800]], { c: 5, s: 1, n: 'Nordveien', g: 0.12 });
-    trackCourse(K, { id: 'nidelva', name: 'Nidelva', kind: 'terreng', diff: 3, pts: [...P.slice(1, 9), add(P[8], dirv(head(P[8], P[9])), 160)], road: 'Vadestien', ford: true,
+    K.road(curvy(K, [V.out, [640, -520], [700, -100], [760, 300], [860, 700], [900, 790]]), { c: 4, s: 1, n: 'Elveveien', g: 0.1 });
+    K.road(curvy(K, [[640, -520], [200, -560], [-300, -620], [-700, -720], [-860, -800]]), { c: 5, s: 1, n: 'Nordveien', g: 0.12 });
+    trackCourse(K, { id: 'nidelva', name: 'Nidelva', kind: 'terreng', diff: 3, pts: [...P.slice(1, 9), add(P[8], dirv(head(P[8], P[9])), 40)], road: 'Vadestien', ford: true,
       desc: 'Tre vadesteder over Nidelva, to gjørmehull og et hopp. Hold deg på grusørene, ellers drukner motoren.',
       bumps: [[0.62, 1.5, 8]], holes: [[0.35, 15, 'mud'], [0.68, 15, 'mud']] });
     courseSigns(K);
@@ -609,6 +610,7 @@ function bend(K, pts, amp = 110, keep = [0, pts.length - 1]) {
     return add(p, side(head(P[i - 1], P[i + 1])), amp * f * K.n3(s / 420 + sd, 3.3 + sd));
   });
 }
+const curvy = (K, pts, amp = 60) => bend(K, pts, amp, pts.map((_, i) => i));      // bends between every control point
 function wobble(c, r, a, K) { const p = []; for (let i = 0; i < 32; i++) { const t = i / 32 * Math.PI * 2, f = 1 + 0.12 * a * K.noise(Math.cos(t) * 1.5 + c[0] / 80, Math.sin(t) * 1.5 + c[1] / 80); p.push([c[0] + Math.cos(t) * r * f, c[1] + Math.sin(t) * r * f]); } return p; }
 // a lava river from the crater rim downhill: a channel just below the ground with levees on both sides, glowing (Special draws the lava).
 // During the build its cells count as water, so roads bridge it.
