@@ -19,7 +19,8 @@ export class BoatSound {
       const ps = { id: v + (i ? 'b' : ''), engine: { idle: e.idle, redline: e.rpm, limiter: e.limit ?? e.rpm * 1.08 }, gearbox: { final: 1.27 } };
       this.engines.push({ snd: new EngineSound(ac, this.ext, this.int, ps, B, snd.worklet), car: { spec: ps, state: { throttle: 0, thr: 0, load: 0, boost: 0, shift: 0, gear: 0 }, rpm: e.idle, wheels: [{ omega: 0 }], engineOff: false } });
     }
-    const lay = (src, ...f) => { const g = gain(ac, 0); chain(src, ...f, g); return { g, gate: new Gate(g, this.out) }; };
+    // layers that are only connected while heard (the noise loops under them play on, so stop() stops them)
+    const loops = this.loops = [], lay = (src, ...f) => { const g = gain(ac, 0); chain(src, ...f, g); loops.push(src); return { g, gate: new Gate(g, this.out) }; };
     this.rushF = filt(ac, 'bandpass', 500, 0.5); this.rush = lay(loop(ac, B.pink), this.rushF);
     this.hiss = lay(loop(ac, B.white), filt(ac, 'highpass', 2600, 0.6), filt(ac, 'lowpass', 9500, 0.5));
     this.drum = lay(loop(ac, B.brown), filt(ac, 'lowpass', 150, 0.8));
@@ -59,6 +60,6 @@ export class BoatSound {
   }
   stop() {
     const t = this.ac.currentTime; this.out.gain.setTargetAtTime(0, t, 0.08);
-    setTimeout(() => { for (const E of this.engines) E.snd.stop(); this.out.disconnect(); }, 600);
+    setTimeout(() => { for (const E of this.engines) E.snd.stop(); for (const s of this.loops) try { s.stop(); s.disconnect(); } catch (e) { } this.out.disconnect(); }, 600);
   }
 }

@@ -62,6 +62,13 @@ export class StreetLights {
   // other lamps for the pool: fn(cam) returns [{x, y, z (the head), tx, ty, tz (where it shines), K (its light, as STREET), d (its
   // distance² from the camera)}]; the nearest of all, street lamps and these, get the real lights
   share(fn) { this.others.push(fn); }
+  // a lamp put up by something else (the airport's apron): world x, z, the arm's direction; it is lit like the others
+  add(x, z, ang) {
+    const isl = this.world.islandAt(x, z), lamp = { x, z, y: this.world.height(x, z), ang }; this.lamps.push(lamp); this.at.x = 1e9;
+    const key = Math.floor(x / CELL) + ',' + Math.floor(z / CELL); let G = this.grid.get(key); if (!G) this.grid.set(key, G = []); G.push(lamp);
+    if (isl && isl.addCollider) isl.addCollider({ x, z, r: 0.12, kind: 'post', bounce: 0.1 });
+    return lamp;
+  }
   near(x, z, R) { const out = [], c = Math.ceil(R / CELL); const ci = Math.floor(x / CELL), cj = Math.floor(z / CELL); for (let j = cj - c; j <= cj + c; j++) for (let i = ci - c; i <= ci + c; i++) { const L = this.grid.get(i + ',' + j); if (L) out.push(...L); } return out; }
   update(dt) {
     const cam = this.gfx.camera.position, on = THREE.MathUtils.smoothstep(U.uNight.value, 0.3, 0.6);
