@@ -10,6 +10,7 @@ import { clamp, smooth, setp, gain, filt, chain, loop, wobble } from './synth.js
 
 // cylinder layouts: bank of each cylinder in firing order (the firing itself is even round the 720° cycle)
 const LAYOUT = {
+  I2: [0, 0],                           // parallel twin, 360° crank (small outboards)
   I4: [0, 0, 0, 0],
   I6: [0, 1, 0, 1, 0, 1],               // split manifold: front three and rear three
   V6: [0, 1, 0, 1, 0, 1],
@@ -67,6 +68,20 @@ export const VOICES = {
     drive: [0.8, 1.8], turboSoft: 0.5, pops: 1, intake: [520, 3, 0.8],
     ext: { shelf: [120, 1], peaks: [[100, 1.2, 2], [1300, 1.6, 5], [2600, 2, 2]], lp: 7500 }, int: { lp: 700, boom: [85, 5] },
     turbo: { amt: 0.45, f0: 2800, f1: 8500, bov: 0.8 }, horn: [460, 580] },
+  // outboards (sim/audio/boatsound.js): the exhaust leaves under water through the propeller hub, so it is muffled and boomy; what
+  // you hear is the engine under the cowl (intake, valve train), the idle relief port burbling and the gearcase whine.
+  // 20 hp two-cylinder four-stroke: buzzy and busy, lots of rattle
+  ob20: { layout: 'I2', width: 55, sharp: 0.08, edge: 0.3, rough: 0.38, jitT: 0.016, jitA: 0.1, idleRough: 1.8, pipe: [2.4], fb: -0.35, drive: [1.0, 1.8],
+    intake: [620, 3, 0.9], tick: 0.09, ext: { shelf: [140, 1], peaks: [[180, 1.4, 4], [850, 1.6, 4]], lp: 2600 }, int: { lp: 900, boom: [90, 3] },
+    mix: [0.85, 0.6, 0.8, 0.6], whine: 0.45, horn: [440, 545], gain: 0.9 },
+  // 150 hp inline four: a smooth hum under the cowl over a deep, wet exhaust note
+  ob150: { layout: 'I4', width: 62, sharp: 0.1, edge: 0.16, rough: 0.24, jitT: 0.008, jitA: 0.05, pipe: [3.6], fb: -0.4, drive: [0.7, 1.3],
+    intake: [430, 2.5, 0.75], tick: 0.06, ext: { shelf: [100, 4], peaks: [[95, 1.3, 4], [560, 1.3, 2]], lp: 1900 }, int: { lp: 800, boom: [80, 4] },
+    mix: [1, 0.6, 0.65, 0.55], whine: 0.6, horn: [400, 495] },
+  // 300 hp V8: a burbling cross-plane rumble at idle, a hard snarl at full throttle
+  ob300: { layout: 'V8', width: 50, sharp: 0.07, edge: 0.26, rough: 0.3, jitT: 0.012, jitA: 0.07, idleRough: 1.6, pipe: [2.9, 3.3], fb: -0.4, bankGain: [1, 0.88],
+    drive: [0.9, 1.7], intake: [320, 2, 0.8], tick: 0.04, ext: { shelf: [90, 5], peaks: [[78, 1.2, 4], [480, 1.3, 2]], lp: 2300 }, int: { lp: 800, boom: [70, 5] },
+    mix: [1.1, 0.6, 0.6, 0.5], whine: 0.5, horn: [300, 380], gain: 1.1 },
 };
 // the voice for a car: its own entry, or a guess from the engine data (low redline → diesel)
 export function voiceFor(spec) {

@@ -379,12 +379,12 @@ export class Forest {
   rebuildBlocks(cam) {
     const blocks = new Map();
     for (const t of this.tiles.values()) { if (t.state !== 2) continue; const bk = Math.floor(t.i / 4) + ':' + Math.floor(t.j / 4); (blocks.get(bk) || blocks.set(bk, []).get(bk)).push(t); }
-    for (const [bk, b] of this.blocks) if (!blocks.has(bk)) { this.group.remove(b.mesh); b.mesh.geometry.dispose(); this.blocks.delete(bk); }
+    for (const [bk, b] of this.blocks) if (!blocks.has(bk)) { this.group.remove(b.mesh); if (b.mesh.geometry) b.mesh.geometry.dispose(); this.blocks.delete(bk); }
     for (const [bk, ts] of blocks) {
       const sig = ts.filter(t => t.far).map(t => t.i + ',' + t.j).sort().join(';');
       const old = this.blocks.get(bk);
       if (old && old.sig === sig) continue;
-      if (old) { this.group.remove(old.mesh); old.mesh.geometry.dispose(); this.blocks.delete(bk); }
+      if (old) { this.group.remove(old.mesh); if (old.mesh.geometry) old.mesh.geometry.dispose(); this.blocks.delete(bk); }
       let n = 0; for (const t of ts) if (t.far) n += t.data.length / 6;
       if (!n) { this.blocks.set(bk, { sig, mesh: new THREE.Group() }); continue; }
       // per instance: iData = (x, y, z, atlas cell), iSize = the height of the picture
