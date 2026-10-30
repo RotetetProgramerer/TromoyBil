@@ -163,6 +163,7 @@ export class UI {
       const k = S / im.cv.width, P = (wx, wz) => [(wx - im.x0) / im.sc * k, (wz - im.z0) / im.sc * k];
       for (const c of g.courses.forIsland(isl)) { const [X, Z] = P(c.start.x, c.start.z); x.fillStyle = DIFFCOL[c.diff]; x.beginPath(); x.arc(X, Z, 7, 0, 7); x.fill(); x.strokeStyle = '#14120e'; x.lineWidth = 2; x.stroke(); x.fillStyle = '#fff'; x.font = '700 14px "Barlow Condensed"'; x.fillText(c.name, X, Z - 11); }
       for (const p of g.pois(isl)) { const [X, Z] = P(p.x, p.z); x.fillStyle = '#e5a92b'; x.fillRect(X - 6, Z - 6, 12, 12); x.fillStyle = '#fff'; x.font = '700 15px "Barlow Condensed"'; x.fillText(p.name, X, Z + 22); }
+      if (g.net) g.net.drawMap(x, P, 'island');
       const [X, Z] = P(car.x, car.z), h = Math.atan2(g.car.fw.x, g.car.fw.z);
       x.save(); x.translate(X, Z); x.rotate(-h + Math.PI); x.fillStyle = '#ff4a2a'; x.beginPath(); x.moveTo(0, -12); x.lineTo(8, 9); x.lineTo(0, 4); x.lineTo(-8, 9); x.closePath(); x.fill(); x.restore();
       $('mapNote').textContent = 'Kjør til ferjekaia, eller ta ferja herfra for 5 muttere.';
@@ -173,6 +174,7 @@ export class UI {
       for (const isl of [...g.world.islands].reverse()) { const im = this.islandImage(isl), [X0, Z0] = P(im.x0, im.z0); x.drawImage(im.cv, X0, Z0, im.cv.width * im.sc * k, im.cv.height * im.sc * k); }
       x.font = '700 20px "Barlow Condensed"'; x.textAlign = 'center';
       for (const isl of g.world.islands) { if (isl.def.backdrop) continue; const [X, Z] = P((isl.x0 + isl.x1) / 2, (isl.z0 + isl.z1) / 2); x.fillStyle = 'rgba(0,0,0,.6)'; x.fillText(isl.name, X + 1, Z + 1); x.fillStyle = '#fff8e0'; x.fillText(isl.name, X, Z); }
+      if (g.net) g.net.drawMap(x, P, 'arch');
       const [X, Z] = P(car.x, car.z); x.fillStyle = '#ff4a2a'; x.beginPath(); x.arc(X, Z, 6, 0, 7); x.fill();
     }
     // the ferry list
@@ -247,6 +249,7 @@ export class UI {
     if (a) { x.strokeStyle = 'rgba(229,169,43,.9)'; x.lineWidth = 3; x.beginPath(); a.c.line.forEach((p, i) => { const [X, Z] = M(p[0], p[1]); i ? x.lineTo(X, Z) : x.moveTo(X, Z); }); x.stroke();
       const gp = a.c.gates[Math.min(a.gi, a.c.gates.length - 1)], [X, Z] = M(gp[0], gp[1]); x.fillStyle = '#e5a92b'; x.beginPath(); x.arc(X, Z, 6, 0, 7); x.fill(); }
     else for (const c of this.g.courses.forIsland(isl)) { const [X, Z] = M(c.start.x, c.start.z); x.fillStyle = DIFFCOL[c.diff]; x.beginPath(); x.arc(X, Z, 5, 0, 7); x.fill(); }
+    if (this.g.net) this.g.net.drawMini(x, M, S);   // the others in the room
     x.restore();
     x.fillStyle = '#ff5a2a'; x.beginPath(); x.moveTo(S / 2, S / 2 - 9); x.lineTo(S / 2 + 6, S / 2 + 7); x.lineTo(S / 2, S / 2 + 3); x.lineTo(S / 2 - 6, S / 2 + 7); x.closePath(); x.fill();
     // north arrow on the rim

@@ -13,6 +13,13 @@
 //   stop()            tidy up, then call game.endActivity(); also called when the player goes to the main menu
 //   frame(dt)         every frame whether active or not (the chairlift runs, boats bob at the marina)
 //   pose              while active: {pos, fw, kmh} for the minimap and the place name (pos and fw are Vector3-likes)
+// For «Kjør sammen» (sim/net), both optional:
+//   remoteVisual(who) how another player doing this activity looks to you. who = {name, color, slot}. Return {root (an Object3D),
+//                     update(pose, dt), dispose(), tagY}: net adds root to the scene and calls update every frame with their pose
+//                     drawn a little behind real time, {pos, q, fw, kmh, data} (three.js vectors; without update root is just
+//                     put at pos and q); tagY is the height of their name tag above pos (4 m). Without it they get a beacon
+//   netData()         a small JSON object sent with your pose 15 times a second while active; it arrives as pose.data (the boat's
+//                     model, the plane's flaps …). A pose.q (Quaternion-like, roll and pitch included) is sent along when set
 // The car stays parked while an activity runs (its physics paused); body.act hides the car's dashboard and touch pads.
 export class Activity {
   constructor(game) { this.game = game; this.active = false; this.pose = null; }
