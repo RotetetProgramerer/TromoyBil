@@ -203,6 +203,7 @@ export class Game {
   update(dt) {
     const inp = this.input.read(dt, Math.abs(this.car.speed));
     for (const a of inp.presses) this.press(a);
+    if (inp.releases.includes('horn')) this.snd.event && this.snd.event('horn', { on: false });
     if (this.mode === 'ferry') { this.updateFerry(dt); this.vis.sync(this.car, dt); this.ui.update(dt); return; }
     const driving = this.mode === 'drive' || this.mode === 'race';
     const I = this.car.input;
@@ -217,10 +218,24 @@ export class Game {
     if (driving) this.driving(dt);
     this.vis.sync(this.car, dt, { indicator: this.indicator || 0 }); this.vis.weather(dt, this.car, U.uWet.value, false);
     if (this.mode === 'menu' || this.mode === 'garage') this.menuCamera(dt); else this.cam.update(dt, this.car, this.vis, inp);
-    if (this.car.lastHit && this.car.lastHit.t !== this._hitT) { this._hitT = this.car.lastHit.t; const j = this.car.lastHit.j / this.car.m; if (j > 1.5) { this.cam.shake = Math.min(0.25, j * 0.03); this.snd.event && this.snd.event('crash', { impulse: this.car.lastHit.j }); } }
-    this.snd.update && this.snd.update(dt, this.car, { inside: this.cam.inside, sea: 0, forest: 0.5, rain: this.weather && this.weather.rain || 0, wind: 0.3, night: U.uNight.value, town: 0 });
+    if (this.car.lastHit && this.car.lastHit.t !== this._hitT) { this._hitT = this.car.lastHit.t; const j = this.car.lastHit.j / this.car.m; if (j > 1.5) this.cam.shake = Math.min(0.25, j * 0.03); }
+    this.snd.update && this.snd.update(dt, this.car, this.soundEnv(dt));
     this.ui.update(dt);
     this.saveT = (this.saveT || 0) - dt; if (this.saveT <= 0 && driving) { this.saveT = 5; this.store.set('pos', { x: this.car.pos.x, z: this.car.pos.z, h: Math.atan2(this.car.fw.x, this.car.fw.z) }); }
+  }
+  // what the ambience hears round the car: sea, forest and town within 60 m (sampled a few times a second)
+  soundEnv(dt) {
+    const E = this.env || (this.env = { inside: 0, sea: 0, forest: 0.5, rain: 0, wind: 0.3, night: 0, town: 0, t: 0 });
+    E.inside = this.cam.inside ? 1 : 0; E.rain = this.weather && this.weather.rain || 0; E.night = U.uNight.value; E.wind = 0.25 + E.rain * 0.4;
+    if ((E.t -= dt) > 0) return E; E.t = 0.4;
+    const p = this.car.pos, isl = this.world.islandAt(p.x, p.z); let sea = 0, fo = 0, to = 0, n = 0;
+    for (let k = 0; k < 12; k++) for (const r of [25, 60]) {
+      const a = k / 12 * Math.PI * 2, x = p.x + Math.sin(a) * r, z = p.z + Math.cos(a) * r; n++;
+      if (!isl || this.world.terrain(x, z) < (isl.def.sea || 0)) { sea++; continue; }
+      const c = isl.coverAt(x, z); if (c >= 3 && c <= 5 || c === 18) fo++; else if (c === 9 || c === 10) to++;
+    }
+    E.sea = sea / n; E.forest = fo / n; E.town = to / n;
+    return E;
   }
   menuCamera(dt) {
     const c = this.car, cam = this.gfx.camera, t = performance.now() * 0.00012 + 0.8, r = c.spec.dims.L * 1.6 + 3;

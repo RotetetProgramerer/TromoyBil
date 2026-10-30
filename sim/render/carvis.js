@@ -90,6 +90,10 @@ export class CarVisual {
       case 'trim': mat = std({ color: 0x141414, metalness: 0, roughness: 0.6 }); prep(mat, paintPatch(this.dirt)); break;
       case 'interior': mat = std({ color: 0x2a2a2a, roughness: 0.85 }); prep(mat); break;
       case 'plate': mat = std({ color: 0xf0f0ea, roughness: 0.5 }); prep(mat); break;
+      case 'chassis': mat = std({ color: 0x1c1c1c, metalness: 0.5, roughness: 0.7 }); prep(mat, paintPatch(this.dirt)); break;
+      case 'spring': mat = std({ color: 0xc8b020, metalness: 0.6, roughness: 0.35 }); prep(mat); break;
+      case 'silver': mat = std({ color: 0xa8aaac, metalness: 0.85, roughness: 0.3 }); prep(mat); break;
+      case 'gloss': mat = std({ color: 0x0a0a0a, metalness: 0.2, roughness: 0.12, clearcoat: 1, clearcoatRoughness: 0.05 }); prep(mat); break;
       default:
         if (name.startsWith('light_')) {
           const rear = /tail|brake|ind_rear/.test(name), amber = /ind/.test(name), rev = /reverse/.test(name);

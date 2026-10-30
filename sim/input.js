@@ -7,18 +7,18 @@ export const KEYS = {
 };
 export class Input {
   constructor(el) {
-    this.down = new Set(); this.presses = []; this.touch = {}; this.steerKb = 0; this.pad = null; this.padPrev = {}; this.wheel = false;
+    this.down = new Set(); this.presses = []; this.releases = []; this.touch = {}; this.steerKb = 0; this.pad = null; this.padPrev = {}; this.wheel = false;
     addEventListener('keydown', e => {
       const k = e.key.toLowerCase(); if (!this.down.has(k)) this.presses.push(this.action(k));
       this.down.add(k); if ([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k) && e.target === document.body) e.preventDefault();
     });
-    addEventListener('keyup', e => this.down.delete(e.key.toLowerCase()));
+    addEventListener('keyup', e => { const k = e.key.toLowerCase(); if (this.down.has(k)) this.releases.push(this.action(k)); this.down.delete(k); });
     addEventListener('blur', () => this.down.clear());
     // touch buttons: any element with data-t="gas|brake|left|right|handbrake|…"
     document.querySelectorAll('[data-t]').forEach(b => {
       const t = b.dataset.t;
       const on = e => { e.preventDefault(); this.touch[t] = 1; b.classList.add('on'); if (!['gas', 'brake', 'left', 'right', 'handbrake'].includes(t)) this.presses.push(t); try { b.setPointerCapture(e.pointerId); } catch (_) { } };
-      const off = () => { this.touch[t] = 0; b.classList.remove('on'); };
+      const off = () => { if (this.touch[t]) this.releases.push(t); this.touch[t] = 0; b.classList.remove('on'); };
       b.addEventListener('pointerdown', on); b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); b.addEventListener('lostpointercapture', off);
     });
   }
@@ -56,7 +56,7 @@ export class Input {
     }
     // tilt steering on phones (optional, set by the settings)
     if (this.tilt != null && this.tiltOn) out.steer = Math.max(-1, Math.min(1, -this.tilt / 28));
-    out.presses = this.presses; this.presses = [];
+    out.presses = this.presses; this.presses = []; out.releases = this.releases; this.releases = [];
     return out;
   }
   enableTilt(on) {

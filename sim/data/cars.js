@@ -19,7 +19,7 @@
 export const CARS = [
 { id: 'kobbe', name: 'Kobbe', kind: 'Kort 3-dørs terrengbil', model: 'kobbe', col: '#e3a62a',
   desc: 'Kort og smal terrengbil på 1,2 tonn med stive aksler og lavserie. Snur nesten på stedet og klatrer godt, men er urolig i høy fart.',
-  dims: { L: 3.65, W: 1.65, H: 1.73 }, mass: 1210, wb: 2.25, trackF: 1.395, trackR: 1.405, wd: 0.52, cgH: 0.68, clear: 0.21, lift: 1,
+  dims: { L: 3.65, W: 1.65, H: 1.73 }, mass: 1210, wb: 2.25, overF: 0.597, overR: 0.81, trackF: 1.395, trackR: 1.405, wd: 0.52, cgH: 0.68, clear: 0.21, lift: 1,
   wheel: { rF: 0.346, rR: 0.346, wF: 0.195, wR: 0.195, mF: 21, mR: 21 },
   susp: { freq: [1.15, 1.25], zeta: [0.28, 0.42], travel: [0.24, 0.26], arb: [9000, 4000] },
   engine: { idle: 800, redline: 6200, limiter: 6500, torque: [[800, 85], [1500, 104], [2500, 118], [4000, 130], [5000, 127], [6000, 119], [6500, 105]], inertia: 0.13, launch: 2400 },
@@ -29,7 +29,7 @@ export const CARS = [
 
 { id: 'fjellrev', name: 'Fjellrev', kind: 'Stor 5-dørs terrengbil', model: 'fjellrev', col: '#e3a62a',
   desc: 'Stor terrengbil på 2,6 tonn med V6-diesel, ti gir og sperre i midten. Rolig og stødig i bratt terreng, men tung å stoppe.',
-  dims: { L: 4.98, W: 1.98, H: 1.94 }, mass: 2575, wb: 2.85, trackF: 1.665, trackR: 1.665, wd: 0.53, cgH: 0.80, clear: 0.23, lift: 1,
+  dims: { L: 4.98, W: 1.98, H: 1.94 }, mass: 2575, wb: 2.85, overF: 0.95, overR: 1.198, trackF: 1.665, trackR: 1.665, wd: 0.53, cgH: 0.80, clear: 0.23, lift: 1,
   wheel: { rF: 0.401, rR: 0.401, wF: 0.265, wR: 0.265, mF: 30, mR: 30 },
   susp: { freq: [1.20, 1.35], zeta: [0.30, 0.45], travel: [0.22, 0.25], arb: [22000, 9000] },
   engine: { idle: 700, redline: 4200, limiter: 4400, torque: [[700, 420], [1200, 580], [1600, 700], [2600, 700], [3200, 640], [3800, 560], [4300, 470]], inertia: 0.3, turbo: 0.35, launch: 1800 },
@@ -39,7 +39,7 @@ export const CARS = [
 
 { id: 'ravn', name: 'Ravn', kind: 'Stasjonsvogn med firehjulstrekk', model: 'ravn', col: '#e3a62a',
   desc: 'Lav og rolig stasjonsvogn med turbomotor og firehjulstrekk. Trygg på asfalt og grus, men lav under og ingen lavserie.',
-  dims: { L: 4.94, W: 1.88, H: 1.48 }, mass: 1925, wb: 2.94, trackF: 1.61, trackR: 1.62, wd: 0.58, cgH: 0.55, clear: 0.15, lift: 0.4,
+  dims: { L: 4.94, W: 1.88, H: 1.48 }, mass: 1925, wb: 2.94, overF: 0.914, overR: 1.1, trackF: 1.61, trackR: 1.62, wd: 0.58, cgH: 0.55, clear: 0.15, lift: 0.4,
   wheel: { rF: 0.351, rR: 0.351, wF: 0.245, wR: 0.245, mF: 24, mR: 24 },
   susp: { freq: [1.35, 1.50], zeta: [0.32, 0.45], travel: [0.16, 0.18], arb: [24000, 14000] },
   engine: { idle: 750, redline: 6300, limiter: 6500, torque: [[750, 220], [1500, 350], [4800, 350], [5500, 320], [6300, 285]], inertia: 0.16, turbo: 0.45, launch: 2200 },
@@ -49,7 +49,7 @@ export const CARS = [
 
 { id: 'jerv', name: 'Jerv', kind: 'Terrengbil med trinntak', model: 'jerv', col: '#e3a62a',
   desc: 'Moderne terrengbil med 400 hk, luftfjæring og sperre bak. Allsidig: rask på veien og sterk i stein og skog.',
-  dims: { L: 4.76, W: 2.0, H: 1.97 }, mass: 2375, wb: 3.02, trackF: 1.70, trackR: 1.70, wd: 0.52, cgH: 0.78, clear: 0.27, lift: 1,
+  dims: { L: 4.76, W: 2.0, H: 1.97 }, mass: 2375, wb: 3.02, overF: 0.87, overR: 0.868, trackF: 1.70, trackR: 1.70, wd: 0.52, cgH: 0.78, clear: 0.27, lift: 1,
   wheel: { rF: 0.407, rR: 0.407, wF: 0.255, wR: 0.255, mF: 30, mR: 30 },
   susp: { freq: [1.30, 1.40], zeta: [0.33, 0.48], travel: [0.24, 0.26], arb: [26000, 14000] },
   engine: { idle: 700, redline: 6200, limiter: 6500, torque: [[700, 300], [2000, 550], [5000, 550], [5800, 500], [6300, 450]], inertia: 0.2, turbo: 0.4, launch: 2200 },
@@ -59,7 +59,7 @@ export const CARS = [
 
 { id: 'vinsjen', name: 'Vinsjen', kind: 'Pickup med vinsj', model: 'vinsjen', col: '#e3a62a', price: 600, winch: true,
   desc: 'Lang pickup med dieselmotor, lavserie, sperre bak og ekte vinsj i fronten: fest tauet i et tre eller en stein og dra deg opp.',
-  dims: { L: 5.33, W: 1.86, H: 1.82 }, mass: 2225, wb: 3.085, trackF: 1.535, trackR: 1.55, wd: 0.56, cgH: 0.78, clear: 0.29, lift: 1,
+  dims: { L: 5.33, W: 1.86, H: 1.82 }, mass: 2225, wb: 3.085, overF: 0.92, overR: 1.326, trackF: 1.535, trackR: 1.55, wd: 0.56, cgH: 0.78, clear: 0.29, lift: 1,
   wheel: { rF: 0.388, rR: 0.388, wF: 0.265, wR: 0.265, mF: 28, mR: 28 },
   susp: { freq: [1.25, 1.55], zeta: [0.30, 0.45], travel: [0.22, 0.26], arb: [18000, 0] },
   engine: { idle: 750, redline: 4000, limiter: 4300, torque: [[750, 300], [1600, 500], [2800, 500], [3400, 440], [4000, 360]], inertia: 0.26, turbo: 0.4, launch: 1800 },
@@ -69,7 +69,7 @@ export const CARS = [
 
 { id: 'knott', name: 'Knøtt', kind: 'Monstertruck', model: 'knott', col: '#3f9a1e', price: 500,
   desc: 'Ekte monstertruck: 5,4 tonn, 1500 hk og hjul som er 1,7 meter høye. Kjører over nesten alt, men er bred, høy og lett å velte i svingene.',
-  dims: { L: 5.4, W: 3.7, H: 3.4 }, mass: 5400, wb: 3.45, trackF: 3.0, trackR: 3.0, wd: 0.5, cgH: 1.55, clear: 1.0, lift: 0,
+  dims: { L: 5.4, W: 4.09, H: 3.4 }, mass: 5400, wb: 3.45, overF: 1, overR: 1, trackF: 3.0, trackR: 3.0, wd: 0.5, cgH: 1.55, clear: 1.0, lift: 0,
   wheel: { rF: 0.84, rR: 0.84, wF: 1.09, wR: 1.09, mF: 300, mR: 300 },
   susp: { freq: [0.85, 0.9], zeta: [0.35, 0.55], travel: [0.62, 0.62], arb: [0, 0] },
   engine: { idle: 1200, redline: 7500, limiter: 7800, torque: [[1200, 800], [3000, 1300], [5000, 1650], [6500, 1550], [7600, 1350]], inertia: 0.6, launch: 3500 },
@@ -79,7 +79,7 @@ export const CARS = [
 
 { id: 'turbo', name: 'Porsche 911 Turbo', kind: 'Sportsbil med firehjulstrekk', model: 'turbo', col: '#c8102e', price: 1500,
   desc: 'Sportsbil med 580 hk, to turboer og firehjulstrekk: 0–100 km/t på under 3 sekunder. Ligger som limt på asfalt, men har 12 cm bakkeklaring: hold deg på veien.',
-  dims: { L: 4.535, W: 1.90, H: 1.30 }, mass: 1715, wb: 2.45, trackF: 1.588, trackR: 1.598, wd: 0.39, cgH: 0.45, clear: 0.115, lift: 0, grip: 1.06,
+  dims: { L: 4.535, W: 1.90, H: 1.30 }, mass: 1715, wb: 2.45, overF: 1.013, overR: 1.103, trackF: 1.588, trackR: 1.598, wd: 0.39, cgH: 0.45, clear: 0.115, lift: 0, grip: 1.06,
   wheel: { rF: 0.343, rR: 0.361, wF: 0.255, wR: 0.315, mF: 22, mR: 25 },
   susp: { freq: [1.85, 2.05], zeta: [0.35, 0.50], travel: [0.11, 0.12], arb: [36000, 26000] },
   engine: { idle: 800, redline: 6750, limiter: 7200, torque: [[800, 300], [2250, 750], [4500, 750], [5800, 680], [6750, 610], [7200, 560]], inertia: 0.17, turbo: 0.5, launch: 4200 },
