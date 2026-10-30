@@ -58,7 +58,7 @@ function materials(gfx, L) {
     shirt: mat(gfx, 'pshirt' + L.shirt, { color: L.shirt, roughness: 0.85 }),
     blade: prep(new THREE.MeshStandardMaterial({ color: L.blades, roughness: 0.45, metalness: 0.4, transparent: true, opacity: 1, side: THREE.DoubleSide })),
     bladeTip: prep(new THREE.MeshStandardMaterial({ color: '#e8c33a', roughness: 0.5, transparent: true, opacity: 1, side: THREE.DoubleSide })),
-    spinner: paint(L.spinner || L.trim),
+    spinner: paint(L.spinCol || L.trim),
   };
 }
 
@@ -433,7 +433,7 @@ export class PlaneVisual {
       this.lights.forEach((l, i) => {
         _v.copy(l.at).applyMatrix4(this.root.matrixWorld);
         const k = l.kind, c = k === 'red' ? [1, 0.1, 0.06] : k === 'green' ? [0.1, 1, 0.25] : k === 'beacon' ? [1, 0.12, 0.05] : [1, 0.95, 0.85];
-        let I = k === 'strobe' ? (strobe ? 9 : 0) : k === 'beacon' ? (beacon ? 6 : 0) : k === 'landing' ? (L.landing ? 7 : 0) : on ? 2.2 * night : 0, sz = k === 'landing' ? 0.9 : k === 'strobe' ? 0.8 : 0.5;
+        let I = k === 'strobe' ? (strobe ? 9 : 0) : k === 'beacon' ? (beacon ? 6 : 0) : k === 'landing' ? (L.landing ? 7 : 0) : on ? 1.8 * night : 0, sz = k === 'landing' ? 0.9 : k === 'strobe' ? 0.8 : 0.34;
         if (k === 'landing' && I) { _w.subVectors(this.gfx.camera.position, _v).normalize(); _fw.set(0, 0, 1).applyQuaternion(this.root.quaternion); I *= 0.08 + Math.max(0, _w.dot(_fw)) ** 3; }
         this.glow.set(i, _v.x, _v.y, _v.z, c[0] * I, c[1] * I, c[2] * I, I > 0 ? sz : 0);
       });

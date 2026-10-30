@@ -23,7 +23,7 @@ const CAMS = ['Følgekamera', 'Cockpit', 'Vingekamera', 'Tårnkamera'], DIFFCOL 
 const CRUISE = { make: 50, falk: 68 };          // m/s when put back in the air at a ring
 const $ = id => document.getElementById(id), fmtN = n => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' '), fmtD = (v, d = 1) => v.toFixed(d).replace('.', ',');
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v, wrap = a => Math.atan2(Math.sin(a), Math.cos(a));
-const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _u = new THREE.Vector3(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _e = new THREE.Euler(), _m = new THREE.Matrix4();
+const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _u = new THREE.Vector3(), _o = new THREE.Vector3(), _d = new THREE.Vector3(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _e = new THREE.Euler(), _m = new THREE.Matrix4();
 
 const CSS = `
 #fHud{position:absolute;inset:0;pointer-events:none}
@@ -39,7 +39,7 @@ body:not([data-act=plane]) #fHud{display:none}
 #fMark.edge i{border-radius:3px;border-width:0;width:0;height:0;left:-11px;top:-11px;border-left:11px solid transparent;border-right:11px solid transparent;border-bottom:20px solid #ffb21e;box-shadow:none}
 #fMark.bad i{border-color:#e0402a}#fMark.edge.bad i{border-bottom-color:#e0402a;border-left-color:transparent;border-right-color:transparent}
 #fCrash{position:absolute;left:50%;top:34%;transform:translate(-50%,-50%);font-family:'Saira Stencil One',sans-serif;font-size:52px;color:#ff6a4a;text-shadow:0 3px 16px rgba(0,0,0,.7);text-align:center;white-space:nowrap}
-#fCrash small{display:block;font-family:'Barlow Condensed',sans-serif;font-size:22px;color:var(--ink)}
+#fCrash small{display:block;font-family:'Barlow Condensed',sans-serif;font-size:22px;color:var(--ink);text-shadow:0 1px 3px #000,0 0 10px rgba(0,0,0,.6)}
 #fTouch{display:none}
 body.is-touch #fTouch{display:block}
 body.is-touch #fHint{display:none}
@@ -63,7 +63,7 @@ const HUD = `
 <div id="fCrash" hidden></div>
 <div class="fdash"><canvas id="fInst" width="420" height="230" aria-hidden="true"></canvas>
   <div class="lamps"><i id="fLStall">STALL</i><i id="fLBrake">BREMS</i><i id="fLFlap">KLAFF</i><i id="fLLys">LYS</i><i id="fLAuto">LETT</i></div></div>
-<div id="fHint">↓ / S trekk (nesa opp) · ↑ / W press · ← → / A D krengning · Q / E sideror · Shift / Ctrl (eller + / −) gass · F / V klaffer ned / opp · B brems · T / G trim (Ekte) · L landingslys · C kamera · R tilbake · Enter på oppstillingsplassen: flyklubben</div>
+<div id="fHint">↓ / S nesa opp · ↑ / W nesa ned · ← → / A D krengning · Q E sideror · Shift / Ctrl gass · F / V klaffer · B brems · C kamera · R tilbake</div>
 <div id="fTouch">
   <div id="fStick" aria-label="Styrespak"><i></i></div>
   <div id="fThr" aria-label="Gasshåndtak"><b>GASS</b><i></i></div>
@@ -91,10 +91,10 @@ export default class PlaneActivity extends Activity {
     this.planeId = g.store.get('plane', 'make'); if (!this.owns(this.planeId)) this.planeId = 'make';
     this.A = airportOf(g.world); if (!this.A) return;
     this.PW = planeWorld(g.world);
-    this.field = new Airfield(g.gfx, g.world, this.A);
+    this.field = new Airfield(g.gfx, g.world, this.A, g.lamps);
     this.flights = FLIGHTS.map(f => prepFlight(f, this.A));
     this.dom();
-    this.touch = { x: 0, y: 0, thr: null }; this.tb = {}; this.lever = 0; this.flaps = 0; this.acc = 0; this.camMode = 0; this.camPos = new THREE.Vector3(); this.camUp = new THREE.Vector3(0, 1, 0); this.snap = true;
+    this.touch = { x: 0, y: 0, thr: null }; this.tb = {}; this.lever = 0; this.flaps = 0; this.acc = 0; this.camMode = 0; this.camPos = new THREE.Vector3(); this.camOff = new THREE.Vector3(); this.camUp = new THREE.Vector3(0, 1, 0); this.snap = true;
     this.stk = { e: 0, a: 0, r: 0 }; this.pad = {}; this.flight = null; this.landing = null; this.gust = { x: 0, z: 0, t: 0 };
     const sp = g.world.islands.find(i => i.id === this.A.isl.id).feat.special, tw = sp && sp.airport && sp.airport.tower;
     // the tower camera: on the balcony outside the cab, on the runway's side
@@ -125,6 +125,8 @@ export default class PlaneActivity extends Activity {
     thr.addEventListener('pointerdown', e => { e.preventDefault(); try { thr.setPointerCapture(e.pointerId); } catch (_) { } this.touch.thrOn = true; tk(e); });
     thr.addEventListener('pointermove', e => { if (this.touch.thrOn) tk(e); });
     for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) thr.addEventListener(ev, () => { this.touch.thrOn = false; });
+    // Ctrl is the throttle: keep the browser's own Ctrl shortcuts (save, find, bookmark …) and PgUp/PgDn scrolling out of the way
+    addEventListener('keydown', e => { if (this.active && (e.ctrlKey && /^(key[a-z]|arrow|digit|equal|minus)/i.test(e.code) || /^page(up|down)$/i.test(e.key))) e.preventDefault(); });
     $('prAgain').onclick = () => { const f = this.lastFlight; this.game.ui.hide(); this.game.mode = 'act'; if (f) this.startFlight(f); };
     $('prDone').onclick = () => { this.game.ui.hide(); this.game.mode = 'act'; };
   }
@@ -311,7 +313,7 @@ export default class PlaneActivity extends Activity {
     S.e = ease(S.e, (has('arrowdown', 's') ? 1 : 0) - (has('arrowup', 'w') ? 1 : 0), real ? 1.6 : 2.5, 4);
     S.a = ease(S.a, (has('arrowright', 'd') ? 1 : 0) - (has('arrowleft', 'a') ? 1 : 0), real ? 2.2 : 3, 5);
     S.r = ease(S.r, (has('e', 'x') ? 1 : 0) - (has('q', 'z') ? 1 : 0), 3, 5);
-    let ele = S.e, ail = S.a, rud = S.r, thrRate = (has('shift', 'pageup', '+') ? 1 : 0) - (has('control', 'pagedown', '-') ? 1 : 0), brake = has('b', ' ') || this.tb.brake ? 1 : 0;
+    let ele = S.e, ail = S.a, rud = S.r, thrRate = (has('shift', 'pageup', '+', '=') ? 1 : 0) - (has('control', 'pagedown', '-') ? 1 : 0), brake = has('b', ' ') || this.tb.brake ? 1 : 0;
     // gamepad
     const gp = navigator.getGamepads ? [...navigator.getGamepads()].find(q => q && q.connected) : null, P = this.pad;
     if (gp && !this.game.input.wheel) {
@@ -420,19 +422,21 @@ export default class PlaneActivity extends Activity {
         this.tv = new THREE.Vector3(x, Math.max(g.world.height(x, z) + 3, p.pos.y + v.y * ahead / sp + (Math.random() - 0.3) * 20), z);
       }
       cam.position.copy(this.tv); cam.up.set(0, 1, 0); cam.lookAt(p.pos.x, p.pos.y, p.pos.z);
-      const dd = this.tv.distanceTo(_u.set(p.pos.x, p.pos.y, p.pos.z)); cam.fov = clamp(2 * Math.atan(spec.wing.span * 2.4 / Math.max(1, dd)) / D2R, 3, 60); cam.near = 0.5;
+      const dd = this.tv.distanceTo(_u.set(p.pos.x, p.pos.y, p.pos.z)); cam.fov = clamp(2 * Math.atan(spec.wing.span * 2.4 / Math.max(1, dd)) / D2R, 1.2, 60); cam.near = 0.5;
     } else {
       // chase: behind and a little above, where the plane points and goes, the horizon tilting part of the way with the bank
-      const v = p.vel, vs = Math.hypot(v.x, v.y, v.z), dir = _u.copy(fw); if (vs > 15) dir.multiplyScalar(0.6).add(new THREE.Vector3(v.x, v.y, v.z).multiplyScalar(0.4 / vs)).normalize();
+      const v = p.vel, vs = Math.hypot(v.x, v.y, v.z), dir = _d.copy(fw); if (vs > 15) dir.multiplyScalar(0.6).add(_o.set(v.x, v.y, v.z).multiplyScalar(0.4 / vs)).normalize();
       if (st.onGround) { dir.y = 0; dir.normalize(); }
-      const dist = (spec.wing.span * 1.05 + 4) * C.zoom, hh = (st.onGround ? 2.6 : 2.9) * Math.sqrt(C.zoom), yaw = C.yaw, cy = Math.cos(yaw), sy = Math.sin(yaw);
-      const bx = -(dir.x * cy + dir.z * sy), bz = -(-dir.x * sy + dir.z * cy), want = new THREE.Vector3(p.pos.x + bx * dist, p.pos.y - dir.y * dist + hh + C.pitch * dist * 0.6, p.pos.z + bz * dist);
-      const floor = Math.max(g.world.height(want.x, want.z), 0) + 1.2; if (want.y < floor) want.y = floor;
-      if (this.snap) { this.camPos.copy(want); this.camUp.set(0, 1, 0); }
-      else { const k = 1 - Math.exp(-dt * 6); this.camPos.lerp(want, k); if (this.camPos.y < floor) this.camPos.y = floor; }
+      const dist = (spec.wing.span * 0.7 + 5) * C.zoom, hh = (st.onGround ? 2.8 : 2.6) * Math.sqrt(C.zoom), yaw = C.yaw, cy = Math.cos(yaw), sy = Math.sin(yaw);
+      const bx = -(dir.x * cy + dir.z * sy), bz = -(-dir.x * sy + dir.z * cy), want = _o.set(bx * dist, -dir.y * dist + hh + C.pitch * dist * 0.6, bz * dist);
+      // the offset from the plane is what lags (not the position), so the plane stays the same size on screen at any speed
+      if (this.snap) { this.camOff.copy(want); this.camUp.set(0, 1, 0); } else this.camOff.lerp(want, 1 - Math.exp(-dt * 5));
+      this.camPos.set(p.pos.x, p.pos.y, p.pos.z).add(this.camOff);
+      const floor = Math.max(g.world.height(this.camPos.x, this.camPos.z), 0) + 1.2; if (this.camPos.y < floor) this.camPos.y = floor;
       this.camUp.lerp(_u.set(0, 1, 0).lerp(up, st.onGround ? 0 : 0.35).normalize(), 1 - Math.exp(-dt * 4)).normalize();
-      cam.position.copy(this.camPos); cam.up.copy(this.camUp); cam.lookAt(p.pos.x + fw.x * 6, p.pos.y + fw.y * 6 + 0.8, p.pos.z + fw.z * 6);
-      cam.fov = 58 + Math.min(10, st.tas * 0.12); cam.near = 0.1;
+      // looking far ahead along the flight path: the plane sits below the middle, the next ring in it
+      const la = st.onGround ? 20 : 30; cam.position.copy(this.camPos); cam.up.copy(this.camUp); cam.lookAt(p.pos.x + dir.x * la, p.pos.y + dir.y * la + 1, p.pos.z + dir.z * la);
+      cam.fov = 55 + Math.min(8, st.tas * 0.1); cam.near = 0.1;
     }
     if (this.shake > 0.002) { cam.position.x += (Math.random() - 0.5) * this.shake; cam.position.y += (Math.random() - 0.5) * this.shake; this.shake *= Math.exp(-dt * 6); }
     // a little shake on the runway and in rough air

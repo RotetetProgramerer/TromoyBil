@@ -1,9 +1,9 @@
 // What Trinnvik lufthavn needs for flying, on top of what sim/render/special.js draws there (the runway markings and its small light
 // fittings, the tower's cab, a windsock): the flying club's planes at their stands on the apron (with chocks, stand markings and
-// the taxi line), the car park with its sign, the hangar doors and their sign, a fuel pump, a second windsock that swings in the
-// wind, and the lights, glowing points that are seen from far away at night: the runway edge lights, the green threshold and red
-// end lights, the approach lights with a running flash, the PAPI beside the touchdown point (two white over two red on the glide
-// path), the taxiway's blue edge lights. A (sim/data/flights.js airportOf) gives the places in world coordinates.
+// the taxi line), the car park with its sign, lamp posts along the apron, the hangar doors and their sign, a fuel pump, a second
+// windsock that swings in the wind, and the lights, glowing points that are seen from far away at night: the runway edge lights,
+// the green threshold and red end lights, the approach lights with a running flash, the PAPI beside the touchdown point (two white
+// over two red on the glide path), the taxiway's blue edge lights. A (sim/data/flights.js airportOf) gives the places in world coordinates.
 import * as THREE from 'three';
 import { prep, U } from './gfx.js';
 import { PlaneVisual, LIVERIES, Glows } from './planevis.js';
@@ -21,9 +21,11 @@ function signTex(lines, bg, fg, w = 1024, h = 256) {
 }
 // the club's fleet at the stands: [model, livery (LIVERIES index, or null for the planes you can fly)]
 const FLEET = [['make', null], ['falk', null], ['make', 0], ['make', 1], ['falk', 2]];
+// the apron's lamp posts (Trinnvik's own coordinates, the arm's direction): on the grass east and west of it, clear of the taxiway
+const AIRPORT_LAMPS = [[1503, 150, Math.PI], [1503, 225, Math.PI], [1503, 375, Math.PI], [1503, 450, Math.PI], [1384, 160, 0], [1384, 250, 0], [1384, 350, 0], [1384, 440, 0]];
 
 export class Airfield {
-  constructor(gfx, world, A) {
+  constructor(gfx, world, A, lamps) {
     this.gfx = gfx; this.world = world; this.A = A; this.t = 0;
     const g = this.group = new THREE.Group(); gfx.scene.add(g);
     const R = A.rwy, y = R.y, isl = A.isl;
@@ -57,6 +59,8 @@ export class Airfield {
       for (const c of cols) isl.extraColliders.push(c);
       this.parked.push({ v, id, reg: L ? L.reg : null, cols, stand: s });
     });
+    // ---- lamp posts along both sides of the apron, their arms out over it (lit at night by sim/render/streetlights.js)
+    if (lamps && lamps.add) for (const [x, z, ang] of AIRPORT_LAMPS) lamps.add(x + A.ox, z + A.oz, ang);
     // ---- the car park for the flying club: bays and a sign
     const P = A.park;
     for (let k = -2; k <= 2; k++) line(white, P.x - 8.5, P.z + k * 2.8 - 1.4, P.x - 3.5, P.z + k * 2.8 - 1.4, 0.14);

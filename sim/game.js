@@ -201,6 +201,7 @@ export class Game {
   ferryDestinations() { const here = this.island(); return this.quays.filter(q => q.isl !== here).map(q => ({ q, name: q.isl.name, sub: q.name })); }
   takeFerry(d) {
     if (this.prof.nuts < 5) { this.ui.toast('Du trenger 5 muttere til ferja', true); return; }
+    if (this.act) this.act.stop();      // from the map while sailing or flying: back in the car first
     this.prof.nuts -= 5; this.saveProf(); this.courses.stop(); this.ui.course(null); this.ui.hide();
     this.mode = 'ferry'; this.trip = { to: d.q, t: 0, T: 14 };
     const here = this.quays.find(q => q.isl === this.island()); this.trip.from = here || { x: this.car.pos.x, z: this.car.pos.z, dir: 0, sea: 0 };
