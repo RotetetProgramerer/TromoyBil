@@ -1,7 +1,7 @@
 // Drawing the animals: one InstancedMesh per species and level of detail (the near one casts shadows), so a few hundred animals
 // are a handful of draw calls. The bodies come from rig.js; the vertex shader below moves their parts from four numbers per
 // animal and part (legs in the gait's phase, head, tail, wings), the fragment shader paints stripes, patches and spots and lets
-// the eyes shine in the dark. Each animal's place and pose come from life.js.
+// the eyes shine in the headlights at night. Each animal's place and pose come from life.js.
 import * as THREE from 'three';
 import { prep } from '../render/gfx.js';
 import { build, TINTS } from './rig.js';
@@ -59,7 +59,7 @@ void animalPose(inout vec3 p, inout vec3 n){
   }
 }
 `;
-const FDECL = `uniform float uNight; uniform vec3 uPatCol; uniform float uPatS; uniform vec4 uDim; varying vec3 vLoc; varying vec3 vFlag; varying vec4 vTint;
+const FDECL = `uniform float uNight; uniform float uShine; uniform vec3 uEye; uniform vec3 uPatCol; uniform float uPatS; uniform vec4 uDim; varying vec3 vLoc; varying vec3 vFlag; varying vec4 vTint;
 vec3 h33(vec3 p){ p = vec3(dot(p, vec3(127.1, 311.7, 74.7)), dot(p, vec3(269.5, 183.3, 246.1)), dot(p, vec3(113.5, 271.9, 124.6))); return fract(sin(p) * 43758.5453); }
 float vn3(vec3 p){ vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
   float a = h33(i).x, b = h33(i + vec3(1, 0, 0)).x, c = h33(i + vec3(0, 1, 0)).x, d = h33(i + vec3(1, 1, 0)).x, e = h33(i + vec3(0, 0, 1)).x, g = h33(i + vec3(1, 0, 1)).x, h = h33(i + vec3(0, 1, 1)).x, k = h33(i + vec3(1, 1, 1)).x;
@@ -90,6 +90,10 @@ float animalPattern(){
   #endif
 }
 `;
+// eyeshine: yellow-green in most, red in the crocodiles; birds, monkeys, squirrels, lizards and butterflies have no such mirror
+const uShine = { value: 0 }, SHINE = { krokodille: [1, 0.3, 0.12], kaiman: [1, 0.3, 0.12], hare: [0.9, 0.35, 0.2], ape: 0, ekorn: 0, firfisle: 0, sommerfugl: 0 };
+function eyeshine(sp) { const c = SHINE[sp.id] ?? (sp.rig === 'bird' ? 0 : [0.75, 0.9, 0.55]); return c ? new THREE.Vector3(...c) : new THREE.Vector3(); }
+const ATTRS = ['aAnim', 'aPose', 'aWing', 'aTint'];
 // the material's shader with the animation (and, unless it is the shadow's depth pass, the colours)
 function patcher(meta, depth) {
   const f = sh => {
@@ -99,7 +103,7 @@ function patcher(meta, depth) {
     else {
       sh.vertexShader = sh.vertexShader.replace('#include <beginnormal_vertex>', 'vec3 objectNormal = vec3( normal ); vec3 animP = vec3( position ); animalPose( animP, objectNormal );\n#ifdef USE_TANGENT\nvec3 objectTangent = vec3( tangent.xyz );\n#endif')
         .replace('#include <begin_vertex>', 'vec3 transformed = animP; vLoc = position; vFlag = aFlag; vTint = aTint;');
-      sh.uniforms.uPatCol = { value: new THREE.Color(meta.patCol) }; sh.uniforms.uPatS = { value: meta.patS }; sh.uniforms.uDim = { value: new THREE.Vector4(meta.sh || 1, meta.cy || 0.5, meta.bl || 1, 0) };
+      sh.uniforms.uShine = uShine; sh.uniforms.uEye = { value: meta.eye }; sh.uniforms.uPatCol = { value: new THREE.Color(meta.patCol) }; sh.uniforms.uPatS = { value: meta.patS }; sh.uniforms.uDim = { value: new THREE.Vector4(meta.sh || 1, meta.cy || 0.5, meta.bl || 1, 0) };
       sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\n' + FDECL)
         .replace('#include <color_fragment>', `#include <color_fragment>
   { vec3 cc = diffuseColor.rgb;
@@ -112,7 +116,8 @@ function patcher(meta, depth) {
     #endif
   #endif
   diffuseColor.rgb = cc; }`)
-        .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += vec3(0.75, 0.9, 0.55) * vFlag.z * uNight * 2.5;');
+        // eyeshine: the mirror behind the retina throws the headlights back towards them (and the camera just behind them)
+        .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += uEye * vFlag.z * uNight * uShine * 6.0 * pow(max(dot(normal, normalize(vViewPosition)), 0.0), 3.0);');
     }
   };
   f.key = 'animal:' + JSON.stringify(meta.defs) + (depth ? ':d' : '') + ':' + (meta.waveK ? 1 : 0);
@@ -123,25 +128,28 @@ const CAP = 128, _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _qy = ne
   _a = new THREE.Vector3(), _b = new THREE.Vector3(), _sp = new THREE.Sphere(), _f = new THREE.Frustum(), _pm = new THREE.Matrix4(), _Y = new THREE.Vector3(0, 1, 0), _c = new THREE.Color();
 
 export class AnimalVis {
-  constructor(gfx) { this.gfx = gfx; this.root = new THREE.Group(); this.root.name = 'dyr'; gfx.scene.add(this.root); this.kinds = new Map(); this.drawn = 0; }
+  constructor(gfx) { this.gfx = gfx; this.root = new THREE.Group(); this.root.name = 'dyr'; gfx.scene.add(this.root); this.kinds = new Map(); this.drawn = 0; this.warm = false; }
   // the meshes of a species, made the first time one is seen
   kind(sp) {
     let K = this.kinds.get(sp.id); if (K) return K;
     const lods = [0, 1].map(l => build(sp, l)), meta = lods[0].meta;
-    meta.sh = sp.sh; meta.bl = meta.bl || sp.len; meta.L = sp.len;
-    const mat = this.gfx.shadowed(prep(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: sp.rig === 'frog' ? 0.45 : sp.rig === 'sprawl' ? 0.75 : 0.9, metalness: 0, envMapIntensity: 0.4 }), patcher(meta, false)));
-    mat.defines = Object.assign({ PAT: 0 }, meta.defs);
+    meta.sh = sp.sh; meta.bl = meta.bl || sp.len; meta.L = sp.len; meta.eye = eyeshine(sp);
+    // the defines first: the shadow cascades add theirs (USE_CSM …) to the same object
+    const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: sp.rig === 'frog' ? 0.45 : sp.rig === 'sprawl' ? 0.75 : 0.9, metalness: 0, envMapIntensity: 0.4 });
+    mat.defines = Object.assign({ PAT: 0 }, meta.defs); this.gfx.shadowed(prep(mat, patcher(meta, false)));
     const dmat = prep(new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking }), patcher(meta, true)); dmat.defines = Object.assign({ PAT: 0 }, meta.defs);
     const big = sp.mass > 150 || sp.rig === 'bird' && sp.span > 1.5;
     K = { sp, meta, lodD: Math.max(14, Math.min(80, Math.max(sp.len, sp.span || 0, sp.sh) * 22)), far: sp.vis || RINGS[sp.ring].r + 40, meshes: lods.map((L, i) => {
-      const g = L.geo; for (const n of ['aAnim', 'aPose', 'aWing', 'aTint']) { const at = new THREE.InstancedBufferAttribute(new Float32Array(CAP * 4), 4); at.setUsage(THREE.DynamicDrawUsage); g.setAttribute(n, at); }
+      const g = L.geo; for (const n of ATTRS) { const at = new THREE.InstancedBufferAttribute(new Float32Array(CAP * 4), 4); at.setUsage(THREE.DynamicDrawUsage); g.setAttribute(n, at); }
       const m = new THREE.InstancedMesh(g, mat, CAP); m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); m.frustumCulled = false; m.count = 0;
       m.castShadow = i === 0 || big; m.receiveShadow = true; m.visible = false; m.customDepthMaterial = dmat; m.name = sp.id + (i ? ':fjern' : ''); this.root.add(m); return m; }) };
     this.kinds.set(sp.id, K);
     return K;
   }
-  update(animals) {
-    const cam = this.gfx.camera, cp = cam.position;
+  // shine: how much the headlights light up the eyes (0–1)
+  update(animals, shine = 0) {
+    const cam = this.gfx.camera, cp = cam.position; uShine.value = shine;
+    cam.updateMatrixWorld();          // the camera has moved since the last render (and may have cut to a new view)
     _pm.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse); _f.setFromProjectionMatrix(_pm);
     for (const K of this.kinds.values()) for (const m of K.meshes) m.n = 0;
     let drawn = 0;
@@ -154,11 +162,12 @@ export class AnimalVis {
       this.write(a, K, m, m.n++); drawn++;
     }
     for (const K of this.kinds.values()) for (const m of K.meshes) {
-      m.count = m.n; m.visible = m.n > 0; if (!m.n) continue;          // empty meshes cost no draw call
+      // empty meshes cost no draw call; the first frame draws them all (with no instances) so every shader, the shadow's too, is ready
+      m.count = m.n; m.visible = m.n > 0 || this.warm; if (!m.n) continue;
       m.instanceMatrix.clearUpdateRanges(); m.instanceMatrix.addUpdateRange(0, m.n * 16); m.instanceMatrix.needsUpdate = true;
-      for (const n of ['aAnim', 'aPose', 'aWing', 'aTint']) { const at = m.geometry.attributes[n]; at.clearUpdateRanges(); at.addUpdateRange(0, m.n * 4); at.needsUpdate = true; }
+      for (const n of ATTRS) { const at = m.geometry.attributes[n]; at.clearUpdateRanges(); at.addUpdateRange(0, m.n * 4); at.needsUpdate = true; }
     }
-    this.drawn = drawn;
+    this.drawn = drawn; this.warm = false;
   }
   write(a, K, m, i) {
     const sp = a.sp, M = K.meta, D = M.defs, g = m.geometry.attributes; let s = a.s;
@@ -176,9 +185,10 @@ export class AnimalVis {
     _m.compose(_p, _q, _s); m.setMatrixAt(i, _m);
     const bird = sp.rig === 'bird' || sp.rig === 'fly', o = i * 4;
     const hp = bird ? a.hp * (M.peck || 1) : a.hp > 0 ? a.hp * M.graze : a.hp;
-    g.aAnim.array.set([a.ph, a.amp, a.gait, bird ? a.tuck : a.lie], o);
-    g.aPose.array.set([hp, a.hy || 0, a.tail || 0, sp.rig === 'crab' ? -a.jaw : a.jaw || 0], o);
-    g.aWing.array.set([a.fph || 0, a.famp || 0, a.fold || 0, 0], o);
+    const A = g.aAnim.array, P = g.aPose.array, Wg = g.aWing.array;
+    A[o] = a.ph; A[o + 1] = a.amp; A[o + 2] = a.gait; A[o + 3] = bird ? a.tuck : a.lie;
+    P[o] = hp; P[o + 1] = a.hy || 0; P[o + 2] = a.tail || 0; P[o + 3] = sp.rig === 'crab' ? -a.jaw : a.jaw || 0;
+    Wg[o] = a.fph || 0; Wg[o + 1] = a.famp || 0; Wg[o + 2] = a.fold || 0; Wg[o + 3] = 0;
     if (!a.tint) { const T = TINTS[sp.id]; _c.set(sp.id === 'and' && !a.male ? '#b08458' : T ? T[Math.floor(a.seed * T.length)] : '#ffffff'); a.tint = [_c.r, _c.g, _c.b, (a.male ? 1 : 0) + a.seed * 0.99]; }
     g.aTint.array.set(a.tint, o);
   }

@@ -20,12 +20,9 @@ export default class Animals {
     this.vis = new AnimalVis(g.gfx);
     this.calls = new Calls(g.snd);
     this.on = g.params.get('dyr') !== '0';
-    // every body built now and the shaders compiled in the background, so a new island does not stutter when its animals appear
-    if (this.on) { for (const sp of SPECIES) this.vis.kind(sp); try {
-      const r = g.gfx.renderer, ms = []; if (!r.compileAsync || !r.extensions.has('KHR_parallel_shader_compile')) return;
-      this.vis.root.traverse(o => { if (o.isMesh) { ms.push(o); o.visible = true; } });          // compile() only looks at what is visible
-      r.compileAsync(this.vis.root, g.gfx.camera, g.gfx.scene).catch(() => { }); for (const m of ms) m.visible = false;
-    } catch (e) { } }
+    // every body built now, and every shader (the shadow's too) compiled in the first frame behind the menu, so a new island does
+    // not stutter when its animals appear (renderer.compile would miss the shadow's and build for the wrong render target)
+    if (this.on) { for (const sp of SPECIES) this.vis.kind(sp); this.vis.warm = true; }
   }
   // what the animals need to know this frame
   view(dt) {
@@ -43,11 +40,14 @@ export default class Animals {
   frame(dt) {
     if (!this.on || !this.life) return;
     const g = this.game, V = this.view(dt);
+    // after a jump (the start, off the ferry, towed home) everything round the new place at once, not a few cells at a time
+    if (this.jx == null || Math.hypot(V.fx - this.jx, V.fz - this.jz) > 150 || this.jm === 'ferry' && g.mode !== 'ferry') { this.life.drop(V); this.life.fill(V); }
+    this.jx = V.fx; this.jz = V.fz; this.jm = g.mode;
     if (g.mode !== 'pause') this.life.update(dt, V);          // the pause menu stops them too
+    this.vis.update(this.life.animals, V.car && (V.lights || V.night > 0.6) ? 1 : 0);          // the eyes shine when the headlights are on
     for (const e of this.life.events) this.handle(e, V);
     this.life.events.length = 0;
     this.toastT -= dt;
-    this.vis.update(this.life.animals);
   }
   handle(e, V) {
     const g = this.game, a = e.a, sp = a.sp, cam = g.gfx.camera.position;
@@ -65,7 +65,7 @@ export default class Animals {
       case 'warn': if (this.toastT <= 0) { g.ui.toast(e.text, true); this.toastT = 6; } break;
       case 'hit':
         if (sp.mass >= 300) g.cam.shake = Math.max(g.cam.shake || 0, 0.3);
-        if (this.toastT <= 0 && ONE[sp.id]) { g.ui.toast(`Du kjørte på ${ONE[sp.id]}!` + (e.dv > 2 ? ' Den kom seg på beina igjen.' : ''), true); this.toastT = 4; }
+        if (this.toastT <= 0 && ONE[sp.id]) { g.ui.toast(`Du kjørte på ${ONE[sp.id]}!` + (a.st === 'down' ? ' Den gikk over ende, men kommer seg på beina igjen.' : ' Den løp sin vei.'), true); this.toastT = 4; }
         if (sp.call && sp.mass > 20) this.call(sp.call, a, { alarm: true });
         break;
       case 'call': this.call(e.kind, a, e); break;

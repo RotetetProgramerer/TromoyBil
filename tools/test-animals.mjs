@@ -5,8 +5,8 @@
 // 2) Livet: en bil kjører langs veiene i noen simulerte minutter; dyrene må holde seg på gyldig grunn (land på land, i vann i vann,
 //    fugler over bakken), ingen NaN, og oppdateringen må koste lite per bilde.
 // 3) Elgen: bilen kjører på en elg på veien i 70 km/t (et ekte sammenstøt med bilfysikken): elgen velter, bilen mister fart, men står
-//    ikke bom stille. En sau: bilen merker den knapt.
-// 4) Løven: en bil som står stille nær flokken blir angrepet (bilen kastes til siden, og det koster muttere).
+//    ikke bom stille. En sau: bilen merker den knapt. En elefant: bilen stanser mot den og kjører ikke gjennom den.
+// 4) Løven: en bil som står stille nær flokken blir angrepet (bilen kastes til siden, og det koster muttere), av én løve, ikke hele flokken.
 // 5) Elg i veien: hendelsen som setter en elg ut i veien et stykke foran bilen finner et sted på en skogsvei.
 import { World } from '../sim/world/world.js';
 import { WORLD } from '../sim/data/world.js';
@@ -145,18 +145,20 @@ function ram(id, isl, kmh) {
   g.m.push(a); life.animals.push(a); life.groups.push(g);
   // up to speed, then off the gas: a driver who did not see it
   const v0 = kmh / 3.6; car.vel.set(ux * v0, 0, uz * v0);
-  let t = 0, hit = null, vBefore = 0, vAfter = 0, ev = [];
+  let t = 0, hit = null, vBefore = 0, vAfter = 0, ev = [], near = 1e9;
   const V = () => view(car.pos.x, car.pos.z, { car, tvx: car.vel.x, tvz: car.vel.z, pen: 'nuts' });
   while (t < 5) {
     for (let i = 0; i < 400 / 60; i++) { car.input.gas = 0.35; car.step(1 / 400, world); if (!hit && car.lastHit && car.lastHit.c && car.lastHit.c.animal) { hit = car.lastHit; vBefore = v0; } }
     life.update(1 / 60, V()); ev.push(...life.events); life.events.length = 0; t += 1 / 60;
     if (!hit) { a.st = 'stare'; a.t = 99; a.x = g.hx; a.z = g.hz; a.v = 0; }       // it stands its ground until it is hit
     if (hit && !vAfter && t > 0) vAfter = Math.hypot(car.vel.x, car.vel.z) * 3.6;
+    if (hit && a.st !== 'down' && a.st !== 'up') near = Math.min(near, Math.hypot(car.pos.x - a.x, car.pos.z - a.z));
   }
   world.movers.length = 0;
   const kh = ev.find(e => e.type === 'hit');
   console.log(`   ${sp.name.padEnd(10)} ${kmh} km/t: ${hit ? `traff (støt ${Math.round(hit.j)} N·s), bilen ${kmh} → ${vAfter.toFixed(0)} km/t, dyret ${kh ? `kastet ${kh.dv.toFixed(1)} m/s, ${a.st === 'down' || a.st === 'up' || a.st === 'flee' ? 'veltet/løp' : a.st}` : 'merket ingenting'}` : 'TRAFF IKKE'}`);
   if (!hit || !kh) return bad(`${id}: bilen traff ikke dyret`);
+  if (near < car.box.hw + sp.wid * a.s * 0.5) bad(`${id}: bilen kjørte inn i dyret som sto der (${near.toFixed(1)} m mellom midtene)`);
   return { vAfter, v0: kmh, a };
 }
 const tro = world.islands.find(i => i.id === 'tromoya');
@@ -177,16 +179,17 @@ console.log('4) Løvene angriper en bil som står stille');
     const car = new Vehicle(CARS.find(c => c.id === 'ravn')); let px = L.x + 22, pz = L.z;
     for (let k = 0; k < 16 && sav.water(px, pz) > sav.terrain(px, pz) - 0.2; k++) { px = L.x + Math.sin(k) * 22; pz = L.z + Math.cos(k) * 22; }
     car.place(world, px, pz, 0); for (let i = 0; i < 400; i++) car.step(1 / 400, world);
-    let t = 0, att = null, warn = null; const vy0 = car.vel.y;
-    while (t < 20 && !att) {
+    let t = 0, att = null, warn = null, n = 0; const vy0 = car.vel.y;
+    while (t < 20 && (!att || t < att.t + 10)) {
       for (let i = 0; i < 400 / 30; i++) car.step(1 / 400, world);
       life.update(1 / 30, view(car.pos.x, car.pos.z, { car, tvx: car.vel.x, tvz: car.vel.z, pen: 'nuts' }));
-      for (const e of life.events) { if (e.type === 'attack' && !att) att = { e, t, v: Math.hypot(car.vel.x, car.vel.z), w: Math.abs(car.w.y) }; if (e.type === 'warn') warn = e; }
+      for (const e of life.events) { if (e.type === 'attack' && !n++) att = { e, t, v: Math.hypot(car.vel.x, car.vel.z), w: Math.abs(car.w.y) }; if (e.type === 'warn') warn = e; }
       life.events.length = 0; t += 1 / 30;
     }
     world.movers.length = 0;
-    console.log(`   ${warn ? 'varsel «' + warn.text + '»' : 'ingen varsel'}; ${att ? `angrep etter ${att.t.toFixed(1)} s: bilen fikk ${att.e.dv.toFixed(1)} m/s og spinn ${att.w.toFixed(2)} rad/s (koster: ${att.e.pen})` : 'INTET ANGREP'}`);
+    console.log(`   ${warn ? 'varsel «' + warn.text + '»' : 'ingen varsel'}; ${att ? `angrep etter ${att.t.toFixed(1)} s: bilen fikk ${att.e.dv.toFixed(1)} m/s og spinn ${att.w.toFixed(2)} rad/s (koster: ${att.e.pen}), ${n} angrep i alt de neste 10 s` : 'INTET ANGREP'}`);
     if (!att) bad('løvene angrep ikke');
+    else if (n > 1) bad(`hele flokken angrep: ${n} angrep på 10 s (én løve, så får bilen være i fred en stund)`);
   }
 }
 

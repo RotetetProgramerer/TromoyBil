@@ -25,7 +25,7 @@ export class Life {
     this.world = world; this.animals = []; this.groups = []; this.events = []; this.t = 0;
     this.cells = RINGS.map(() => new Map()); this.count = [0, 0, 0, 0]; this.scale = o.max ? o.max / 310 : 1;
     this.cols = []; this.car = null; this._hit = null; this.spawnT = 0; this.dropT = 0; this.evT = 40 + rnd() * 40; this.evN = 0; this.frame = 0;
-    this.carM = 1500;
+    this.carM = 1500; this.honkT = 0;
     this.hook = (x, z, r, out) => this.colliders(x, z, r, out);
   }
 
@@ -33,7 +33,8 @@ export class Life {
   update(dt, V) {
     dt = Math.min(dt, 0.1); this.t += dt; this.frame++;
     this.V = V; this.car = V.car || null; if (this.car) this.carM = this.car.m;
-    V.tsp = Math.hypot(V.tvx || 0, V.tvz || 0); V.honkT = V.honk ? 1.2 : Math.max(0, (V.honkT || 0) - dt);
+    V.tsp = Math.hypot(V.tvx || 0, V.tvz || 0);
+    this.honkT = V.honk ? 1.2 : Math.max(0, this.honkT - dt); V.honkT = this.honkT;          // the horn scares a while after a tap (V is new each frame)
     if ((this.spawnT -= dt) <= 0) { this.spawnT = 0.25; this.spawn(V, 3); }
     if ((this.dropT -= dt) <= 0) { this.dropT = 0.5; this.drop(V); }
     this.roadEvent(dt, V);
@@ -52,6 +53,7 @@ export class Life {
     a.td = Math.hypot(dx, dz); a.tdx = dx; a.tdz = dz;
     a.fear = this.fear(a, V);
     if (a.noCol > 0) a.noCol -= dt;
+    if (a.hitT > 0) a.hitT -= dt;
     if (a.st === 'down' || a.st === 'up') return this.knocked(a, dt);
     switch (a.sp.type) {
       case 'graze': this.graze(a, dt, V); break;
@@ -146,7 +148,7 @@ export class Life {
     const a = { sp, isl, grp: g, n: this.animals.length + Math.floor(R() * 1000), x: p.x, z: p.z, y: 0, h: R() * TAU, v: 0, st: 'idle', t: R() * 4, tx: p.x, tz: p.z, hx: p.x, hz: p.z,
       s: young ? 0.55 + R() * 0.15 : 0.9 + R() * 0.2, young, male: sp.type === 'pred' && sp.id === 'love' ? k === 0 : R() < 0.5, seed: R(),
       ph: R() * TAU, amp: 0, gait: sp.gait0 || 0, lie: 0, hp: 0, hy: 0, tail: 0, jaw: 0, fph: R() * TAU, famp: 0, fold: 1, tuck: 0,
-      pitch: 0, roll: 0, bob: 0, vx: 0, vy: 0, vz: 0, chk: 0, free: true, cool: 0, noCol: 0, td: 1e9, tdx: 0, tdz: 0, fear: 0, dc: 0, perch: p.perch || null, tree: p.tree || null };
+      pitch: 0, roll: 0, bob: 0, vx: 0, vy: 0, vz: 0, chk: 0, free: true, cool: 0, noCol: 0, hitT: 0, td: 1e9, tdx: 0, tdz: 0, fear: 0, dc: 0, perch: p.perch || null, tree: p.tree || null };
     if (sp.rig === 'bird' || sp.rig === 'fly') { a.fold = 1; a.st = 'sit'; }
     if (sp.type === 'soar') { a.st = 'fly'; a.fold = 0; a.orbit = { x: p.x, z: p.z, r: 60 + R() * 90, w: (R() < 0.5 ? 1 : -1), alt: sp.alt[0] + R() * (sp.alt[1] - sp.alt[0]) }; a.ang = R() * TAU; }
     if (sp.type === 'flutter') { a.st = 'fly'; a.fold = 0; a.ang = R() * TAU; }
@@ -251,8 +253,8 @@ export class Life {
     }
     if (!a.free) { a.v = 0; return false; }
     const nx = a.x + Math.sin(a.h) * a.v * dt, nz = a.z + Math.cos(a.h) * a.v * dt;
-    // never into the car: wait or step round it
-    if (!charge && this.inCar(nx, nz, sp.len * a.s * 0.5 + 0.6)) { a.v = 0; return false; }
+    // never into the car: wait, or step away from it (one that touches the car can still get clear)
+    if (!charge && this.inCar(nx, nz, sp.len * a.s * 0.5 + 0.6)) { const c = this.car; if (Math.hypot(nx - c.pos.x, nz - c.pos.z) < Math.hypot(a.x - c.pos.x, a.z - c.pos.z)) { a.v = 0; return false; } }
     a.x = nx; a.z = nz;
     this.ground(a);
     return true;
@@ -469,7 +471,7 @@ export class Life {
   }
   // hit by the car: falls over and slides, lies a moment, gets up and runs off
   knocked(a, dt) {
-    a.t -= dt;
+    a.t -= dt; this.shove(a);
     if (a.st === 'down') {
       const sp = Math.hypot(a.vx, a.vz), k = Math.max(0, 1 - 7 * dt / Math.max(sp, 0.01));
       a.vx *= k; a.vz *= k; a.vy -= 9.81 * dt;
@@ -479,19 +481,31 @@ export class Life {
       if (a.t <= 0) { a.st = 'up'; a.t = 0.9; }
     } else {
       a.roll *= Math.max(0, 1 - dt * 4); a.y = a.isl.height(a.x, a.z);
-      if (a.t <= 0) { a.roll = 0; const ty = a.sp.type; a.st = ty === 'graze' ? 'flee' : ty === 'pred' ? 'back' : ty === 'bask' ? 'return' : 'idle'; a.t = 5; a.fh = null; a.cool = 12; a.grp.flee = 5; a.grp.fx = a.tdx; a.grp.fz = a.tdz; }
+      if (a.t <= 0) { a.roll = 0; a.st = this.after(a); a.t = 5; a.fh = null; a.cool = 12; a.grp.flee = 5; a.grp.fx = a.tdx; a.grp.fz = a.tdz; }
     }
   }
+  // what it does after a hit, on its feet: runs off, or goes home
+  after(a) { const ty = a.sp.type; return ty === 'graze' ? 'flee' : ty === 'pred' ? 'back' : ty === 'bask' ? 'return' : 'idle'; }
+  // a car that drives into it while it lies there shoves it along and loses the speed that takes (the two move on together)
+  shove(a) {
+    const c = this.car; if (!c || !this.inCar(a.x, a.z, a.sp.sh * a.s * 0.5)) return;
+    let dx = a.x - c.pos.x, dz = a.z - c.pos.z; const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l;
+    const rel = c.vel.x * dx + c.vel.z * dz - (a.vx * dx + a.vz * dz); if (rel <= 0) return;
+    const m = a.sp.mass * a.s ** 3, M = this.carM, k = rel / (m + M);
+    a.vx += dx * k * M; a.vz += dz * k * M; c.vel.x -= dx * k * m; c.vel.z -= dz * k * m;
+    if (a.st === 'up') { a.st = 'down'; a.t = 0.6; }
+  }
   knock(a, h) {
-    const sp = a.sp, j = Math.abs(h.j || 0), dv = Math.min(25, j / sp.mass);
+    const sp = a.sp, m = sp.mass * a.s ** 3, j = Math.abs(h.j || 0), dv = Math.min(25, j / m);
     let dx = a.x - h.x, dz = a.z - h.z; const car = this.car;
     if (car) { const s = Math.hypot(car.vel.x, car.vel.z); if (s > 1) { dx = dx * 0.4 + car.vel.x / s; dz = dz * 0.4 + car.vel.z / s; } }
     const l = Math.hypot(dx, dz) || 1;
-    a.noCol = 2.5; a.vx = dx / l * dv * 0.9; a.vz = dz / l * dv * 0.9; a.vy = Math.min(4, dv * 0.25); a.air = 0.01;
-    if (dv > 2.2 || sp.mass < 150) { a.st = 'down'; a.t = 1.5 + Math.min(3, dv * 0.25); a.rollT = (rnd() < 0.5 ? 1 : -1) * Math.PI / 2; a.lie = 0; }
-    else { a.st = 'flee'; a.t = 5; a.fh = Math.atan2(dx, dz); }
+    // out of the car's way until the impulse has moved it (no second one in the same frame), and no new knock for a while
+    a.noCol = 0.05; a.hitT = 2.5; a.vx = dx / l * dv * 0.9; a.vz = dz / l * dv * 0.9; a.vy = Math.min(4, dv * 0.25); a.air = 0.01;
+    if (dv > 2.2 || m < 150) { a.st = 'down'; a.t = 1.5 + Math.min(3, dv * 0.25); a.rollT = (rnd() < 0.5 ? 1 : -1) * Math.PI / 2; a.lie = 0; }
+    else { a.st = this.after(a); a.t = 5; a.fh = Math.atan2(dx, dz); }
     // a moose over the bonnet: the car's nose is thrown up and it lurches
-    if (car && sp.mass >= 300) { const k = Math.min(1.5, j / 9000); car.vel.y += 1.4 * k; car.w.x += (rnd() - 0.5) * 1.2 * k; car.w.y += (rnd() - 0.5) * 1.6 * k; }
+    if (car && m >= 300) { const k = Math.min(1.5, j / 9000); car.vel.y += 1.4 * k; car.w.x += (rnd() - 0.5) * 1.2 * k; car.w.y += (rnd() - 0.5) * 1.6 * k; }
     this.events.push({ type: 'hit', a, j, dv });
   }
 
@@ -500,7 +514,8 @@ export class Life {
     const sp = a.sp, P = sp.pred; a.t -= dt; a.cool -= dt;
     const car = V.car, d = car ? this.bodyDist(a, car) : 1e9, home = Math.hypot(a.x - a.hx, a.z - a.hz);
     const nearWater = !sp.aquatic || (car && (car.pos.y < a.isl.water(car.pos.x, car.pos.z) + 0.8 || d < P.charge));
-    const see = car && V.pen && a.cool <= 0 && nearWater;
+    const fed = a.grp.attackT > this.t - P.rest;          // one of the group got the car just now: the others leave it be
+    const see = car && V.pen && a.cool <= 0 && nearWater && !fed;
     let vw = 0, hw = a.h, look = false;
     if (sp.aquatic) { const w = a.isl.water(a.x, a.z), t = a.isl.terrain(a.x, a.z); a.inWater = w - t > 0.25; }
     switch (a.st) {
@@ -526,8 +541,8 @@ export class Life {
         // lead the car a little; the turn rate is the species' (a cheetah runs wide, so swerve)
         const lead = clamp(d / sp.run, 0, 1.2), px = car ? car.pos.x + car.vel.x * lead : a.x, pz = car ? car.pos.z + car.vel.z * lead : a.z;
         hw = Math.atan2(px - a.x, pz - a.z); vw = sp.run; look = true; a.jaw = 0.5;
-        if (car && d < 0.45 + sp.wid * 0.3) { this.attack(a, car, V); a.st = 'back'; a.cool = P.rest; a.t = 25; }
-        else if (!car || a.t <= 0 || home > P.leash || !V.pen) { a.st = 'back'; a.cool = P.rest * 0.5; a.t = 25; }
+        if (car && d < 0.45 + sp.wid * 0.3 && !fed) { this.attack(a, car, V); a.st = 'back'; a.cool = P.rest; a.t = 25; }
+        else if (!car || a.t <= 0 || home > P.leash || !V.pen || fed) { a.st = 'back'; a.cool = P.rest * 0.5; a.t = 25; }
         break;
       }
       case 'back':
@@ -555,7 +570,7 @@ export class Life {
   attack(a, car, V) {
     const sp = a.sp, p = sp.mass * Math.max(a.v, sp.run * 0.6), dv = Math.min(4, p / (car.m || 1500)), k = clamp(p / 3000, 0.3, 1.5);
     const ux = Math.sin(a.h), uz = Math.cos(a.h);
-    car.vel.x += ux * dv; car.vel.z += uz * dv; car.vel.y += 0.7 * k;
+    a.grp.attackT = this.t; car.vel.x += ux * dv; car.vel.z += uz * dv; car.vel.y += 0.7 * k;
     car.w.y += (rnd() < 0.5 ? -1 : 1) * (0.8 + rnd() * 0.6) * k; car.w.x += (rnd() - 0.5) * 0.9 * k; car.w.z += (rnd() - 0.5) * 0.9 * k;
     this.events.push({ type: 'attack', a, dv, pen: V.pen });
   }
@@ -617,7 +632,7 @@ export class Life {
         const vw = a.fh != null ? sp.walk * 0.5 : 0; a.h += clamp(wrap((a.fh ?? a.h) - a.h), -dt, dt);
         const nx = a.x + Math.sin(a.h) * vw * dt, nz = a.z + Math.cos(a.h) * vw * dt;
         if (this.okSpot(sp, a.isl, nx, nz, true) || (sp.medium !== 'water' && a.isl.water(nx, nz) - a.isl.terrain(nx, nz) > 0.3)) { a.x = nx; a.z = nz; }
-        a.y = a.isl.water(a.x, a.z); a.v = 0; a.amp = 0;
+        a.y = Math.max(a.isl.water(a.x, a.z), a.isl.height(a.x, a.z)); a.v = 0; a.amp = 0;          // paddled ashore: on the ground, not under it
       } else if (!a.perch) {     // walking and pecking on the ground
         let vw = 0;
         if (a.walkT > 0) { a.walkT -= dt; vw = sp.walk; } else if (rnd() < dt * 0.3) { a.walkT = 0.5 + rnd() * 2; a.fh = a.h + (rnd() - 0.5) * 2.5; if (Math.hypot(a.x - g.gx, a.z - g.gz) > sp.spread) a.fh = Math.atan2(g.gx - a.x, g.gz - a.z); }
@@ -829,7 +844,7 @@ export class Life {
   refreshCols(V) {
     const L = this.cols; L.length = 0; const car = this.car; if (!car) return;
     for (const a of this.animals) {
-      const sp = a.sp; if (!sp.col || a.noCol > 0 || a.st === 'down' || a.st === 'up' || a.st === 'jump') continue;
+      const sp = a.sp; if (!sp.col || a.st === 'down' || a.st === 'up' || a.st === 'jump') continue;          // one that stands is always there
       const dx = a.x - car.pos.x, dz = a.z - car.pos.z; if (dx * dx + dz * dz > 40 * 40) continue;
       const c = a.colObj || (a.colObj = { x: 0, z: 0, hw: 0, hd: 0, ang: 0, y0: 0, y1: 0, kind: 'animal', animal: a, bounce: 0 });
       // the bounce stands in for the animal's own mass: the car only loses what a body this heavy can take from it
@@ -842,8 +857,8 @@ export class Life {
   }
   colliders(x, z, r, out) {
     const car = this.car;
-    if (car) { const h = car.lastHit; if (h && h !== this._hit) { this._hit = h; if (h.c && h.c.animal && !h.c.animal.dead && h.c.animal.noCol <= 0) this.knock(h.c.animal, h); } }
-    for (const c of this.cols) { if (c.animal.noCol > 0) continue; const dx = c.x - x, dz = c.z - z, R = r + c.hd + 1; if (dx * dx + dz * dz < R * R) out.push(c); }
+    if (car) { const h = car.lastHit; if (h && h !== this._hit) { this._hit = h; const a = h.c && h.c.animal; if (a && !a.dead && a.hitT <= 0) this.knock(a, h); } }
+    for (const c of this.cols) { const a = c.animal; if (a.noCol > 0 || a.st === 'down' || a.st === 'up') continue; const dx = c.x - x, dz = c.z - z, R = r + c.hd + 1; if (dx * dx + dz * dz < R * R) out.push(c); }
   }
   // the small ones always get out of the way: a hare under the wheels jumps clear
   dodge(V) {
