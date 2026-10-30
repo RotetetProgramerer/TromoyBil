@@ -230,7 +230,7 @@ export class Game {
     if (this.mode === 'act' || this.act && this.mode === 'pause') return this.updateAct(dt, inp);
     for (const a of inp.presses) this.press(a);
     if (inp.releases.includes('horn')) this.snd.event && this.snd.event('horn', { on: false });
-    if (this.mode === 'ferry') { this.updateFerry(dt); this.vis.sync(this.car, dt); this.ui.update(dt); return; }
+    if (this.mode === 'ferry') { this.updateFerry(dt); this.vis.sync(this.car, dt); for (const x of this.acts) x.frame && x.frame(dt); for (const x of this.extras) x.frame && x.frame(dt); this.ui.update(dt); return; }
     const driving = this.mode === 'drive' || this.mode === 'race';
     const I = this.car.input;
     if (driving && !(this.courses.active && this.courses.active.count > 0)) { I.gas = inp.gas; I.brake = inp.brake; I.steer = inp.steer; I.handbrake = inp.handbrake; I.shiftUp = inp.shiftUp; I.shiftDown = inp.shiftDown; }
