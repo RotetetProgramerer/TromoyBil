@@ -1,10 +1,13 @@
 // Street lights along the asphalt roads where people live: a lamp every ~38 m on one side, on a pole with an arm over the road.
 // The lamps near the camera are drawn (one instanced mesh); at dusk and at night their heads glow and the nearest few are real
-// spotlights that light the road, the cars and the houses round them.
+// spotlights that light the road, the cars and the houses round them. Other lamps share that pool (share(): the ski resort's
+// floodlights), so the scene's number of lights never grows.
 import * as THREE from 'three';
 import { prep, U } from './gfx.js';
 
 const GAP = 38, CELL = 64;
+// the light of a street lamp: colour, reach (m), cone half-angle, penumbra, decay, intensity at night
+const STREET = { col: new THREE.Color(0xffd9a8), dist: 34, angle: 1.05, pen: 0.65, decay: 1.4, I: 520 };
 function lampGeometry() {
   // pole (tapered), arm out over the road, the head; group 0 is the metal, group 1 the lens under the head
   const parts = [], lens = [];
@@ -22,7 +25,7 @@ function lampGeometry() {
 
 export class StreetLights {
   constructor(gfx, world, real = 6) {
-    this.gfx = gfx; this.world = world; this.lamps = []; this.grid = new Map(); this.at = new THREE.Vector3(1e9, 0, 0); this.t = 0;
+    this.gfx = gfx; this.world = world; this.lamps = []; this.grid = new Map(); this.at = new THREE.Vector3(1e9, 0, 0); this.t = 0; this.others = [];
     for (const isl of world.islands) if (!isl.def.backdrop) this.place(isl);
     const metal = prep(new THREE.MeshStandardMaterial({ color: 0x8a8e92, metalness: 0.7, roughness: 0.45 })); gfx.shadowed(metal);
     this.lens = prep(new THREE.MeshStandardMaterial({ color: 0xddd8c8, emissive: 0xffc98a, emissiveIntensity: 0, roughness: 0.3 }));
@@ -56,6 +59,9 @@ export class StreetLights {
       }
     }
   }
+  // other lamps for the pool: fn(cam) returns [{x, y, z (the head), tx, ty, tz (where it shines), K (its light, as STREET), d (its
+  // distance² from the camera)}]; the nearest of all, street lamps and these, get the real lights
+  share(fn) { this.others.push(fn); }
   near(x, z, R) { const out = [], c = Math.ceil(R / CELL); const ci = Math.floor(x / CELL), cj = Math.floor(z / CELL); for (let j = cj - c; j <= cj + c; j++) for (let i = ci - c; i <= ci + c; i++) { const L = this.grid.get(i + ',' + j); if (L) out.push(...L); } return out; }
   update(dt) {
     const cam = this.gfx.camera.position, on = THREE.MathUtils.smoothstep(U.uNight.value, 0.3, 0.6);
@@ -66,14 +72,19 @@ export class StreetLights {
       let n = 0; for (const l of L) { if (n >= 4000) break; M.compose(P.set(l.x, l.y, l.z), q.setFromAxisAngle(Y, l.ang), S); this.mesh.setMatrixAt(n++, M); }
       this.mesh.count = n; this.mesh.instanceMatrix.needsUpdate = true;
     }
-    // the real lights under the nearest lamp heads (re-picked a few times a second)
+    // the real lights under the nearest lamp heads, the shared lamps' among them (re-picked a few times a second)
     if ((this.t -= dt) > 0) return; this.t = 0.3;
     const S = this.spots; if (!S.length) return;
-    const L = on > 0 ? this.near(cam.x, cam.z, 160).map(l => [l, (l.x - cam.x) ** 2 + (l.z - cam.z) ** 2]).sort((a, b) => a[1] - b[1]) : [];
+    const L = [];
+    if (on > 0) {
+      for (const l of this.near(cam.x, cam.z, 160)) { const hx = l.x + Math.cos(l.ang) * 1.85, hz = l.z - Math.sin(l.ang) * 1.85; L.push({ x: hx, y: l.y + 8.05, z: hz, tx: hx, ty: l.y, tz: hz, K: STREET, d: (l.x - cam.x) ** 2 + (l.z - cam.z) ** 2 }); }
+      for (const f of this.others) L.push(...f(cam));
+      L.sort((a, b) => a.d - b.d);
+    }
     for (let i = 0; i < S.length; i++) {
-      const s = S[i], e = L[i]; if (!e) { s.intensity = 0; continue; }
-      const l = e[0], hx = l.x + Math.cos(l.ang) * 1.85, hz = l.z - Math.sin(l.ang) * 1.85;
-      s.position.set(hx, l.y + 8.05, hz); s.target.position.set(hx, l.y, hz); s.target.updateMatrixWorld(); s.intensity = on * 520;
+      const s = S[i], o = L[i]; if (!o) { s.intensity = 0; continue; }
+      const K = o.K; s.position.set(o.x, o.y, o.z); s.target.position.set(o.tx, o.ty, o.tz); s.target.updateMatrixWorld();
+      s.color.copy(K.col); s.distance = K.dist; s.angle = K.angle; s.penumbra = K.pen; s.decay = K.decay; s.intensity = on * K.I;
     }
   }
 }
