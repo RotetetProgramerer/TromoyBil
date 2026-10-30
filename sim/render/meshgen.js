@@ -67,23 +67,26 @@ export function roadTile(world, isl, x0, z0, size, detail = 1) {
   const seen = new Set();
   for (let ri = 0; ri < R.roads.length; ri++) {
     const r = R.roads[ri], p = r.p, m = p.length / 3;
-    // only the part of the road inside the tile (by the midpoint of each segment)
+    // only the part of the road inside the tile: the segments whose midpoint lies in it, with both their end points (so the
+    // segment that crosses into the next tile is drawn here, and the ribbon has no gap at the tile edge)
     let started = false, vbase = 0, along = 0;
     const step = detail;               // use every point (3 m) near, every 2nd/3rd further away
+    const segIn = j => { if (j < 0 || j >= m - 1) return false; const mx = (p[j * 3] + p[j * 3 + 3]) / 2, mz = (p[j * 3 + 1] + p[j * 3 + 4]) / 2; return mx >= lx0 && mx < lx1 && mz >= lz0 && mz < lz1; };
     for (let i = 0; i < m; i += 1) {
       const x = p[i * 3], z = p[i * 3 + 1];
-      const nx = i < m - 1 ? p[i * 3 + 3] : x, nz = i < m - 1 ? p[i * 3 + 4] : z;
-      const mx = (x + nx) / 2, mz = (z + nz) / 2, inside = mx >= lx0 && mx < lx1 && mz >= lz0 && mz < lz1;
       if (i > 0) along += Math.hypot(x - p[i * 3 - 3], z - p[i * 3 - 2]);
-      if (!inside && !(started && i === m - 1)) { if (started) { started = false; } continue; }
-      if (i % step && i !== m - 1 && started) continue;
+      const fwd = segIn(i), back = segIn(i - 1);
+      if (!fwd && !back) { started = false; continue; }
+      if (!back) started = false;                       // a new run starts here
+      if (i % step && fwd && started) continue;           // thin out the middle of a run, never its ends
       // direction from the neighbours
       const pi = Math.max(0, i - 1), ni = Math.min(m - 1, i + 1);
       let tx = p[ni * 3] - p[pi * 3], tz = p[ni * 3 + 1] - p[pi * 3 + 1]; const tl = Math.hypot(tx, tz) || 1; tx /= tl; tz /= tl;
       const w = (r.wv ? r.wv[i] : r.w) / 2, sx = -tz, sz = tx;            // left of the direction of travel
       const bridge = r.b && r.b.includes(i);
       // across the road: shoulder (gravel), the road surface in four strips (it follows the crown), shoulder
-      const sh = r.c <= 5 && !bridge ? 0.7 / w : 0, cross = r.c <= 5 && !bridge ? [-1 - sh, -1, -0.5, 0, 0.5, 1, 1 + sh] : [-1, 0, 1];
+      // (the same columns on a bridge, with no shoulder: a strip joins the rows column by column, so their count must not change)
+      const sh = r.c <= 5 && !bridge ? 0.7 / w : 0, cross = r.c <= 5 ? [-1 - sh, -1, -0.5, 0, 0.5, 1, 1 + sh] : [-1, 0, 1];
       const vi = out.P.length / 3;
       for (const c of cross) {
         const px = x + sx * w * c + ox, pz = z + sz * w * c + oz;
