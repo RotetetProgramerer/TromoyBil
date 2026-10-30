@@ -20,15 +20,18 @@ export class World {
   }
   async setBackdrop(url) { this.backdrop = parseGrid(await loadBytes(url)); }
 
+  // the island at a point: the last one found if it still contains it, else the first that does; the backdrop (it contains every
+  // point) is never remembered, so a point out at sea does not hide the islands from the next query
   islandAt(x, z) {
     const l = this._last;
-    if (l && !l.def.backdrop && l.inside(x, z, 10)) return l;     // (never trust the backdrop: an island may lie inside it)
-    for (const isl of this.islands) if (isl.inside(x, z, 10)) { this._last = isl; return isl; }
-    return null;
+    if (l && l.inside(x, z, 10)) return l;
+    let bd = null;
+    for (const isl of this.islands) { if (!isl.inside(x, z, 10)) continue; if (isl.def.backdrop) { bd = bd || isl; continue; } this._last = isl; return isl; }
+    return bd;
   }
-  height(x, z) {
+  height(x, z, bare) {
     const isl = this.islandAt(x, z);
-    if (isl) return isl.height(x, z);
+    if (isl) return isl.height(x, z, bare);
     return this.backdrop && this.backdrop.inside(x, z) ? this.backdrop.bilinear(x, z) : -30;
   }
   terrain(x, z) {

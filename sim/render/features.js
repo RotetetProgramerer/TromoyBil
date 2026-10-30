@@ -25,15 +25,15 @@ float rh(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
   int surf = int(vKind.x + 0.5), cls = int(vKind.y + 0.5); float hw = vKind.w / 20.0; bool bridge = vKind.z > 0.5;
   float u = vRUv.x, along = vRUv.y, across = (u - 0.5) * 2.0 * hw;   // metres from the middle
   vec2 tuv = vec2(across, along) / 3.4;
-  float layer = surf == 0 ? ${LA.asphalt}.0 : surf == 1 ? ${LA.gravel}.0 : surf == 2 ? ${LA.gravel}.0 : ${LA.dirt}.0;
+  float layer = surf == 0 ? ${LA.asphalt}.0 : surf == 1 ? ${LA.gravel}.0 : surf == 2 ? ${LA.gravel}.0 : surf == 4 ? ${LA.snow}.0 : ${LA.dirt}.0;
   bool shoulder = u < 0.0 || u > 1.0;
-  if (shoulder) layer = ${LA.gravel}.0;
+  if (shoulder) layer = surf == 4 ? ${LA.snow}.0 : ${LA.gravel}.0;
   vec4 A = texture(tA, vec3(tuv, layer)), Nn = texture(tN, vec3(tuv, layer));
-  // gravel roads: two worn wheel tracks; tracks: grass between them
+  // gravel roads: two worn wheel tracks; tracks: grass between them; snow roads: packed, grey wheel tracks
   if (!shoulder && surf != 0) {
     float tr = 1.0 - smoothstep(0.05, 0.35, abs(abs(across) - min(0.85, hw * 0.45)));
-    vec4 D = texture(tA, vec3(tuv * 1.3, ${LA.dirt}.0)); A = mix(A, D, tr * 0.5);
-    if (cls >= 6) { vec4 G = texture(tA, vec3(tuv, ${LA.grass}.0)); A = mix(A, G, (1.0 - smoothstep(0.15, 0.45, abs(across))) * 0.85); }
+    vec4 D = texture(tA, vec3(tuv * 1.3, surf == 4 ? ${LA.gravel}.0 : ${LA.dirt}.0)); A = mix(A, D, tr * (surf == 4 ? 0.3 : 0.5));
+    if (cls >= 6 && surf != 4) { vec4 G = texture(tA, vec3(tuv, ${LA.grass}.0)); A = mix(A, G, (1.0 - smoothstep(0.15, 0.45, abs(across))) * 0.85); }
   }
   // asphalt: patches, darker where the wheels run, markings
   vec3 col = A.rgb; float rough = Nn.b;

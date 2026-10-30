@@ -98,9 +98,13 @@ export class Game {
   }
   spawnPoint() {
     const want = { x: +(this.params.get('x') ?? TROMOYA.spawn.x), z: +(this.params.get('z') ?? TROMOYA.spawn.z) };
-    const isl = this.world.islandAt(want.x, want.z) || this.world.islands[0];
+    const here = this.world.islands.find(i => !i.def.backdrop && i.inside(want.x, want.z)), isl = here || this.world.islands[0];
+    // the bigger roads first, any road if the island has none of those near; never a road that is mostly bridge
     let best = null;
-    for (const r of isl.roads.roads) { if (r.c > 5) continue; const p = r.p; for (let i = 0; i < p.length - 3; i += 3) { const d = Math.hypot(p[i] + isl.ox - want.x, p[i + 1] + isl.oz - want.z); if (!best || d < best.d) best = { d, x: p[i] + isl.ox, z: p[i + 1] + isl.oz, h: Math.atan2(p[i + 3] - p[i], p[i + 4] - p[i + 1]) }; } }
+    for (const maxC of [5, 6, 7]) {
+      for (const r of isl.roads.roads) { if (r.c > maxC || r.b && r.b.length > r.p.length / 6) continue; const p = r.p; for (let i = 0; i < p.length - 3; i += 3) { const d = Math.hypot(p[i] + isl.ox - want.x, p[i + 1] + isl.oz - want.z); if (!best || d < best.d) best = { d, x: p[i] + isl.ox, z: p[i + 1] + isl.oz, h: Math.atan2(p[i + 3] - p[i], p[i + 4] - p[i + 1]) }; } }
+      if (best && best.d < 400) break;
+    }
     return best || { x: want.x, z: want.z, h: 0 };
   }
   // ---------------------------------------------------------------- the car

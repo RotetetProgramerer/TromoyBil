@@ -9,7 +9,7 @@ export function terrainChunk(world, x0, z0, size, n) {
   const h = new Float32Array((m + 2) * (m + 2));
   let ymin = 1e9, ymax = -1e9;
   for (let j = -1; j <= m; j++) for (let i = -1; i <= m; i++) {
-    const y = world.height(x0 + i * st, z0 + j * st); h[(j + 1) * (m + 2) + (i + 1)] = y;
+    const y = world.height(x0 + i * st, z0 + j * st, true); h[(j + 1) * (m + 2) + (i + 1)] = y;     // the ground under bridges, not the decks
   }
   const H = (i, j) => h[(j + 1) * (m + 2) + (i + 1)];
   let k = 0;

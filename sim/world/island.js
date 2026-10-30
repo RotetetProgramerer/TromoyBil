@@ -3,15 +3,16 @@
 import { SURF } from '../physics/surfaces.js';
 import { RoadNet, ROAD_SURF } from './roads.js';
 import { vnoise, hash2, mulberry32 } from './grid.js';
+import { BIOMES } from './biomes.js';
 
 // land cover classes (same order as tools/geo/build_*.py writes them)
 export const COVER = { SEA: 0, BEACH: 1, ROCK: 2, FOREST: 3, MIXED: 4, DECID: 5, HEATH: 6, GRASS: 7, FARM: 8, GARDEN: 9, URBAN: 10, BOG: 11, LAKE: 12, GRAVEL: 13, STREAM: 14,
-  SNOW: 15, ASH: 16, LAVA: 17, JUNGLE: 18, SAVANNA: 19, MUD: 20, DIRT: 21 };
+  SNOW: 15, ASH: 16, LAVA: 17, JUNGLE: 18, SAVANNA: 19, MUD: 20, DIRT: 21, ICE: 22, DUNE: 23, SNOWFOREST: 24 };
 const C = COVER;
 export const COVER_SURF = [SURF.SEABED, SURF.SAND, SURF.ROCK, SURF.FOREST, SURF.FOREST, SURF.FOREST, SURF.FOREST, SURF.GRASS, SURF.FIELD, SURF.GRASS,
-  SURF.GRAVEL, SURF.BOG, SURF.SEABED, SURF.GRAVEL, SURF.MUD, SURF.SNOW, SURF.ASH, SURF.LAVA, SURF.FOREST, SURF.DIRT, SURF.MUD, SURF.DIRT];
+  SURF.GRAVEL, SURF.BOG, SURF.SEABED, SURF.GRAVEL, SURF.MUD, SURF.SNOW, SURF.ASH, SURF.LAVA, SURF.FOREST, SURF.DIRT, SURF.MUD, SURF.DIRT, SURF.ICE, SURF.SAND, SURF.SNOW];
 // how bumpy the ground is (m) on each cover, on top of the 5 m terrain grid
-const BUMP = [0.25, 0.07, 0.32, 0.2, 0.2, 0.18, 0.16, 0.06, 0.05, 0.03, 0.0, 0.1, 0.1, 0.08, 0.08, 0.12, 0.15, 0.1, 0.22, 0.1, 0.12, 0.12];
+const BUMP = [0.25, 0.07, 0.32, 0.2, 0.2, 0.18, 0.16, 0.06, 0.05, 0.03, 0.0, 0.1, 0.1, 0.08, 0.08, 0.12, 0.15, 0.1, 0.22, 0.1, 0.12, 0.12, 0.01, 0.07, 0.14];
 
 export class Island {
   // def: {id,name,ox,oz (where the island's own origin lies in the world), seed, sea}
@@ -48,12 +49,12 @@ export class Island {
     return h;
   }
   // the ground height including road beds: the road is smooth, the shoulder is level, a ditch where the road is cut into the slope,
-  // and a fill sloping down where it runs on an embankment
-  height(x, z) {
+  // and a fill sloping down where it runs on an embankment. bare: the ground only, without decks and (where sim/render/special.js draws the piers) bridges, for the terrain mesh
+  height(x, z, bare = false) {
     let h = this.terrain(x, z);
     const q = this.roads.query(x - this.ox, z - this.oz);
     if (q) {
-      if (q.bridge) { if (q.d <= q.hw) return Math.max(q.y, h); return this.deck(x, z, h); }
+      if (q.bridge) { if (bare && this.feat.special) return h; if (q.d <= q.hw + 0.35) return Math.max(q.y, h); return this.deck(x, z, h); }     // the deck is a little wider than the lanes
       const core = q.hw + 0.5, crown = (q.s === 0 ? 0.02 : 0.035) * Math.min(q.d, q.hw);
       if (q.d <= core) h = q.y - crown * Math.min(1, q.d / q.hw) - (q.d > q.hw ? 0.03 : 0);
       else {
@@ -68,7 +69,7 @@ export class Island {
       const d = Math.hypot(x - this.ox - p.x, z - this.oz - p.z);
       if (d < p.r + p.blend) { const t = d <= p.r ? 0 : (d - p.r) / p.blend, w = 1 - t * t * (3 - 2 * t); h += (p.y - h) * w; }
     }
-    return this.deck(x, z, h);
+    return bare ? h : this.deck(x, z, h);
   }
   deck(x, z, h) {
     for (const d of this.decks) {
@@ -86,8 +87,10 @@ export class Island {
   }
   water(x, z) {
     const lx = x - this.ox, lz = z - this.oz, c = this.cover.nearest(lx, lz);
-    if (c === C.LAKE || c === C.STREAM) for (const l of this.lakes) if (lx >= l.x0 && lx <= l.x1 && lz >= l.z0 && lz <= l.z1 && inPoly(l.p, lx, lz)) return l.y;
-    if (c === C.STREAM) return this.terrain(x, z) + 0.25;
+    // lakes and river reaches (the gravel of a ford lies under the river's water too)
+    if (c === C.LAKE || c === C.STREAM || c === C.GRAVEL) for (const l of this.lakes) if (lx >= l.x0 && lx <= l.x1 && lz >= l.z0 && lz <= l.z1 && inPoly(l.p, lx, lz)) return l.y;
+    // a small stream follows its bed (a track fording it lies on the bed, below the smoothed grid)
+    if (c === C.STREAM) return Math.min(this.terrain(x, z), this.height(x, z)) + 0.25;
     return this.def.sea ?? 0;
   }
 
@@ -116,12 +119,14 @@ export class Island {
   }
 
   // ---------------------------------------------------------------- trees, bushes and boulders
-  // Deterministic per 32 m cell, so the renderer draws the same trees the car hits. Kinds: see TREE_KINDS in scatter.js.
+  // Deterministic per 32 m cell, so the renderer draws the same trees the car hits. Kinds: KIND below; the made-up islands have their
+  // own biome (def.biome, see biomes.js).
   scatter(ci, cj) {
     const key = ci * 100003 + cj;
     let L = this.scatterCache.get(key);
     if (L) return L;
-    L = this.def.scatter ? this.def.scatter(this, ci, cj) : scatterNordic(this, ci, cj);
+    const B = this.def.biome && BIOMES[this.def.biome];
+    L = this.def.scatter ? this.def.scatter(this, ci, cj) : B ? B(this, ci, cj) : scatterNordic(this, ci, cj);
     if (this.pads.length) L = L.filter(t => this.pads.every(p => Math.hypot(t.x - p.x, t.z - p.z) > p.r + p.blend * 0.6));
     if (this.scatterCache.size > 4000) this.scatterCache.delete(this.scatterCache.keys().next().value);
     this.scatterCache.set(key, L);
@@ -152,7 +157,7 @@ const EMPTY = [];
 export const KIND = { PINE: 0, SPRUCE: 1, BIRCH: 2, OAK: 3, JUNIPER: 4, BUSH: 5, ROCK: 6, ASPEN: 7, FRUIT: 8, REED: 9,
   PALM: 10, OLIVE: 11, CYPRESS: 12, ACACIA: 13, BAOBAB: 14, JUNGLE: 15, FERN: 16, SNOWSPRUCE: 17, DEADTREE: 18, GRASSCLUMP: 19, AGAVE: 20 };
 const K = KIND;
-function scatterNordic(isl, ci, cj) {
+export function scatterNordic(isl, ci, cj) {
   const out = [], R = mulberry32(((ci * 92837111) ^ (cj * 689287499) ^ isl.seed) >>> 0), x0 = ci * 32, z0 = cj * 32;
   for (let n = 0; n < 46; n++) {
     const x = x0 + R() * 32, z = z0 + R() * 32, c = isl.cover.nearest(x, z), roll = R();

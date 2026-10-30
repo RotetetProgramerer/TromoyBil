@@ -14,8 +14,9 @@ MAP[C.SEA] = ['sand', 'rock', 0.35]; MAP[C.BEACH] = ['sand', 'gravel', 0.15]; MA
 MAP[C.MIXED] = ['forest', 'grass', 0.3]; MAP[C.DECID] = ['forest', 'grass', 0.35]; MAP[C.HEATH] = ['drygrass', 'rock', 0.3]; MAP[C.GRASS] = ['grass', 'dirt', 0.12];
 MAP[C.FARM] = ['grass', 'field', 0.18]; MAP[C.GARDEN] = ['grass', 'dirt', 0.06]; MAP[C.URBAN] = ['asphalt', 'gravel', 0.4]; MAP[C.BOG] = ['mud', 'grass', 0.45];
 MAP[C.LAKE] = ['mud', 'sand', 0.4]; MAP[C.GRAVEL] = ['gravel', 'dirt', 0.3]; MAP[C.STREAM] = ['gravel', 'mud', 0.4]; MAP[C.SNOW] = ['snow', 'rock', 0.12];
-MAP[C.ASH] = ['ash', 'blacksand', 0.4]; MAP[C.LAVA] = ['ash', 'ash', 0]; MAP[C.JUNGLE] = ['forest', 'mud', 0.35]; MAP[C.SAVANNA] = ['drygrass', 'redearth', 0.3];
-MAP[C.MUD] = ['mud', 'dirt', 0.3]; MAP[C.DIRT] = ['dirt', 'gravel', 0.25];
+MAP[C.ASH] = ['ash', 'blacksand', 0.4]; MAP[C.LAVA] = ['ash', 'ash', 0]; MAP[C.JUNGLE] = ['forest', 'grass', 0.55]; MAP[C.SAVANNA] = ['drygrass', 'redearth', 0.3];
+MAP[C.MUD] = ['mud', 'dirt', 0.3]; MAP[C.DIRT] = ['dirt', 'gravel', 0.25]; MAP[C.ICE] = ['snow', 'rock', 0.06]; MAP[C.DUNE] = ['sand', 'drygrass', 0.45];
+MAP[C.SNOWFOREST] = ['snow', 'forest', 0.5];
 
 function mapTexture() {
   const d = new Uint8Array(32 * 4);
@@ -29,7 +30,7 @@ function coverTexture(isl) {
 
 const FRAG_PARS = `
 uniform sampler2D tCov; uniform sampler2D tMap; uniform mediump sampler2DArray tA; uniform mediump sampler2DArray tN;
-uniform vec4 uCov; uniform float uWet; uniform float uSnow; uniform float uTime; uniform int uDbg;
+uniform vec4 uCov; uniform float uWet; uniform float uSnow; uniform float uTime; uniform int uDbg; uniform vec3 uRock;
 varying vec3 vWPos; varying vec3 vWNrm;
 float hsh(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);
@@ -42,6 +43,7 @@ void lay(int l, vec2 uv, vec2 dx, vec2 dy, float far, inout vec3 a, inout vec3 n
   vec2 uv2 = mat2(0.8, -0.6, 0.6, 0.8) * uv * 0.23;
   vec4 A2 = textureGrad(tA, vec3(uv2, float(l)), dx * 0.23, dy * 0.23), N2 = textureGrad(tN, vec3(uv2, float(l)), dx * 0.23, dy * 0.23);
   A = mix(A, A2, 0.35 + 0.5 * far); N = mix(N, N2, 0.35 + 0.5 * far);
+  if (l == 2) A.rgb *= uRock;
   a += A.rgb * w; n += vec3(N.rg * 2.0 - 1.0, 0.0) * w; r += N.b * w;
 }
 `;
@@ -93,9 +95,12 @@ const FRAG_MAIN = `
   vec3 terrN = normalize(vWNrm + vec3(tn.x, 0.0, tn.y) * (1.0 - far * 0.7) * 0.9);
 `;
 
+// the colour of bare rock on the made-up islands (biome in sim/data/world.js): dark basalt on the volcano, warm granite on the savanna
+const ROCK_TINT = { volcano: [0.36, 0.34, 0.33], savanna: [0.95, 0.78, 0.66], jungle: [0.72, 0.74, 0.66], subtropical: [0.88, 0.84, 0.76] };
 export function terrainMaterial(gfx, isl, arrays) {
   const mat = new THREE.MeshStandardMaterial({ roughness: 1, metalness: 0 });
   const uni = { tCov: { value: isl ? coverTexture(isl) : blankCover() }, tMap: { value: mapTexture() }, tA: { value: arrays.A }, tN: { value: arrays.N },
+    uRock: { value: new THREE.Vector3(...(isl && ROCK_TINT[isl.def.biome] || [1, 1, 1])) },
     uDbg: { value: 0 }, uCov: { value: isl ? new THREE.Vector4(isl.x0, isl.z0, 1 / isl.cover.cell, isl.cover.nx) : new THREE.Vector4(-1e6, -1e6, 1e-4, 1) } };
   const patch = sh => {
     Object.assign(sh.uniforms, uni);
@@ -178,6 +183,18 @@ export class Terrain {
     // free chunks nobody has drawn for a while
     if (this.frame % 120 === 0) for (const n of this.nodes.values()) if (n.mesh && this.frame - n.used > 600) { this.group.remove(n.mesh); n.mesh.geometry.dispose(); n.mesh = null; n.state = 0; }
   }
+  // whose land cover a chunk is drawn with: the island under its middle; a far, big chunk that only reaches over part of one of the
+  // made-up islands takes that island's (its cover map is open sea all round), not the coast's behind it
+  islandFor(n) {
+    const cx = n.x0 + n.size / 2, cz = n.z0 + n.size / 2, inside = i => cx >= i.x0 && cx <= i.x1 && cz >= i.z0 && cz <= i.z1;
+    let isl = this.world.islands.find(i => !i.def.backdrop && inside(i)), best = 0;
+    if (!isl) for (const i of this.world.islands) {
+      if (i.def.real) continue;
+      const a = Math.max(0, Math.min(n.x0 + n.size, i.x1) - Math.max(n.x0, i.x0)) * Math.max(0, Math.min(n.z0 + n.size, i.z1) - Math.max(n.z0, i.z0));
+      if (a > best) { best = a; isl = i; }
+    }
+    return isl || this.world.islands.find(inside) || null;
+  }
   request(n, cam) { if (n.state === 0 && !this.pending.has(n.key)) { this.pending.set(n.key, n); } }
   flush(cam) {
     if (this.inflight >= 6 || !this.pending.size) return;
@@ -198,8 +215,7 @@ export class Terrain {
     n.ymin = m.ymin; n.ymax = m.ymax;
     g.boundingBox = new THREE.Box3(new THREE.Vector3(n.x0, m.ymin - 2, n.z0), new THREE.Vector3(n.x0 + n.size, m.ymax, n.z0 + n.size));
     g.boundingSphere = g.boundingBox.getBoundingSphere(new THREE.Sphere());
-    const cx = n.x0 + n.size / 2, cz = n.z0 + n.size / 2, isl = this.world.islands.find(i => cx >= i.x0 && cx <= i.x1 && cz >= i.z0 && cz <= i.z1);
-    const mesh = new THREE.Mesh(g, isl ? this.mats.get(isl) : this.seaMat);
+    const isl = this.islandFor(n), mesh = new THREE.Mesh(g, isl ? this.mats.get(isl) : this.seaMat);
     mesh.receiveShadow = true; mesh.castShadow = n.size <= 128; mesh.matrixAutoUpdate = false; mesh.visible = false;
     n.mesh = mesh; n.state = 2; this.group.add(mesh);
   }

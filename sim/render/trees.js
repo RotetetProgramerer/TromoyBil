@@ -215,9 +215,20 @@ function buildKind(k) {
         b.card(o.clone().addScaledVector(d, L * 0.5).addScaledVector(up, H * 0.05), d, up, L * 1.05, H * 0.11, 8, V(0, 1, 0), leafCol(), w);
       }
     }
+  } else if (k === K.DEADTREE) {
+    // a dead tree (the ash slopes of the volcano): a bare, leaning trunk and a few broken, forked branches
+    const lean = V((R() - 0.5) * 0.3, 1, (R() - 0.5) * 0.3).normalize(), top = lean.clone().multiplyScalar(H * 0.85);
+    b.cyl(V(0, -0.3, 0), top, H * 0.03, H * 0.008, bark, 7, 0, 0.1);
+    for (let i = 0; i < 6; i++) {
+      const t = 0.35 + i * 0.1, a = R() * 6.28, base = lean.clone().multiplyScalar(H * 0.85 * t), L = H * (0.28 - t * 0.15);
+      const end = base.clone().add(V(Math.cos(a) * L, L * (0.35 + R() * 0.4), Math.sin(a) * L));
+      b.cyl(base, end, H * 0.012, H * 0.003, bark, 5, 0.05, 0.2);
+      const fork = end.clone().add(V((R() - 0.5) * L * 0.6, L * 0.3, (R() - 0.5) * L * 0.6)); b.cyl(end.clone().lerp(base, 0.3), fork, H * 0.005, H * 0.002, bark, 4, 0.1, 0.25);
+    }
   } else {
     // broadleaf trees and bushes: a trunk splitting into boughs, leaf clusters in a rounded crown
-    const bush = k === K.BUSH, crownY = bush ? H * 0.55 : H * (k === K.BIRCH ? 0.64 : 0.6), crownR = bush ? H * 0.55 : H * (k === K.OAK || k === K.ACACIA ? 0.38 : k === K.BAOBAB ? 0.32 : 0.27);
+    // (rainforest trees: a tall bare trunk and a wide, flattish crown on top)
+    const bush = k === K.BUSH, crownY = bush ? H * 0.55 : H * (k === K.BIRCH ? 0.64 : k === K.JUNGLE ? 0.74 : 0.6), crownR = bush ? H * 0.55 : H * (k === K.OAK || k === K.ACACIA ? 0.38 : k === K.BAOBAB ? 0.32 : k === K.JUNGLE ? 0.3 : 0.27);
     const c = V(0, crownY, 0), lobes = [c.clone()];
     if (!bush) {
       const tr = k === K.BAOBAB ? 0.11 : k === K.OAK ? 0.035 : 0.022, nb = k === K.ACACIA ? 6 : 5;
@@ -228,7 +239,7 @@ function buildKind(k) {
         if (i < 4) lobes.push(end.clone().lerp(c, 0.25));
       }
     }
-    const nCl = bush ? 30 : k === K.JUNGLE ? 54 : 50, flat = k === K.ACACIA ? 0.35 : k === K.BIRCH ? 1.25 : 0.85, lr = crownR * (bush ? 1 : 0.62);
+    const nCl = bush ? 30 : k === K.JUNGLE ? 54 : 50, flat = k === K.ACACIA ? 0.35 : k === K.BIRCH ? 1.25 : k === K.JUNGLE ? 0.5 : 0.85, lr = crownR * (bush ? 1 : 0.62);
     for (let j = 0; j < nCl; j++) {
       const L = lobes[j % lobes.length], u = R() * 2 - 1, a = R() * 6.28, rr = Math.pow(R(), 0.4);
       const p = V(L.x + Math.cos(a) * Math.sqrt(1 - u * u) * lr * rr, L.y + u * lr * flat * rr, L.z + Math.sin(a) * Math.sqrt(1 - u * u) * lr * rr);
