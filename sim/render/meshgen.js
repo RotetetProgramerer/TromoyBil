@@ -9,7 +9,11 @@ export function terrainChunk(world, x0, z0, size, n) {
   const h = new Float32Array((m + 2) * (m + 2));
   let ymin = 1e9, ymax = -1e9;
   for (let j = -1; j <= m; j++) for (let i = -1; i <= m; i++) {
-    const y = world.height(x0 + i * st, z0 + j * st, true); h[(j + 1) * (m + 2) + (i + 1)] = y;     // the ground under bridges, not the decks
+    let y = world.height(x0 + i * st, z0 + j * st, true);     // the ground under bridges, not the decks
+    // a coarse chunk (far away) would draw a straight triangle across a road cut and hide the road: pull the vertices beside a road
+    // down towards it, so the road ribbon always shows (the dip is narrower than a pixel at that distance)
+    if (st > 2.5) { const q = world.road(x0 + i * st, z0 + j * st); if (q && !q.bridge && q.y < y) { const k = Math.min(1, Math.max(0, (q.d - q.hw) / (st * 1.5))); y = q.y - 0.15 + (y - q.y + 0.15) * k; } }
+    h[(j + 1) * (m + 2) + (i + 1)] = y;
   }
   const H = (i, j) => h[(j + 1) * (m + 2) + (i + 1)];
   let k = 0;
