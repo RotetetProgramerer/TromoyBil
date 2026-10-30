@@ -183,6 +183,18 @@ export class Terrain {
     // free chunks nobody has drawn for a while
     if (this.frame % 120 === 0) for (const n of this.nodes.values()) if (n.mesh && this.frame - n.used > 600) { this.group.remove(n.mesh); n.mesh.geometry.dispose(); n.mesh = null; n.state = 0; }
   }
+  // whose land cover a chunk is drawn with: the island under its middle; a far, big chunk that only reaches over part of one of the
+  // made-up islands takes that island's (its cover map is open sea all round), not the coast's behind it
+  islandFor(n) {
+    const cx = n.x0 + n.size / 2, cz = n.z0 + n.size / 2, inside = i => cx >= i.x0 && cx <= i.x1 && cz >= i.z0 && cz <= i.z1;
+    let isl = this.world.islands.find(i => !i.def.backdrop && inside(i)), best = 0;
+    if (!isl) for (const i of this.world.islands) {
+      if (i.def.real) continue;
+      const a = Math.max(0, Math.min(n.x0 + n.size, i.x1) - Math.max(n.x0, i.x0)) * Math.max(0, Math.min(n.z0 + n.size, i.z1) - Math.max(n.z0, i.z0));
+      if (a > best) { best = a; isl = i; }
+    }
+    return isl || this.world.islands.find(inside) || null;
+  }
   request(n, cam) { if (n.state === 0 && !this.pending.has(n.key)) { this.pending.set(n.key, n); } }
   flush(cam) {
     if (this.inflight >= 6 || !this.pending.size) return;
@@ -203,8 +215,7 @@ export class Terrain {
     n.ymin = m.ymin; n.ymax = m.ymax;
     g.boundingBox = new THREE.Box3(new THREE.Vector3(n.x0, m.ymin - 2, n.z0), new THREE.Vector3(n.x0 + n.size, m.ymax, n.z0 + n.size));
     g.boundingSphere = g.boundingBox.getBoundingSphere(new THREE.Sphere());
-    const cx = n.x0 + n.size / 2, cz = n.z0 + n.size / 2, isl = this.world.islands.find(i => cx >= i.x0 && cx <= i.x1 && cz >= i.z0 && cz <= i.z1);
-    const mesh = new THREE.Mesh(g, isl ? this.mats.get(isl) : this.seaMat);
+    const isl = this.islandFor(n), mesh = new THREE.Mesh(g, isl ? this.mats.get(isl) : this.seaMat);
     mesh.receiveShadow = true; mesh.castShadow = n.size <= 128; mesh.matrixAutoUpdate = false; mesh.visible = false;
     n.mesh = mesh; n.state = 2; this.group.add(mesh);
   }
