@@ -253,7 +253,7 @@ export class IslandBuild {
   }
   // a pond as a wobbly circle
   pond(x, z, r, o = {}) {
-    const poly = []; for (let i = 0; i < 24; i++) { const a = i / 24 * Math.PI * 2, f = 1 + 0.18 * this.noise(Math.cos(a) * 1.3 + x / 50, Math.sin(a) * 1.3 + z / 50); poly.push([x + Math.cos(a) * r * f, z + Math.sin(a) * r * f]); }
+    const poly = []; for (let i = 0; i < 24; i++) { const a = i / 24 * Math.PI * 2, f = 1 + 0.2 * this.noise(Math.cos(a) * 1.3 + x / 50, Math.sin(a) * 1.3 + z / 50) + 0.1 * this.n2(Math.cos(a) * 3.1 + x / 40, Math.sin(a) * 3.1 + z / 40); poly.push([x + Math.cos(a) * r * f, z + Math.sin(a) * r * f]); }
     return this.lake(Object.assign({ poly, depth: Math.min(3, r / 8) }, o));
   }
 
@@ -281,7 +281,8 @@ export class IslandBuild {
       if (!(wl[i] > t[i] + 0.05)) { i++; continue; }
       let j = i; for (;;) { let k = j + 1; while (k < n && k <= j + 4 && !(wl[k] > t[k] + 0.05)) k++; if (k < n && k <= j + 4 && wl[k] > t[k] + 0.05) j = k; else break; }   // short dry gaps belong to the same crossing
       const sea = P.slice(i, j + 1).some(([x, z]) => this.sea[this.kxz(x, z)] === 1);
-      if (o.ford && !sea) for (let k = i; k <= j; k++) { t[k] = wl[k] - (o.fordDepth ?? 0.3); fixed[k] = 1; }
+      if (o.ford && !sea) { let top = -1e9; for (let k = i; k <= j; k++) top = Math.max(top, wl[k]);       // (a dry bank between two arms is cut down to the water)
+        for (let k = i; k <= j; k++) { t[k] = (wl[k] > t[k] ? wl[k] : Math.min(t[k] + (o.fordDepth ?? 0.3), top)) - (o.fordDepth ?? 0.3); fixed[k] = 1; } }
       else if (sea && (j - i) * STEP < (o.causeway ?? 90)) for (let k = i; k <= j; k++) t[k] = Math.max(t[k], 1.4);
       else {
         let top = -1e9; for (let k = i; k <= j; k++) top = Math.max(top, wl[k]);
@@ -541,7 +542,16 @@ export class IslandBuild {
       b.y0 = R2(lo); b.y1 = R2(hi);
     }
     // land cover in the sea stays sea; skerries and holms out there are bare rock
-    for (let k = 0; k < this.H.length; k++) if (this.sea[k]) this.CV[k] = C.SEA; else if (this.CV[k] === C.SEA) this.CV[k] = C.ROCK;
+    for (let k = 0; k < this.H.length; k++) if (this.sea[k]) this.CV[k] = this.H[k] > 0.3 ? C.ROCK : C.SEA; else if (this.CV[k] === C.SEA) this.CV[k] = C.ROCK;
+    // (and so is every bit of land smaller than 0.5 ha, not just its sea cells: no sand cones out in the sea)
+    const seen = new Uint8Array(this.H.length), nx = this.nx, nz = this.nz;
+    for (let s0 = 0; s0 < this.H.length; s0++) {
+      if (seen[s0] || !(this.H[s0] > 0)) continue;
+      const comp = [s0]; seen[s0] = 1;
+      for (let q = 0; q < comp.length && comp.length <= 200; q++) { const k = comp[q], i = k % nx, j = (k - i) / nx;
+        for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const ii = i + di, jj = j + dj, kk = jj * nx + ii; if (ii >= 0 && jj >= 0 && ii < nx && jj < nz && !seen[kk] && this.H[kk] > 0) { seen[kk] = 1; comp.push(kk); } } }
+      if (comp.length <= 200) for (const k of comp) if (this.CV[k] !== C.LAKE) this.CV[k] = C.ROCK;
+    }
   }
   stats() {
     let lo = 1e9, hi = -1e9, land = 0; for (let k = 0; k < this.H.length; k++) { lo = Math.min(lo, this.H[k]); hi = Math.max(hi, this.H[k]); if (this.H[k] > 0 && !this.sea[k]) land++; }

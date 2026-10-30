@@ -212,25 +212,28 @@ const RECIPES = {
     K.detail((x, z) => 1.8 * fbm(K.noise, x / 300, z / 300, 3) + 6 * (ridged(K.n2, x / 40, z / 40, 3) - 0.3) * (1 - smooth(150, 300, Math.hypot(x - kop[0], z - kop[1]))), 100);
     K.edgeBlend(); K.seaWater();
     K.each((k, x, z) => {
-      if (K.sea[k]) return; const d = K.D[k], s = K.slope(x, z), n = fbm(K.n2, x / 180, z / 180, 3), ts = K.oldAt(x, z).ts, dk = Math.hypot(x - kop[0], z - kop[1]);
+      if (K.sea[k]) return; const d = K.D[k], s = K.slope(x, z), n = fbm(K.n2, x / 180, z / 180, 3), ts = K.oldAt(x, z).ts, dk = Math.hypot(x - kop[0], z - kop[1]) * (1 + 0.45 * fbm(K.n3, x / 110 + 4, z / 110, 2));    // a ragged outline
       const m = fbm(K.n3, x / 70, z / 70, 3);
-      K.CV[k] = d < 45 + 20 * n ? C.BEACH : dk < 230 && (s > 0.25 || ts === OS.ROCK) ? C.ROCK : dk < 260 ? C.GRAVEL : n > 0.38 || m > 0.42 ? C.DIRT : C.SAVANNA;
+      K.CV[k] = d < 45 + 20 * n ? C.BEACH : dk < 230 && (s > 0.25 || ts === OS.ROCK) ? C.ROCK : dk < 275 && m > -0.05 ? C.GRAVEL : n > 0.38 || m > 0.42 ? C.DIRT : C.SAVANNA;
     });
     // the waterhole and the river from it to the sea; green grass and mud along the water
     const wh = K.P(WH), wl = K.pond(wh[0], wh[1], 95, { name: 'Vannhullet', depth: 2.5 });
-    const rp = K.PL(RIV); rp[0] = add(wh, dirv(head(wh, rp[1])), 80);
+    let rp = K.PL(RIV); rp[0] = add(wh, dirv(head(wh, rp[1])), 80); rp = bend(K, rp, 80, [0, 2, 6, rp.length - 1]);     // (the fords stay where they were)
     K.river({ pts: rp, hw: t => 10 + 6 * t, depth: 2.2, top: wl - 0.15, fords: [[...K.P([2, 12.5]), 55], [...K.P([-22, 19]), 55]], name: 'Krokodilleelva', reaches: 3 });
-    K.paintLine(rp, 34, C.MUD, c => c !== C.LAKE && c !== C.GRAVEL && c !== C.SEA); K.paintLine(rp, 75, C.GRASS, c => c === C.SAVANNA || c === C.DIRT);
-    K.paint(wh[0], wh[1], 125, C.MUD, c => c !== C.LAKE); K.paint(wh[0], wh[1], 170, C.GRASS, c => c === C.SAVANNA || c === C.DIRT);
+    // mud and green grass along the water, in ragged bands
+    K.disc(wh[0], wh[1], 260, (k, x, z, d) => { const c = K.CV[k], f = 1 + 0.5 * fbm(K.n3, x / 60, z / 60, 2); d = Math.min(d, lineDist(rp, x, z) + 40);
+      if (c !== C.LAKE && c !== C.SEA && c !== C.GRAVEL && d < 125 * f) K.CV[k] = C.MUD; else if ((c === C.SAVANNA || c === C.DIRT) && d < 175 * f) K.CV[k] = C.GRASS; });
+    K.each((k, x, z) => { const c = K.CV[k]; if (c === C.LAKE || c === C.SEA || c === C.GRAVEL || c === C.MUD) return; const f = 1 + 0.6 * fbm(K.n3, x / 70, z / 70, 2), d = lineDist(rp, x, z);
+      if (d < 34 * f) K.CV[k] = C.MUD; else if (d < 80 * f && (c === C.SAVANNA || c === C.DIRT)) K.CV[k] = C.GRASS; });
     const gr = K.P(GROVE); K.disc(gr[0], gr[1], 240, (k, x, z, d) => { if ((K.CV[k] === C.SAVANNA || K.CV[k] === C.DIRT) && d < 170 + 70 * fbm(K.n2, x / 90, z / 90, 2)) K.CV[k] = C.DECID; });
     // the village, the roads and the safari camp in the middle of the island
     const V = K.village({ at: vil, h: vh, name: 'Løveøya', houses: 7, s: 3 });
     const cp = K.P(CAMP); K.flatten(cp[0], cp[1], 45, K.h(cp[0], cp[1]), 30);
     camp(K, cp, head(cp, K.P([-2, -15.5])));
     const OR = o.def.roads.map(r => K.PL(r));
-    K.road([V.out, ...OR[0].slice(1)], { c: 5, s: 3, n: 'Safariveien', g: 0.1 });
-    K.road(OR[1], { c: 5, s: 3, g: 0.12 }); K.road(OR[2], { c: 5, s: 3, g: 0.12 }); K.road([OR[0][1], ...OR[3]], { c: 5, s: 3, n: 'Klippeveien', g: 0.12 });
-    K.road(OR[4], { c: 5, s: 3, n: 'Broveien', g: 0.12 }); K.road([OR[4][OR[4].length - 1], ...OR[5]], { c: 5, s: 3, n: 'Baobabveien', g: 0.12 });
+    K.road(bend(K, [V.out, ...OR[0].slice(1)], 110, [0, 1, OR[0].length - 1]), { c: 5, s: 3, n: 'Safariveien', g: 0.1 });
+    K.road(bend(K, OR[1]), { c: 5, s: 3, g: 0.12 }); K.road(bend(K, OR[2]), { c: 5, s: 3, g: 0.12 }); K.road(bend(K, [OR[0][1], ...OR[3]]), { c: 5, s: 3, n: 'Klippeveien', g: 0.12 });
+    K.road(bend(K, OR[4]), { c: 5, s: 3, n: 'Broveien', g: 0.12 }); K.road(bend(K, [OR[4][OR[4].length - 1], ...OR[5]]), { c: 5, s: 3, n: 'Baobabveien', g: 0.12 });
     const CH = o.def.challenges;
     trackCourse(K, { id: 'safari', name: CH[0].name, kind: 'terreng', diff: 1, pts: K.PL(CH[0].path).concat([K.P(CH[0].path[0])]), road: 'Safarirunden',
       desc: 'En runde over den åpne sletta i sørvest, mellom sebraer og gnuer. Se opp for gepardene: de er raskere enn bilen, men svinger dårlig.' });
@@ -261,14 +264,14 @@ const RECIPES = {
     });
     // the mangrove delta: low mud and sand banks cut by shallow tidal channels out to the sea
     for (const ch of [[[27, -24], [31, -28], [36, -33], [43, -39]], [[25, -21], [30, -19], [37, -17], [45, -15]], [[24, -27], [23, -33], [25, -40], [26, -48]], [[29, -22], [34, -24], [40, -26], [48, -27]]])
-      K.channel(chaikin(K.PL(ch), 2), 9, 0.8);
+      K.channel(chaikin(bend(K, K.PL(ch), 80), 2), 9, 0.8);
     // Apeberget: the tarn on top, the cliff on the south side, the waterfall into the pool where Storelva begins
     const tarn = K.P(TARN), pool = K.P(POOL), tl = K.pond(tarn[0], tarn[1], 70, { name: 'Tjernet', depth: 3 }), pl = K.pond(pool[0], pool[1], 60, { name: 'Fossekulpen', depth: 4 });
     const lip = K.P([-3, 15.6]), foot = add(pool, [0, -1], 35);
     K.special.falls.push({ kind: 'fall', x0: R1(lip[0]), z0: R1(lip[1]), y0: R2(tl), x1: R1(foot[0]), z1: R1(foot[1]), y1: R2(pl), w: 26 });
     K.stream({ pts: [tarn, lip], hw: 6, depth: 0.6, name: null });
-    const rp = RV.map(r => K.PL(r.pts));
-    const stor = K.river({ pts: [pool, ...rp[0].slice(2)], hw: t => 13 + 8 * t, depth: 2.6, top: pl - 0.2, name: 'Storelva', fords: [[...K.P([-3.6, 4.6]), 50], [...K.P([-23.3, 1.3]), 50]] });
+    const raw = RV.map(r => K.PL(r.pts)), rp = [bend(K, [pool, ...raw[0].slice(2)], 80), bend(K, raw[1], 80), bend(K, raw[2], 60)];     // the old rivers ran straight
+    const stor = K.river({ pts: rp[0], hw: t => 13 + 8 * t, depth: 2.6, top: pl - 0.2, name: 'Storelva', fords: [[...K.P([-3.6, 4.6]), 50], [...K.P([-23.3, 1.3]), 50]] });
     K.river({ pts: rp[1], hw: t => 9 + 7 * t, depth: 2.2, name: 'Østelva', fords: [[...K.P([15.1, 9.4]), 45], [...K.P([21.4, -10.4]), 45]] });
     K.stream({ pts: rp[2], hw: 5, depth: 0.9, name: 'Sølebekken' });
     for (const r of rp) K.paintLine(r, 26, C.MUD, c => c === C.JUNGLE || c === C.GRASS);
@@ -278,8 +281,8 @@ const RECIPES = {
     K.flatten(hub[0], hub[1], 40, K.h(hub[0], hub[1]), 25); camp(K, hub, head(hub, K.P([6, -18])), 'KAIMANØYA');
     const V = K.village({ at: vil, h: vh, name: 'Kaimanøya', houses: 7, s: 3 });
     const OR = o.def.roads.map(r => K.PL(r));
-    K.road([V.out, ...OR[0]], { c: 5, s: 3, n: 'Leirveien', g: 0.1 });
-    for (let i = 1; i < 5; i++) K.road(OR[i], { c: 5, s: 3, g: 0.13, w: 3.6 });
+    K.road(bend(K, [V.out, ...OR[0]]), { c: 5, s: 3, n: 'Leirveien', g: 0.1 });
+    for (let i = 1; i < 5; i++) K.road(bend(K, OR[i]), { c: 5, s: 3, g: 0.13, w: 3.6 });
     K.road([...OR[5], ...OR[6]], { c: 6, s: 3, w: 3.6, g: 0.13, n: 'Hengebroa', clear: 3.5 });      // over Storelva on the old suspension bridge
     const CH = o.def.challenges, kinds = ['sump', 'terreng', 'terreng', 'sump', 'bakke'];
     CH.forEach((ch, i) => trackCourse(K, { id: ch.id, name: ch.name, kind: kinds[i], diff: ch.diff, pts: i === 2 ? [...K.PL(ch.path), [tp[0], tp[1] + 66]] : K.PL(ch.path), road: ch.name, ford: true, g: i === 4 ? 0.24 : 0.2, desc: KAIMAN_DESC[i],
@@ -596,6 +599,16 @@ function coneRoad(K, c, start, g, stopH, rMin) {
   return chaikin(pts, 2);
 }
 // a wobbly ring round a centre (lakes, ponds)
+// the old maps' roads are straight lines between a few points: broad bends along the whole road, the kept points (ends, junctions) stay put
+function bend(K, pts, amp = 110, keep = [0, pts.length - 1]) {
+  const S = [0]; for (let i = 1; i < pts.length; i++) S.push(S[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  const P = resample(pts, 15), n = P.length, sd = (pts[0][0] * 0.0137 + pts[0][1] * 0.0071) % 50;
+  return P.map((p, i) => {
+    if (i === 0 || i === n - 1) return p;
+    const s = S[S.length - 1] * i / (n - 1), f = Math.min(...keep.map(k => smooth(0, 180, Math.abs(s - S[k]))));
+    return add(p, side(head(P[i - 1], P[i + 1])), amp * f * K.n3(s / 420 + sd, 3.3 + sd));
+  });
+}
 function wobble(c, r, a, K) { const p = []; for (let i = 0; i < 32; i++) { const t = i / 32 * Math.PI * 2, f = 1 + 0.12 * a * K.noise(Math.cos(t) * 1.5 + c[0] / 80, Math.sin(t) * 1.5 + c[1] / 80); p.push([c[0] + Math.cos(t) * r * f, c[1] + Math.sin(t) * r * f]); } return p; }
 // a lava river from the crater rim downhill: a channel just below the ground with levees on both sides, glowing (Special draws the lava).
 // During the build its cells count as water, so roads bridge it.

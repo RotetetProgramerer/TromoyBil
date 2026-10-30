@@ -38,13 +38,13 @@ function tables() {
       [C.DECID]: [0.22, [[K.BAOBAB, 4, 0.75, 1.25], [K.ACACIA, 4, 0.7, 1.25], [K.BUSH, 2, 0.6, 1.1], [K.GRASSCLUMP, 1, 0.8, 1.4]]],
       [C.GRASS]: [0.2, [[K.ACACIA, 2, 0.7, 1.2], [K.PALM, 2, 0.7, 1.1], [K.BUSH, 3, 0.6, 1.2], [K.GRASSCLUMP, 3, 0.9, 1.6], [K.REED, 1, 0.8, 1.3]]],
       [C.MUD]: [0.12, [[K.REED, 7, 0.8, 1.5], [K.BUSH, 2, 0.6, 1.0]]],
-      [C.ROCK]: [0.09, [[K.ROCK, 7, 1.4, 3.6], [K.BUSH, 2, 0.5, 0.9], [K.ACACIA, 1, 0.6, 1.0]]],
-      [C.GRAVEL]: [0.05, [[K.ROCK, 6, 0.8, 2.2], [K.GRASSCLUMP, 4, 0.8, 1.3]]],
+      [C.ROCK]: [0.12, [[K.ROCK, 7, 2.2, 6.0], [K.BUSH, 2, 0.5, 0.9], [K.ACACIA, 1, 0.6, 1.0]]],     // the granite boulders of the kopje
+      [C.GRAVEL]: [0.05, [[K.ROCK, 6, 0.8, 2.6], [K.GRASSCLUMP, 4, 0.8, 1.3]]],
       [C.BEACH]: [0.008, [[K.PALM, 1, 0.8, 1.1]]],
     } },
     winter: { n: 40, cover: {
-      [C.SNOWFOREST]: [0.6, [[K.SNOWSPRUCE, 10, 0.45, 1.05], [K.BIRCH, 1, 0.35, 0.65], [K.ROCK, 1, 0.4, 1.2]]],
-      [C.SNOW]: [0.05, [[K.SNOWSPRUCE, 6, 0.35, 0.9], [K.BIRCH, 1, 0.35, 0.6], [K.ROCK, 2, 0.4, 1.2]]],
+      [C.SNOWFOREST]: [0.6, [[K.SNOWSPRUCE, 10, 0.45, 1.05], [K.DEADTREE, 0.6, 0.4, 0.7], [K.ROCK, 1, 0.4, 1.2]]],     // bare birches among the spruce
+      [C.SNOW]: [0.05, [[K.SNOWSPRUCE, 6, 0.35, 0.9], [K.DEADTREE, 1, 0.35, 0.6], [K.ROCK, 2, 0.4, 1.2]]],
       [C.ROCK]: [0.05, [[K.ROCK, 6, 0.5, 1.6], [K.SNOWSPRUCE, 3, 0.35, 0.7]]],
       [C.GRAVEL]: [0.02, [[K.ROCK, 1, 0.4, 1.2]]],
       [C.URBAN]: [0.01, [[K.SNOWSPRUCE, 1, 0.4, 0.7]]],
@@ -120,6 +120,7 @@ function scatterBiome(isl, ci, cj, B, salt) {
     const h1 = isl.grid.bilinear(x + 2, z), h2 = isl.grid.bilinear(x, z + 2), slope = Math.hypot(h1 - y, h2 - y) / 2;
     if (slope > 0.9 && k !== K.ROCK) continue;
     if (q && BIG.has(k) && q.d < q.hw + 1.6 + s * 5) continue;                    // big crowns reach out over the road
+    if (q && k === K.ROCK && q.d < q.hw + 1.5 + s) continue;                       // and so do big boulders
     const col = k === K.ROCK ? s * 0.9 : SOFT.has(k) ? 0 : k === K.BAOBAB ? 0.6 + s * 0.8 : k === K.PALM ? 0.12 + s * 0.12 : 0.1 + s * 0.2;
     out.push({ x, z, y, k, s, a: ang, col });
   }
