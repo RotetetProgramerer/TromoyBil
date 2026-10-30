@@ -32,6 +32,9 @@ export class UI {
     $('rAgain').onclick = () => { this.hide(); this.g.mode = 'drive'; this.g.courses.start(this.lastResult.c); };
     $('rDone').onclick = () => { this.hide(); this.g.mode = 'drive'; };
     $('mapHome').onclick = () => this.g.towHome();
+    // a tap on the map picks a spot; «Sett bilen der» puts the car on the nearest road there
+    $('mapCanvas').addEventListener('pointerdown', e => this.mapPick(e));
+    $('mapGo').onclick = () => { const s = this.pick && this.g.landingSpot(this.pick.x, this.pick.z); this.pick = null; this.g.placeAt(s); };
     // the save: every sim:* key in localStorage, as a file to download and to read back
     $('sSave').onclick = () => {
       const o = {}; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k.startsWith('sim:')) o[k] = localStorage.getItem(k); }
@@ -54,6 +57,7 @@ export class UI {
     for (const o of document.querySelectorAll('.overlay')) o.hidden = true;
     this.from = from || (this.open && this.open !== id ? this.open : this.from); this.open = id; $(id).hidden = false;
     if (id === 'pause') $('pGarage').hidden = !!this.g.act;
+    if (id === 'map') this.pick = null;
     if (id === 'menu') this.menu(); if (id === 'garage') this.garage(); if (id === 'courses') this.courseList(); if (id === 'map') this.drawMap(); if (id === 'settings') this.settings();
     $('hud').hidden = id === 'menu' || id === 'garage';
   }
@@ -156,12 +160,22 @@ export class UI {
       x.fillStyle = 'rgba(0,0,0,.55)'; x.fillText(l.n, X + 1, Z + 1); x.fillStyle = l.t === 'water' || l.t === 'bay' || l.t === 'strait' ? '#cfe6ff' : '#fff8e0'; x.fillText(l.n, X, Z); }
     const res = { cv, sc, x0: isl.x0, z0: isl.z0 }; this.mapCache.set(isl, res); return res;
   }
+  // the map's projections: canvas ↔ world, for the island tab (the island the car is on) and the archipelago tab
+  mapProj() {
+    const cv = $('mapCanvas'), S = cv.width;
+    if (this.mapTab === 'island') { const im = this.islandImage(this.g.island()), k = S / im.cv.width; return { P: (wx, wz) => [(wx - im.x0) / im.sc * k, (wz - im.z0) / im.sc * k], W: (X, Z) => [im.x0 + X / k * im.sc, im.z0 + Z / k * im.sc] }; }
+    const R = 24000, k = S / (2 * R); return { P: (wx, wz) => [(wx + R) * k, (wz + R) * k], W: (X, Z) => [X / k - R, Z / k - R] };
+  }
+  mapPick(e) {
+    const cv = $('mapCanvas'), r = cv.getBoundingClientRect(), X = (e.clientX - r.left) / r.width * cv.width, Z = (e.clientY - r.top) / r.height * cv.height;
+    const [wx, wz] = this.mapProj().W(X, Z); this.pick = { x: wx, z: wz }; this.drawMap();
+  }
   drawMap() {
     const g = this.g, cv = $('mapCanvas'), x = cv.getContext('2d'), S = cv.width; x.clearRect(0, 0, S, S);
     const F = g.focus(), car = F.pos;          // the car, or the boat / plane / skier while an activity runs
     if (this.mapTab === 'island') {
       const isl = g.island(), im = this.islandImage(isl); x.drawImage(im.cv, 0, 0, S, S);
-      const k = S / im.cv.width, P = (wx, wz) => [(wx - im.x0) / im.sc * k, (wz - im.z0) / im.sc * k];
+      const { P } = this.mapProj();
       for (const c of g.courses.forIsland(isl)) { const [X, Z] = P(c.start.x, c.start.z); x.fillStyle = DIFFCOL[c.diff]; x.beginPath(); x.arc(X, Z, 7, 0, 7); x.fill(); x.strokeStyle = '#14120e'; x.lineWidth = 2; x.stroke(); x.fillStyle = '#fff'; x.font = '700 14px "Barlow Condensed"'; x.fillText(c.name, X, Z - 11); }
       for (const p of g.pois(isl)) { const [X, Z] = P(p.x, p.z); x.fillStyle = '#e5a92b'; x.fillRect(X - 6, Z - 6, 12, 12); x.fillStyle = '#fff'; x.font = '700 15px "Barlow Condensed"'; x.fillText(p.name, X, Z + 22); }
       if (g.net) g.net.drawMap(x, P, 'island');
@@ -170,13 +184,22 @@ export class UI {
       $('mapNote').textContent = 'Kjør til ferjekaia, eller ta ferja herfra for 5 muttere.';
     } else {
       // the archipelago: every island at its place in the world
-      const R = 24000, k = S / (2 * R), P = (wx, wz) => [(wx + R) * k, (wz + R) * k];
+      const R = 24000, k = S / (2 * R), { P } = this.mapProj();
       x.fillStyle = '#1d3a52'; x.fillRect(0, 0, S, S);
       for (const isl of [...g.world.islands].reverse()) { const im = this.islandImage(isl), [X0, Z0] = P(im.x0, im.z0); x.drawImage(im.cv, X0, Z0, im.cv.width * im.sc * k, im.cv.height * im.sc * k); }
       x.font = '700 20px "Barlow Condensed"'; x.textAlign = 'center';
       for (const isl of g.world.islands) { if (isl.def.backdrop) continue; const [X, Z] = P((isl.x0 + isl.x1) / 2, (isl.z0 + isl.z1) / 2); x.fillStyle = 'rgba(0,0,0,.6)'; x.fillText(isl.name, X + 1, Z + 1); x.fillStyle = '#fff8e0'; x.fillText(isl.name, X, Z); }
       if (g.net) g.net.drawMap(x, P, 'arch');
       const [X, Z] = P(car.x, car.z); x.fillStyle = '#ff4a2a'; x.beginPath(); x.arc(X, Z, 6, 0, 7); x.fill();
+    }
+    // the picked spot: a ring where the tap was, a dot where the car would land (the nearest road), and the button
+    const go = $('mapGo'), pk = this.pick, spot = pk && g.landingSpot(pk.x, pk.z);
+    go.hidden = !pk;
+    if (pk) {
+      const { P } = this.mapProj(), [X, Z] = P(pk.x, pk.z);
+      x.strokeStyle = spot ? '#fff8e0' : '#d9432f'; x.lineWidth = 3; x.beginPath(); x.arc(X, Z, 11, 0, 7); x.stroke();
+      if (spot) { const [sx, sz] = P(spot.x, spot.z); x.strokeStyle = 'rgba(255,248,224,.7)'; x.lineWidth = 2; x.beginPath(); x.moveTo(X, Z); x.lineTo(sx, sz); x.stroke(); x.fillStyle = '#e5a92b'; x.beginPath(); x.arc(sx, sz, 6, 0, 7); x.fill(); }
+      go.disabled = !spot; go.textContent = spot ? 'Sett bilen der · ' + g.placeNameAt(spot.x, spot.z) + (spot.road ? '' : ' (utenfor vei)') : 'Der er det bare sjø';
     }
     // the ferry list
     const dest = g.ferryDestinations();

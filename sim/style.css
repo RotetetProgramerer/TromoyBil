@@ -79,7 +79,7 @@ body.tilt .tpad.l{display:none}
 .rlist{list-style:none;padding:0;margin:0 0 10px;font-size:19px}.rlist li{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--line)}.rlist li b{color:var(--acc)}
 .map{background:rgba(8,8,6,.86)}
 .mapbox{position:relative;width:min(72vh,62vw);aspect-ratio:1}
-#mapCanvas{width:100%;height:100%;border-radius:12px;border:1px solid var(--line);background:#1d3a52}
+#mapCanvas{width:100%;height:100%;border-radius:12px;border:1px solid var(--line);background:#1d3a52;cursor:crosshair;touch-action:none}
 .maptabs{position:absolute;left:10px;top:10px;display:flex;gap:4px}.maptabs button{padding:6px 12px;border:1px solid var(--line);border-radius:6px;background:var(--panel);font-size:16px}.maptabs button.on{background:var(--acc);color:#1a1408}
 .dialog .panel{max-width:420px}
 #loading{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 40%,#2b2720,#0d0c0a);z-index:20;text-align:center;padding:20px}
