@@ -209,7 +209,7 @@ export class Life {
     return { x: t.x + isl.ox, z: t.z + isl.oz, y: t.y, k: t.k, H: TREE_H[t.k] * t.s };
   }
   perchOn(t, sp, R) {
-    const r = R ? R : rnd, a = r() * TAU, f = sp.rig === 'quad' && sp.type === 'tree' && sp.mass < 1 ? 0.25 + r() * 0.4 : 0.55 + r() * 0.3;
+    const r = R ? R : rnd, a = r() * TAU, f = sp.rig === 'quad' ? (sp.mass < 1 ? 0.25 + r() * 0.4 : 0.28 + r() * 0.25) : 0.55 + r() * 0.3;     // monkeys on the lower boughs, birds in the crown
     const off = sp.mass < 1 && sp.rig === 'quad' ? 0.22 : t.H * (0.08 + r() * 0.1);
     return { x: t.x + Math.sin(a) * off, z: t.z + Math.cos(a) * off, tree: t, perch: { x: t.x + Math.sin(a) * off, z: t.z + Math.cos(a) * off, y: t.y + t.H * f, h: sp.mass < 1 && sp.rig === 'quad' ? a + Math.PI : a } };
   }
@@ -329,6 +329,7 @@ export class Life {
     g.flee = sp.fleeT || 4; g.fx = a.tdx; g.fz = a.tdz;
     for (const b of g.m) if (b.st !== 'down' && b.st !== 'up') {
       b.st = sp.pronk && rnd() < 0.6 ? 'pronk' : 'flee'; b.t = (sp.fleeT || 4) * (0.8 + rnd() * 0.5) + (b === a ? 0 : rnd() * 0.4); b.fh = null; b.lie = Math.min(b.lie, 0.6);
+      if (b.v < sp.walk * 1.2) b.jolt = 0.35 + (b === a ? 0 : rnd() * 0.3);       // a start: a jump on the spot before it runs
     }
     if (sp.call && rnd() < 0.5) this.events.push({ type: 'call', a, kind: sp.call, alarm: true });
   }
@@ -370,6 +371,7 @@ export class Life {
       case 'pronk': case 'flee': {
         if (a.fh == null || rnd() < dt * 0.6) a.fh = this.escape(a, a.tdx * 0.7 + g.fx * 0.3, a.tdz * 0.7 + g.fz * 0.3, 0.6);
         hw = a.fh; roads = true;
+        if (a.jolt > 0) { a.jolt -= dt; look = true; }
         vw = a.st === 'pronk' ? sp.trot : sp.id === 'elg' || sp.id === 'ku' ? (a.td < 12 ? sp.run * 0.8 : sp.trot) : sp.run * (a.young ? 0.85 : 1);
         if (a.st === 'pronk' && a.t < (sp.fleeT || 4) * 0.6) a.st = 'flee';
         // herd: keep together, keep apart
@@ -399,8 +401,10 @@ export class Life {
     if (a.st === 'idle' && Math.hypot(a.x - a.hx, a.z - a.hz) > sp.range * 1.3) { g.gx = a.hx; g.gz = a.hz; }
     a.lie += ((a.st === 'lie' ? 1 : 0) - a.lie) * Math.min(1, dt * 1.5);
     if (a.lie > 0.05 && a.st !== 'lie') vw = 0;
+    if (a.jolt > 0.15) vw = 0;
     if (a.st !== 'stare' || a.v > 0.05 || Math.abs(wrap(hw - a.h)) > 0.05) this.go(a, dt, hw, vw, roads || a.st === 'cross');
     this.stride(a, dt); this.pose(a, dt, look || a.st === 'stare', down && a.v < sp.walk);
+    if (a.jolt > 0) a.bob += Math.sin(Math.min(1, a.jolt / 0.35) * Math.PI) * sp.sh * a.s * 0.12;
     a.roll *= Math.max(0, 1 - dt * 3);
     if (sp.call && rnd() < dt / 90 && a.dc < 200) this.events.push({ type: 'call', a, kind: sp.call });
   }

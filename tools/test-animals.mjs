@@ -200,10 +200,10 @@ console.log('5) Elg i veien foran bilen');
     life.evT = 0; tries++;
     const n0 = life.animals.length; life.roadEvent(0.1, view(p.x, p.z, { car, tvx: car.vel.x, tvz: car.vel.z }));
     const ev = life.events.find(e => e.type === 'event'); life.events.length = 0;
-    if (ev) { found++; const a = ev.a, d = Math.hypot(a.x - p.x, a.z - p.z); if (d < 120 || d > 260) bad(`elgen står ${d.toFixed(0)} m fra bilen`); for (const b of life.animals.slice(n0)) check(b, false, 'elg i veien'); }
+    if (ev) { found++; const a = ev.a, d = Math.hypot(a.x - p.x, a.z - p.z); if (d < 80 || d > 260) bad(`elgen står ${d.toFixed(0)} m fra bilen (i luftlinje)`); for (const b of life.animals.slice(n0)) check(b, false, 'elg i veien'); }
     if (found >= 10) break;
   }
-  console.log(`   ${found} av ${tries} forsøk på veier ga en elg ved veien 150–220 m foran bilen`);
+  console.log(`   ${found} av ${tries} forsøk på veier ga en elg ved veien 150–220 m foran bilen (langs veien)`);
   if (!found) bad('fant aldri et sted for elgen');
 }
 

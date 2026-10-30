@@ -70,9 +70,10 @@ vec2 worley(vec3 p){ vec3 i = floor(p), f = fract(p); float d1 = 8.0, d2 = 8.0;
 float animalPattern(){
   vec3 q = vLoc * uPatS;
   #if PAT == 1
-    // zebra: rings round the legs, upright bands on the body, across the neck
+    // zebra: rings round the legs, upright bands on the body, across the neck, chevrons on the rump
     float up = smoothstep(0.45, 0.62, vLoc.y / uDim.x), neck = smoothstep(uDim.z * 0.36, uDim.z * 0.5, vLoc.z) * up;
-    float u = mix(vLoc.y * 42.0, vLoc.z * 22.0 + vLoc.y * 6.0, up); u = mix(u, vLoc.y * 24.0 - vLoc.z * 11.0, neck);
+    float rump = smoothstep(-uDim.z * 0.28, -uDim.z * 0.42, vLoc.z) * up;
+    float u = mix(vLoc.y * 42.0, vLoc.z * 22.0 + vLoc.y * 6.0, up); u = mix(u, vLoc.y * 24.0 - vLoc.z * 11.0, neck); u = mix(u, vLoc.y * 26.0 + abs(vLoc.x) * 12.0, rump);
     u += sin(vLoc.y * 7.0 + vLoc.z * 3.0) * 1.2 + vn3(vLoc * 3.0) * 1.8;
     float fw = fwidth(u), s = sin(u), m = smoothstep(-0.2 - fw, 0.2 + fw, s);
     return mix(m, 0.5, smoothstep(0.8, 2.5, fw));
@@ -127,7 +128,7 @@ export class AnimalVis {
   kind(sp) {
     let K = this.kinds.get(sp.id); if (K) return K;
     const lods = [0, 1].map(l => build(sp, l)), meta = lods[0].meta;
-    meta.sh = sp.sh; meta.bl = sp.len; meta.L = sp.len;
+    meta.sh = sp.sh; meta.bl = meta.bl || sp.len; meta.L = sp.len;
     const mat = this.gfx.shadowed(prep(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: sp.rig === 'frog' ? 0.45 : sp.rig === 'sprawl' ? 0.75 : 0.9, metalness: 0, envMapIntensity: 0.4 }), patcher(meta, false)));
     mat.defines = Object.assign({ PAT: 0 }, meta.defs);
     const dmat = prep(new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking }), patcher(meta, true)); dmat.defines = Object.assign({ PAT: 0 }, meta.defs);
@@ -135,7 +136,7 @@ export class AnimalVis {
     K = { sp, meta, lodD: Math.max(14, Math.min(80, Math.max(sp.len, sp.span || 0, sp.sh) * 22)), far: sp.vis || RINGS[sp.ring].r + 40, meshes: lods.map((L, i) => {
       const g = L.geo; for (const n of ['aAnim', 'aPose', 'aWing', 'aTint']) { const at = new THREE.InstancedBufferAttribute(new Float32Array(CAP * 4), 4); at.setUsage(THREE.DynamicDrawUsage); g.setAttribute(n, at); }
       const m = new THREE.InstancedMesh(g, mat, CAP); m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); m.frustumCulled = false; m.count = 0;
-      m.castShadow = i === 0 || big; m.receiveShadow = true; m.customDepthMaterial = dmat; m.name = sp.id + (i ? ':fjern' : ''); this.root.add(m); return m; }) };
+      m.castShadow = i === 0 || big; m.receiveShadow = true; m.visible = false; m.customDepthMaterial = dmat; m.name = sp.id + (i ? ':fjern' : ''); this.root.add(m); return m; }) };
     this.kinds.set(sp.id, K);
     return K;
   }
@@ -153,7 +154,7 @@ export class AnimalVis {
       this.write(a, K, m, m.n++); drawn++;
     }
     for (const K of this.kinds.values()) for (const m of K.meshes) {
-      m.count = m.n; if (!m.n) continue;
+      m.count = m.n; m.visible = m.n > 0; if (!m.n) continue;          // empty meshes cost no draw call
       m.instanceMatrix.clearUpdateRanges(); m.instanceMatrix.addUpdateRange(0, m.n * 16); m.instanceMatrix.needsUpdate = true;
       for (const n of ['aAnim', 'aPose', 'aWing', 'aTint']) { const at = m.geometry.attributes[n]; at.clearUpdateRanges(); at.addUpdateRange(0, m.n * 4); at.needsUpdate = true; }
     }

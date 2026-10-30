@@ -21,7 +21,11 @@ export default class Animals {
     this.calls = new Calls(g.snd);
     this.on = g.params.get('dyr') !== '0';
     // every body built now and the shaders compiled in the background, so a new island does not stutter when its animals appear
-    if (this.on) { for (const sp of SPECIES) this.vis.kind(sp); try { const r = g.gfx.renderer; if (r.compileAsync && r.extensions.has('KHR_parallel_shader_compile')) r.compileAsync(this.vis.root, g.gfx.camera, g.gfx.scene).catch(() => { }); } catch (e) { } }
+    if (this.on) { for (const sp of SPECIES) this.vis.kind(sp); try {
+      const r = g.gfx.renderer, ms = []; if (!r.compileAsync || !r.extensions.has('KHR_parallel_shader_compile')) return;
+      this.vis.root.traverse(o => { if (o.isMesh) { ms.push(o); o.visible = true; } });          // compile() only looks at what is visible
+      r.compileAsync(this.vis.root, g.gfx.camera, g.gfx.scene).catch(() => { }); for (const m of ms) m.visible = false;
+    } catch (e) { } }
   }
   // what the animals need to know this frame
   view(dt) {
@@ -39,7 +43,7 @@ export default class Animals {
   frame(dt) {
     if (!this.on || !this.life) return;
     const g = this.game, V = this.view(dt);
-    this.life.update(dt, V);
+    if (g.mode !== 'pause') this.life.update(dt, V);          // the pause menu stops them too
     for (const e of this.life.events) this.handle(e, V);
     this.life.events.length = 0;
     this.toastT -= dt;

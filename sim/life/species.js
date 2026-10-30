@@ -42,7 +42,7 @@ export const SPECIES = [
     alert: 40, flee: 22, group: [2, 6], spread: 8, dens: 20, cover: [C.FARM, C.GARDEN, C.GRASS, C.URBAN, C.BEACH], perch: NTREES, call: 'crow', range: 200 },
   { id: 'havorn', name: 'Havørna', rig: 'bird', type: 'soar', ring: 3, mass: 5, len: 0.85, span: 2.25, sh: 0.4, fly: 14, flap: 2, glide: 0.9, alt: [70, 180],
     group: [1, 1], dens: 0.5, medium: 'coast', cover: [C.ROCK, C.FOREST, C.BEACH, C.SEA, C.MIXED], call: 'eagle', range: 400 },
-  { id: 'and', name: 'Stokkanda', rig: 'bird', type: 'swim', ring: 1, mass: 1.1, len: 0.58, span: 0.88, sh: 0.25, walk: 0.5, fly: 18, flap: 7, glide: 0,
+  { id: 'and', name: 'Stokkanda', rig: 'bird', type: 'flock', ring: 1, mass: 1.1, len: 0.58, span: 0.88, sh: 0.25, walk: 0.5, fly: 18, flap: 7, glide: 0,
     alert: 45, flee: 22, group: [2, 8], spread: 6, dens: 100, medium: 'water', depth: [0.25, 30], cover: [C.LAKE, C.STREAM, C.BOG], call: 'duck', range: 150 },
   // ------------------------------------------------------------ Trinnvik (the town)
   { id: 'due', name: 'Duene', rig: 'bird', type: 'flock', ring: 0, mass: 0.35, len: 0.33, span: 0.65, sh: 0.17, walk: 0.7, fly: 17, flap: 6, glide: 0.1,

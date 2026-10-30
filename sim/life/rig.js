@@ -107,7 +107,7 @@ function quad(G, Q) {
     G.tube(A, K, ru, rl * 1.15, Object.assign({}, o, { seg: 0 }));
     G.ell(K, [Math.min(rl * 1.2, rl + 0.012), Math.min(rl * 1.3, rl + 0.02), Math.min(rl * 1.2, rl + 0.012)], Object.assign({}, o, { seg: 1 }));
     G.tube(K, foot, rl * 1.1, rl * 0.9, Object.assign({}, o, { seg: 1 }));
-    G.tube([foot[0], foot[1] + 0.03 * sh, foot[2]], [foot[0], 0, foot[2] + rl * 0.3], rl * (Q.paw ? 1.3 : 1.05), rl * (Q.paw ? 1.4 : 1.2), { part, seg: 1, a: A, b: K, col: c.hoof || legCol(0) });
+    G.tube([foot[0], foot[1] + 0.03 * sh, foot[2]], [foot[0], 0, foot[2] + rl * 0.05], rl * (Q.paw ? 1.3 : 1.05), rl * (Q.paw ? 1.4 : 1.2), { part, seg: 1, a: A, b: K, col: c.hoof || legCol(0) });
   }
   // neck and head (one part: it turns about the base of the neck)
   const N = Q.neck, H = Q.head, nb = [0, sh - bd * (Q.neckY ?? 0.38), bl * 0.4], na = N.ang, nt = [0, nb[1] + Math.sin(na) * N.len, nb[2] + Math.cos(na) * N.len];
@@ -142,7 +142,7 @@ function quad(G, Q) {
     if (c.tailTip && T.bush) G.ell(p0, [T.r * 1.1, T.r * 1.1, T.r * 1.4], Object.assign({}, to, { seg: 1, col: c.tailTip }), [Math.PI / 2 - T.ang, 0, 0]);
   }
   for (const x of Q.extra || []) x(G, { nb, nt, hd, hc, mz, tip, ho, c, Q, yc, fz, hz, bellyY });
-  return { graze: grazeAngle(nb, tip, nt, 0.3), drop: Math.max(0, bellyY - bd * 0.35 - 0.02 * sh), cy: yc, nod: [...nt, 0.3] };
+  return { graze: grazeAngle(nb, tip, nt, 0.3), drop: Math.max(0, bellyY - bd * 0.35 - 0.02 * sh), cy: yc, nod: [...nt, 0.3], bl };
 }
 // the head angle that brings the mouth down to the grass
 // (the neck turns about its base A by a, the head about the top of the neck N by a·k)
@@ -156,7 +156,7 @@ function grazeAngle(A, T, N, k) {
 const ho2 = (k, o) => Object.assign({}, k.ho, o, { pat: false, tint: false });
 const ANTLER = {
   // moose: a broad palm on each side with a row of tines along its edge
-  palm: (G, k) => { const col = lin('#cdb894'), top = add(k.nt, k.hd, k.Q.head.len * 0.12), H = k.Q.head; for (const s of [1, -1]) {
+  palm: (G, k) => { const col = lin('#a8946e'), top = add(k.nt, k.hd, k.Q.head.len * 0.12), H = k.Q.head; for (const s of [1, -1]) {
     const b = add(top, [s * H.w * 0.35, H.h * 0.42, 0]), p = add(b, [s * 0.42, 0.18, -0.06]);
     G.tube(b, add(b, [s * 0.14, 0.06, 0]), 0.045, 0.04, ho2(k, { col, sex: 1 }));
     G.ell(p, [0.36, 0.06, 0.24], ho2(k, { col, sex: 1 }), [0.2, s * 0.25, s * 0.42]);
@@ -196,8 +196,8 @@ function elephantHead(G, k) {
   G.chain(pts, [0.24, 0.17, 0.12, 0.08, 0.07], ho2(k, { col }));
   for (const s of [1, -1]) {
     const tb = add(k.mz, [s * 0.2, -H.h * 0.3, 0]); G.chain([tb, add(tb, [s * 0.06, -0.45, 0.3]), add(tb, [s * 0.04, -0.55, 0.75])], [0.08, 0.06, 0.012], ho2(k, { col: lin('#efe6d0') }));
-    const eb = add(k.hc, [s * (H.w * 0.5 + 0.12), H.h * 0.2, -H.len * 0.3]);       // the ears: big flaps standing out from the side of the head
-    G.slab([add(eb, [0, 0.5, 0.1]), add(eb, [s * 0.45, 0.65, -0.45]), add(eb, [s * 0.5, -0.7, -0.6]), add(eb, [s * 0.05, -0.6, -0.05])], 0.06, ho2(k, { col: lin('#857c72') }));
+    // the ears: big flat flaps from the side of the head, back over the neck
+    G.ell(add(k.hc, [s * (H.w * 0.5 + 0.06), -H.h * 0.02, -H.len * 0.42]), [0.07, 0.72, 0.6], ho2(k, { col: lin('#857c72') }), [0, s * 0.45, 0]);
   }
 }
 function hippoHead(G, k) {
@@ -210,7 +210,7 @@ function hippoHead(G, k) {
 const Q = {
   elg: { sh: 1.9, hh: 1.72, bl: 1.85, bd: 0.92, bw: 0.7, legs: [0.085, 0.05, 0.1, 0.05], knee: 0.33, hock: 0.12, sockY: 0.62, hump: true, chestTilt: 0.12,
     neckY: 0.45, neck: { len: 0.7, ang: 0.3, r0: 0.3, r1: 0.2 }, head: { len: 0.78, h: 0.3, w: 0.26, ang: 0.62, mz: 0.95, flat: 1.15 }, ear: { len: 0.26, w: 0.12, ang: 0.9 }, tail: { len: 0.1, r: 0.04, ang: 1.2 },
-    c: { body: '#3b2a1e', belly: '#261c14', leg: '#3b2a1e', sock: '#a8957a', hoof: '#26221e', head: '#47352a', muzzle: '#3a2b20', nose: '#1a1410', neck: '#2f241b' }, extra: [ANTLER.palm, MANE.bell] },
+    c: { body: '#2e2118', belly: '#1e1610', leg: '#2e2118', sock: '#8c7c66', hoof: '#26221e', head: '#3a2c22', muzzle: '#2e231a', nose: '#140f0c', neck: '#261c14' }, extra: [ANTLER.palm, MANE.bell] },
   radyr: { sh: 0.72, hh: 0.76, bl: 0.72, bd: 0.32, bw: 0.24, legs: [0.03, 0.016, 0.04, 0.017], knee: 0.32, hock: 0.12,
     neckY: 0.45, neck: { len: 0.38, ang: 0.95, r0: 0.075, r1: 0.05 }, head: { len: 0.22, h: 0.1, w: 0.095, ang: 0.4, mz: 0.7 }, ear: { len: 0.12, w: 0.065, ang: 0.75 },
     c: { body: '#9a5a32', belly: '#c49a70', rump: '#efe6d8', leg: '#8a5634', hoof: '#26221e', head: '#8a5a3a', muzzle: '#3a3530', nose: '#141210' }, extra: [ANTLER.roe] },
