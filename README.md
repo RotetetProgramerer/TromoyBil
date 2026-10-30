@@ -86,7 +86,9 @@ tools/                  Byggeverktøy og tester (under)
 
 ## Publisering
 
-`.github/workflows/pages.yml` publiserer repoet på GitHub Pages hver gang `main` oppdateres.
+`.github/workflows/pages.yml` publiserer repoet på GitHub Pages hver gang `main` oppdateres. Det må slås på én gang: Settings → Pages →
+Build and deployment → Source: «GitHub Actions» (eller «Deploy from a branch», `main` og `/ (root)`; `.nojekyll` gjør at filene
+serveres som de er).
 
 ## Kartdata og lisenser
 
