@@ -6,7 +6,7 @@ import { loadBytes, loadJSON, parseGrid } from './grid.js';
 import { Island } from './island.js';
 
 export class World {
-  constructor() { this.islands = []; this.backdrop = null; this.wet = 0; this.sea = 0; this._cols = []; this._last = null; }
+  constructor() { this.islands = []; this.backdrop = null; this.wet = 0; this.sea = 0; this._cols = []; this._last = null; this.movers = []; }   // movers: f(x,z,r,out) adding things that move (sim/life)
 
   // base: the folder with the island data (world/ in the repo). def: {id, name, dir, ox, oz, seed, ...}
   async addIsland(base, def) {
@@ -45,6 +45,6 @@ export class World {
   }
   surface(x, z) { const isl = this.islandAt(x, z); return isl ? isl.surface(x, z) : SURF.SEABED; }
   water(x, z) { const isl = this.islandAt(x, z); return isl ? isl.water(x, z) : this.sea; }
-  colliders(x, z, r) { this._cols.length = 0; const isl = this.islandAt(x, z); if (isl) isl.colliders(x, z, r, this._cols); return this._cols; }
+  colliders(x, z, r) { this._cols.length = 0; const isl = this.islandAt(x, z); if (isl) isl.colliders(x, z, r, this._cols); for (const f of this.movers) f(x, z, r, this._cols); return this._cols; }
   road(x, z) { const isl = this.islandAt(x, z); return isl ? isl.roads.query(x - isl.ox, z - isl.oz) : null; }
 }
