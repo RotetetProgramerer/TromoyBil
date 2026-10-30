@@ -194,6 +194,7 @@ export class Game {
   }
   towHome() {
     if (this.prof.nuts < 20) { this.ui.toast('Du trenger 20 muttere', true); return; }
+    if (this.act) this.act.stop();      // (the map is open over a boat or a ski run too: off it, back in the car first)
     this.prof.nuts -= 20; this.saveProf(); this.courses.stop(); this.ui.course(null);
     const a = this.base.ask; this.car.place(this.world, a.x, a.z, TROMOYA.base.h + Math.PI);
     this.afterIslandChange(); this.ui.hide(); this.mode = 'drive'; this.ui.toast('Tauet til verkstedet · −20 ⚙');
@@ -201,6 +202,7 @@ export class Game {
   ferryDestinations() { const here = this.island(); return this.quays.filter(q => q.isl !== here).map(q => ({ q, name: q.isl.name, sub: q.name })); }
   takeFerry(d) {
     if (this.prof.nuts < 5) { this.ui.toast('Du trenger 5 muttere til ferja', true); return; }
+    if (this.act) this.act.stop();
     this.prof.nuts -= 5; this.saveProf(); this.courses.stop(); this.ui.course(null); this.ui.hide();
     this.mode = 'ferry'; this.trip = { to: d.q, t: 0, T: 14 };
     const here = this.quays.find(q => q.isl === this.island()); this.trip.from = here || { x: this.car.pos.x, z: this.car.pos.z, dir: 0, sea: 0 };

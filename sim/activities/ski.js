@@ -78,9 +78,7 @@ export default class SkiActivity extends Activity {
     // the parking is by the «GAUTEFALL skisenter · parkering» sign (the numbers above are for the sign at −20, 731)
     const sg = (this.isl.feat.special.signs || []).find(s => /parkering/.test(s.sub || '')), dx = sg ? sg.x + 20 : 0, dz = sg ? sg.z - 731 : 0;
     this.park = { x: PARK.x + dx, z: PARK.z + dz, r: PARK.r }; this.carAt = { x: CAR.x + dx, z: CAR.z + dz, h: CAR.h };
-    this.resort = new SkiResort(g.gfx, g.world, this.area, g.special); this.resort.best = g.best;
-    // the headlamp for skiing in the dark (always in the scene, so turning it on recompiles nothing)
-    this.lamp = new THREE.SpotLight(0xfff4e0, 0, 45, 0.5, 0.6, 1.3); this.lamp.castShadow = false; g.gfx.scene.add(this.lamp, this.lamp.target);
+    this.resort = new SkiResort(g.gfx, g.world, this.area, g.special, g.lamps); this.resort.best = g.best;
     this.dom();
     this.touch = {}; this.acc = 0; this.camMode = 0; this.liftCam = 0; this.camPos = new THREE.Vector3(); this.look = new THREE.Vector3(); this.snap = true; this.phase = ''; this.camH = 0;
     this.pose = null; this.fadeQ = null; this.lastJump = false;
@@ -120,8 +118,8 @@ export default class SkiActivity extends Activity {
       const I = car.input; I.brake = 0; car.place(g.world, px, pz, this.carAt.h); for (let i = 0; i < 300; i++) car.step(1 / 400, g.world); car.vel.set(0, 0, 0); I.brake = 1;
       if (from !== isl) { g.dockFerry(isl); g.afterIslandChange(); }
     }
-    car.engineOff = true;
-    this.camSave = g.cam.mode; this.pauseSave = { reset: $('pReset').textContent, abort: $('pAbort').textContent, abortClick: $('pAbort').onclick };
+    car.engineOff = true; this.lendLamp(true);
+    this.camSave = g.cam.mode; g.cam.mode = 0; this.pauseSave = { reset: $('pReset').textContent, abort: $('pAbort').textContent, abortClick: $('pAbort').onclick };
     const paint = g.paintColor ? g.paintColor() : '#d9432f';
     this.skier = new Skier(this.area, { assist: g.settings.mode !== 'ekte' });
     if (!this.vis) { this.vis = new SkierVisual(g.gfx, g.world, { jacket: typeof paint === 'string' ? paint : '#d9432f' }); this.spray = new SnowSpray(g.gfx); this.tracks = new SkiTracks(g.gfx, g.world, 1400, (x, z) => this.area.ground(x, z)); this.arrow = new Arrow(g.gfx); this.arrow.mesh.scale.setScalar(0.5); }
@@ -136,11 +134,20 @@ export default class SkiActivity extends Activity {
     const g = this.game; if (!this.active) return;
     this.phase = ''; this.run = null; this.fadeQ = null; $('kFade').classList.remove('on'); g.ui.countdown(null);
     if (this.sound) { this.sound.stop(); this.sound = null; }
-    if (this.vis) this.vis.root.visible = false; this.spray && this.spray.clear(); this.ghost = null; this.showGhost(); this.arrow && this.arrow.hide(); this.resort.showGate(null); this.resort.skip = -1; this.resort.live(null); this.lamp.intensity = 0;
+    if (this.vis) this.vis.root.visible = false; this.spray && this.spray.clear(); this.ghost = null; this.showGhost(); this.arrow && this.arrow.hide(); this.resort.showGate(null); this.resort.skip = -1; this.resort.live(null); this.lendLamp(false);
     g.car.engineOff = false; g.cam.mode = this.camSave || 0;
     if (this.pauseSave) { $('pReset').textContent = this.pauseSave.reset; $('pAbort').textContent = this.pauseSave.abort; $('pAbort').onclick = this.pauseSave.abortClick; $('pAbort').hidden = true; }
     $('offer').hidden = true; this.nearShown = ''; this.pose = null; this.hudEl.classList.remove('lift'); $('kRun').hidden = true; $('kLift').hidden = true;
     g.endActivity();
+  }
+  // the headlamp for skiing in the dark: one of the parked car's two headlight spots, lent to the skier and given back after (a light
+  // of its own would cost every lit pixel in the game all the time; this way the scene keeps its number of lights)
+  lendLamp(on) {
+    const g = this.game, L = this.lamp;
+    if (on && !L) { const s = g.vis.spots && g.vis.spots[0]; if (!s) return;
+      this.lamp = s; this.lampSave = { parent: s.parent, p: s.position.clone(), t: s.target.position.clone(), col: s.color.clone(), d: s.distance, a: s.angle, pn: s.penumbra, dc: s.decay };
+      g.gfx.scene.add(s, s.target); s.color.setHex(0xfff4e0); s.distance = 45; s.angle = 0.5; s.penumbra = 0.6; s.decay = 1.3; s.intensity = 0; }
+    else if (!on && L) { const o = this.lampSave; o.parent.add(L, L.target); L.position.copy(o.p); L.target.position.copy(o.t); L.color.copy(o.col); L.distance = o.d; L.angle = o.a; L.penumbra = o.pn; L.decay = o.dc; this.lamp = null; }
   }
   // a short fade to black: cb runs while it is dark
   fade(cb) { $('kFade').classList.add('on'); this.fadeQ = { t: 0, cb, done: false }; }
@@ -321,7 +328,8 @@ export default class SkiActivity extends Activity {
     if (e.type === 'bump' && e.hard > 2.5) this.shake = Math.min(0.12, e.hard * 0.02);
     if (e.type === 'land') {
       this.sound && this.sound.land(e.hard); if (e.hard > 3) this.spray.burst(s.pos.x, s.pos.y, s.pos.z, Math.min(30, e.hard * 3 | 0), 1.5 + e.hard * 0.3, s.vel.x, s.vel.z); if (e.hard > 5) this.shake = Math.min(0.2, e.hard * 0.02);
-      if (e.air > 0.35 && r && this.phase === 'run') { r.jumps.push(e); if (this.k.points) { const p = jumpPoints(e.air, e.spins, e.pop); r.points += p; $('kBest').textContent = r.points; g.ui.toast((e.spins ? e.spins * 360 + '°! ' : e.pop ? 'Perfekt sats! ' : 'Hopp! ') + e.air.toFixed(1).replace('.', ',') + ' s · +' + p + ' poeng'); } else if (e.air > 0.6) g.ui.toast('Hopp! ' + e.air.toFixed(1).replace('.', ',') + ' s'); }
+      // on Big Jumps only a jump off a kicker scores (hops on the way down are no jumps)
+      if (e.air > 0.35 && r && this.phase === 'run' && (e.kick || !this.k.points)) { r.jumps.push(e); if (this.k.points) { const p = jumpPoints(e.air, e.spins, e.pop); r.points += p; $('kBest').textContent = r.points; g.ui.toast((e.spins ? e.spins * 360 + '°! ' : e.pop ? 'Perfekt sats! ' : 'Hopp! ') + e.air.toFixed(1).replace('.', ',') + ' s · +' + p + ' poeng'); } else if (e.air > 0.6) g.ui.toast('Hopp! ' + e.air.toFixed(1).replace('.', ',') + ' s'); }
       else if (e.air > 0.6 && e.spins) g.ui.toast(e.spins * 360 + '°!');
       if (e.wob) g.ui.toast('Hold balansen!', true);
     }
@@ -370,15 +378,15 @@ export default class SkiActivity extends Activity {
     // the fade to black and back
     const F = this.fadeQ; if (F) { F.t += dt; if (F.t > 0.42 && !F.done) { F.done = true; F.cb(); } if (F.t > 0.6) $('kFade').classList.remove('on'); if (F.t > 1) this.fadeQ = null; }
     const s = this.active && this.skier, ph = this.phase;
-    if (this.resort.riding !== (this.active && ph === 'lift')) { this.resort.riding = this.active && ph === 'lift'; this.resort.floodT = 0; }
+    this.resort.riding = this.active && ph === 'lift';
     this.resort.update(dt, cam.position, s && this.k && (ph === 'run' || ph === 'done') ? { k: this.k, x: s.pos.x, z: s.pos.z } : null);
     if (this.active && s) {
       // the arrow to the next gate when it is far or was missed
       const r = this.run, G = r && !r.done && ph === 'run' ? this.k.gates[r.next] : null;
       if (G && !s.air) { const d = Math.hypot(G.x - s.pos.x, G.z - s.pos.z), ahead = (G.x - s.pos.x) * Math.sin(s.dir) + (G.z - s.pos.z) * Math.cos(s.dir); if (d > 160 || ahead < -15) this.arrow.set(s.pos.x, s.pos.y + 2.3, s.pos.z, G.x, G.z, ahead < -15, U.uTime.value); else this.arrow.hide(); } else this.arrow.hide();
-      // the headlamp in the dark
+      // the headlamp in the dark (after the car's frame, which sets its headlights)
       const on = this.lampOn ?? U.uNight.value > 0.4; const hp = this.vis.fig.headG.getWorldPosition(_v);
-      this.lamp.intensity = on && ph !== 'lift' ? 8 : 0; this.lamp.position.copy(hp); this.lamp.target.position.set(hp.x + Math.sin(s.dir) * 16, hp.y - 2.2, hp.z + Math.cos(s.dir) * 16); this.lamp.target.updateMatrixWorld();
+      const lp = this.lamp; if (lp) { lp.intensity = on && ph !== 'lift' ? 8 : 0; lp.position.copy(hp); lp.target.position.set(hp.x + Math.sin(s.dir) * 16, hp.y - 2.2, hp.z + Math.cos(s.dir) * 16); lp.target.updateMatrixWorld(); }
       // at the top, while the menu is open: the camera circles the skier
       if (ph === 'top' && g.mode === 'pause') { const a = performance.now() * 0.00012, p = s.pos; cam.position.set(p.x + Math.sin(a) * 5, p.y + 2.2, p.z + Math.cos(a) * 5); cam.up.set(0, 1, 0); cam.lookAt(p.x, p.y + 0.9, p.z); cam.fov = 50; cam.updateProjectionMatrix();
         this.vis.sync(s, dt, { area: this.area, going: false }); }

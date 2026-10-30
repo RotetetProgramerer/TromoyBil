@@ -267,7 +267,7 @@ export class Skier {
     const nd = Math.atan2(v.x, v.z), hs = Math.hypot(v.x, v.z);
     if (hs > 0.8) { const latA = hs * wrap(nd - this.dir) / dt, ti = Math.atan(clamp(latA / g, -2.5, 2.5)); this.inc += (ti - this.inc) * Math.min(1, dt * 7); } else this.inc *= 1 - Math.min(1, dt * 6);
   }
-  takeoff(pop, kick) { this.air = true; this.airT = 0; this.spin = 0; this.spinV = 0; this.pop = pop; this.ev.push({ type: 'takeoff', pop, kick }); }
+  takeoff(pop, kick) { this.air = true; this.airT = 0; this.spin = 0; this.spinV = 0; this.pop = pop; this.kick = kick; this.ev.push({ type: 'takeoff', pop, kick }); }
   fly(dt, inp) {
     const A = this.area, P = SKI, p = this.pos, v = this.vel, sp = v.length(), kd = 0.5 * P.rho * (P.cdaUp + (P.cdaTuck - P.cdaUp) * this.tuck) / P.m;
     this.airT += dt; v.y -= P.g * dt; v.multiplyScalar(1 - kd * sp * dt);
@@ -286,7 +286,7 @@ export class Skier {
     if (hard > lim) return this.crash('For hard landing');
     this.land = Math.min(1, hard / 7); this.head = this.dir + wrap(this.head - this.dir) * 0.4;
     const wb = Math.max(hs > 3 ? (across - 0.45) / 0.6 : 0, (hard - wl) / (lim - wl)); if (wb > 0 && air > 0.15) { this.wob = Math.min(1, Math.max(this.wob, 0.45 + wb * 0.55)); this.wobT = 0; }
-    if (air > 0.12) this.ev.push({ type: 'land', air, spins: clean && air > 0.35 ? spins : 0, hard, wob: wb > 0, pop: this.pop });
+    if (air > 0.12) this.ev.push({ type: 'land', air, spins: clean && air > 0.35 ? spins : 0, hard, wob: wb > 0, pop: this.pop, kick: this.kick });
     this.frame();
   }
   // a fall: tumbling and sliding to a stop on the snow; the game puts the skier back on their feet

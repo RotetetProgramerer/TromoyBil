@@ -73,7 +73,8 @@ if (area.pistes.length !== 4) bad('venter fire nedfarter');
 // ---------------------------------------------------------------- 3) the autopilot
 // pure pursuit along the line (through the shortcut where a piste loops), never past the next gate until it is close; the speed
 // held under a limit for the piste and for the bends ahead: tuck or pole when slower, plough when faster. It rides off the kickers,
-// pops at the lip of the middle one and lands with the skis straight.
+// pops at the lip of the middle one and lands with the skis straight. With hop it also jumps at every chance on the way down (the
+// jump piste must not pay for hops: only a jump off a kicker scores, as in the game).
 const VMAX = { fri: 13, slalom: 16, utfor: 24, hopp: 17 };
 // the line to follow, every 2 m, and where each gate lies along it
 function route(k) {
@@ -85,7 +86,7 @@ function route(k) {
 }
 function at(R, r) { let j = Math.max(0, Math.min(R.length - 2, Math.floor(r / 2))); while (j > 0 && R[j].r > r) j--; while (j < R.length - 2 && R[j + 1].r < r) j++; const a = R[j], b = R[j + 1], u = Math.max(0, Math.min(1, (r - a.r) / ((b.r - a.r) || 1))); return { x: a.x + (b.x - a.x) * u, z: a.z + (b.z - a.z) * u }; }
 function kappa(R, r) { const a = at(R, r - 6), b = at(R, r), c = at(R, r + 6); return Math.abs(wrap(Math.atan2(c.x - b.x, c.z - b.z) - Math.atan2(b.x - a.x, b.z - a.z))) / 6; }
-function ski(k) {
+function ski(k, hop = false) {
   const s = new Skier(area, { assist: false }), run = new SkiRun(k), R = route(k), vmax = VMAX[k.kind] || 15;
   s.place(k.start.x - Math.sin(k.start.h) * 2, k.start.z - Math.cos(k.start.h) * 2, k.start.h);
   let t = 0, ri = 0, top = 0, sum = 0, n = 0, air = 0, hard = 0, turnT = 0, carveT = 0, takeoffs = 0, kicks = 0, lastKick = null;
@@ -104,6 +105,7 @@ function ski(k) {
     const inp = { steer: onKick ? steer * 0.25 : steer, gas: v < vt - 2 || v < 3 ? 1 : 0, brake: v > vt + 1 && !onKick && (Math.abs(steer) < 0.5 || v > vt + 5) ? 1 : 0, jump: false };
     if (s.air) { inp.steer = Math.max(-1, Math.min(1, 2 * wrap(s.dir - s.head))); inp.gas = 0; inp.brake = 0; }
     if (kk && kk.q !== lastKick && kk.a > -1.2 && kk.a < 0 && !s.air) { lastKick = kk.q; if (++kicks === 2) inp.jump = true; }
+    if (hop && run.started && !s.air && s.crashT === 0) inp.jump = true;
     p1.x = s.pos.x; p1.z = s.pos.z;
     s.step(DT, inp); t += DT;
     if (!run.started && run.crossStart(p1, s.pos)) { run.started = true; t = 0; }
@@ -112,7 +114,7 @@ function ski(k) {
       if (e.type === 'crash') crashes.push(`${e.why} ved ${Math.round(r0)} m i ${kmh(e.speed)} km/t`);
       if (e.type === 'takeoff') { takeoffs++; if (process.env.TRACE) console.log('    takeoff', t.toFixed(2), 'r', r0.toFixed(0), 'v', kmh(v), JSON.stringify(e)); }
       if (e.type === 'land' && process.env.TRACE) console.log('    land', t.toFixed(2), 'r', r0.toFixed(0), JSON.stringify(e));
-      if (e.type === 'land') { hard = Math.max(hard, e.hard); if (e.air > 0.3) jumps.push(e); air = Math.max(air, e.air); }
+      if (e.type === 'land') { hard = Math.max(hard, e.hard); if (e.air > 0.35 && (e.kick || !k.points)) jumps.push(e); air = Math.max(air, e.air); }
     }
     s.ev.length = 0;
     if (s.crashT > 2.5) { const c = run.cp; s.place(c.x, c.z, c.h); }
@@ -136,6 +138,10 @@ for (const k of area.pistes) {
   if (r.misses.length) bad(k.id + ': bommet på port ' + r.misses.map(i => i + 1).join(', '));
   if (r.top * 3.6 > 125) bad(k.id + ': for høy toppfart');
   if (k.kind !== 'fri' && r.top * 3.6 < 40) bad(k.id + ': for lav toppfart');
+  if (k.points) { // hopping all the way down: the hops pay nothing, so no more points than the kickers give
+    const h = ski(k, true); console.log(`  ${''.padEnd(7)} med hopp hele veien: ${h.takeoffs} hopp, ${h.jumps} med poeng, ${h.pts} poeng`);
+    if (h.jumps > area.kickers.filter(q => q.k === k).length * 2 || h.pts >= k.par[0]) bad(k.id + ': hopp på flaten gir poeng (' + h.pts + ' poeng av ' + h.jumps + ' hopp)');
+  }
 }
 console.log(fails ? `\n${fails} FEIL` : '\nAlle nedfartene kan kjøres fra toppen til mål uten fall, i ekte farter.');
 process.exit(fails ? 1 : 0);

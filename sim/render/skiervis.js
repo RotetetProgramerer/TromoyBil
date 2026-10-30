@@ -29,31 +29,32 @@ export function skierMats(gfx, o = {}) {
     stripe: mat(gfx, 'stripe' + c, { color: '#f4f4f0', roughness: 0.5 }),
   };
 }
-let G = null;
-function geos() {
-  if (G) return G;
-  const limb = (r0, r1, seg = 10) => new THREE.CylinderGeometry(r1, r0, 1, seg, 1).translate(0, 0.5, 0);   // r0 at y = 0, r1 at y = 1
+const G = {};
+// lo: the low-poly set for the figures baked by the hundred (the crowd at the finishes, the people in the chairs): 650–950 triangles
+// against 3 500
+function geos(lo) {
+  if (G[!!lo]) return G[!!lo];
+  const n = (hi, low) => lo ? low : hi, limb = (r0, r1, seg = n(10, 5)) => new THREE.CylinderGeometry(r1, r0, 1, seg, 1).translate(0, 0.5, 0);   // r0 at y = 0, r1 at y = 1
   // the jacket: narrower at the waist, wide at the shoulders, a little deeper at the chest; y from 0 (waist) to 1 (collar)
   const torso = new THREE.BoxGeometry(1, 1, 1, 1, 3, 1).translate(0, 0.5, 0), tp = torso.attributes.position;
   for (let i = 0; i < tp.count; i++) { const y = tp.getY(i), w = 0.31 + 0.11 * sm(y * 1.4), d = 0.2 + 0.04 * Math.sin(Math.PI * Math.min(1, y * 1.2)); tp.setX(i, tp.getX(i) * (y > 0.97 ? w * 0.75 : w)); tp.setZ(i, tp.getZ(i) * d); }
   torso.computeVertexNormals();
   // a carving ski: 1.75 m, wide at tip and tail and narrow underfoot (the sidecut), the tip turned up; base at y = 0, binding at z = 0
-  const ski = (() => { const P = [], I = [], n = 24; for (let i = 0; i <= n; i++) { const u = i / n, z = -0.875 + 1.75 * u, w = 0.034 + 0.008 * Math.pow(Math.abs(z) / 0.875, 2) + (z > 0.7 ? 0.004 : 0), y = z > 0.68 ? 0.07 * ((z - 0.68) / 0.195) ** 2 : z < -0.78 ? 0.025 * ((-0.78 - z) / 0.095) ** 2 : 0, t = 0.017 * (1 - 0.5 * Math.abs(z) / 0.875);
+  const ski = (() => { const P = [], I = [], n = lo ? 6 : 24; for (let i = 0; i <= n; i++) { const u = i / n, z = -0.875 + 1.75 * u, w = 0.034 + 0.008 * Math.pow(Math.abs(z) / 0.875, 2) + (z > 0.7 ? 0.004 : 0), y = z > 0.68 ? 0.07 * ((z - 0.68) / 0.195) ** 2 : z < -0.78 ? 0.025 * ((-0.78 - z) / 0.095) ** 2 : 0, t = 0.017 * (1 - 0.5 * Math.abs(z) / 0.875);
     P.push(-w, y, z, w, y, z, w, y + t, z, -w, y + t, z); }
     for (let i = 0; i < n; i++) { const a = i * 4, b = a + 4; for (const [p, q] of [[0, 1], [1, 2], [2, 3], [3, 0]]) I.push(a + p, a + q, b + p, a + q, b + q, b + p); }
     I.push(0, 2, 1, 0, 3, 2, n * 4, n * 4 + 1, n * 4 + 2, n * 4, n * 4 + 2, n * 4 + 3);
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setIndex(I); return g; })();
   const skiG = ski.toNonIndexed(); skiG.computeVertexNormals();
   // the helmet: the crown down to the brow, and the back down over the neck (the face open for the goggles)
-  const helmet = mergeGeometries([new THREE.SphereGeometry(1, 18, 8, 0, Math.PI * 2, 0, Math.PI * 0.5), new THREE.SphereGeometry(1, 12, 3, Math.PI + 0.5, Math.PI - 1, Math.PI * 0.5, Math.PI * 0.2)]);
-  G = {
-    thigh: limb(0.095, 0.074), shin: limb(0.07, 0.06), upper: limb(0.062, 0.05), fore: limb(0.05, 0.043), pole: limb(0.0125, 0.009, 6), grip: limb(0.018, 0.016, 8).scale(1, 0.15, 1),
-    neck: limb(0.05, 0.048), torso, pelvis: new THREE.SphereGeometry(1, 12, 8).scale(0.165, 0.12, 0.125), sphere: new THREE.SphereGeometry(1, 14, 10), helmet,
-    lens: new THREE.CylinderGeometry(0.122, 0.118, 0.062, 16, 1, true, -1.0, 2.0), strap: new THREE.CylinderGeometry(0.126, 0.126, 0.032, 18, 1, true, 1.0, Math.PI * 2 - 2.0),
-    basket: new THREE.CylinderGeometry(0.048, 0.048, 0.008, 10), glove: new THREE.BoxGeometry(0.09, 0.11, 0.085), shell: new THREE.BoxGeometry(0.115, 0.11, 0.3), cuff: limb(0.065, 0.062, 8).scale(1.05, 1, 1.15),
+  const helmet = mergeGeometries([new THREE.SphereGeometry(1, n(18, 8), n(8, 3), 0, Math.PI * 2, 0, Math.PI * 0.5), new THREE.SphereGeometry(1, n(12, 5), n(3, 1), Math.PI + 0.5, Math.PI - 1, Math.PI * 0.5, Math.PI * 0.2)]);
+  return (G[!!lo] = {
+    thigh: limb(0.095, 0.074), shin: limb(0.07, 0.06), upper: limb(0.062, 0.05), fore: limb(0.05, 0.043), pole: limb(0.0125, 0.009, n(6, 3)), grip: limb(0.018, 0.016, n(8, 4)).scale(1, 0.15, 1),
+    neck: limb(0.05, 0.048), torso, pelvis: new THREE.SphereGeometry(1, n(12, 6), n(8, 4)).scale(0.165, 0.12, 0.125), sphere: new THREE.SphereGeometry(1, n(14, 6), n(10, 4)), helmet,
+    lens: new THREE.CylinderGeometry(0.122, 0.118, 0.062, n(16, 5), 1, true, -1.0, 2.0), strap: new THREE.CylinderGeometry(0.126, 0.126, 0.032, n(18, 6), 1, true, 1.0, Math.PI * 2 - 2.0),
+    basket: new THREE.CylinderGeometry(0.048, 0.048, 0.008, n(10, 5)), glove: new THREE.BoxGeometry(0.09, 0.11, 0.085), shell: new THREE.BoxGeometry(0.115, 0.11, 0.3), cuff: limb(0.065, 0.062, n(8, 5)).scale(1.05, 1, 1.15),
     ski: skiG, binding: new THREE.BoxGeometry(0.066, 0.035, 0.34), heel: new THREE.BoxGeometry(0.07, 0.05, 0.08), stripe: new THREE.BoxGeometry(0.02, 0.002, 1.2),
-  };
-  return G;
+  });
 }
 
 // ---------------------------------------------------------------- the pose
@@ -129,9 +130,9 @@ function ik(a, b, l1, l2, hint, out) {
 
 // ---------------------------------------------------------------- the figure
 export class SkierFigure {
-  // o: {jacket, pants, helmet, ski, boot} colours; o.shadow: cast shadows
+  // o: {jacket, pants, helmet, ski, boot} colours; o.shadow: cast shadows; o.lo: the low-poly shapes
   constructor(gfx, o = {}) {
-    const g = geos(), M = this.mats = skierMats(gfx, o), mk = (geo, m, p = this.body) => { const x = new THREE.Mesh(geo, m); x.castShadow = o.shadow !== false; x.receiveShadow = true; p.add(x); return x; };
+    const g = geos(o.lo), M = this.mats = skierMats(gfx, o), mk = (geo, m, p = this.body) => { const x = new THREE.Mesh(geo, m); x.castShadow = o.shadow !== false; x.receiveShadow = true; p.add(x); return x; };
     this.root = new THREE.Group(); this.body = new THREE.Group(); this.root.add(this.body); this.J = {};
     this.thighL = mk(g.thigh, M.pants); this.thighR = mk(g.thigh, M.pants); this.shinL = mk(g.shin, M.pants); this.shinR = mk(g.shin, M.pants);
     this.kneeL = mk(g.sphere, M.pants); this.kneeR = mk(g.sphere, M.pants); this.pelvis = mk(g.pelvis, M.pants);
@@ -182,6 +183,7 @@ export class SkierFigure {
   dispose() { this.root.parent && this.root.parent.remove(this.root); }
 }
 // a figure frozen in one pose as a single mesh with vertex colours (other skiers, people in the chairs, spectators): one draw call each
+// (o.lo: from the low-poly shapes)
 export function figureGeometry(P, o = {}) {
   const f = new SkierFigure(null, Object.assign({ shadow: false }, o)); f.pose(P);
   if (o.noSki) for (const m of [...f.skis, f.poleL, f.poleR, f.gripL, f.gripR, f.bkL, f.bkR]) m.visible = false;      // on foot: no skis, no poles
