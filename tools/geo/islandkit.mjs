@@ -169,10 +169,11 @@ export function writeGrid(file, A, nx, nz, x0, z0, cell, kind) {
     body = Buffer.from(d.buffer);
   } else { hdr = { nx, nz, x0, z0, cell }; body = Buffer.from(A.buffer, A.byteOffset, A.byteLength); }
   const hj = Buffer.from(JSON.stringify(hdr)), len = Buffer.alloc(4); len.writeUInt32LE(hj.length);
-  fs.writeFileSync(file, zlib.gzipSync(Buffer.concat([Buffer.from('TRMG'), len, hj, body]), { level: 9 }));
-  return fs.statSync(file).size;
+  return writeAtomic(file, zlib.gzipSync(Buffer.concat([Buffer.from('TRMG'), len, hj, body]), { level: 9 }));
 }
-export function writeJSON(file, obj) { fs.writeFileSync(file, zlib.gzipSync(Buffer.from(JSON.stringify(obj)), { level: 9 })); return fs.statSync(file).size; }
+export function writeJSON(file, obj) { return writeAtomic(file, zlib.gzipSync(Buffer.from(JSON.stringify(obj)), { level: 9 })); }
+// write to a temporary file and rename it, so nothing ever reads a half-written file (the game may be loading while the tool runs)
+function writeAtomic(file, buf) { fs.writeFileSync(file + '.tmp', buf); fs.renameSync(file + '.tmp', file); return buf.length; }
 // a PNG (RGB) for looking at the result
 export function writePNG(file, w, h, rgb) {
   const crcT = new Int32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; crcT[n] = c; }

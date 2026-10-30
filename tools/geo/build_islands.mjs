@@ -80,12 +80,13 @@ const RECIPES = {
       dune[K.kxz(x, z)] = v * amp / 5.7;
       return amp * (v - 0.4) + 1.6 * fbm(K.n3, x / 70, z / 70, 3);
     }, 140);
-    outcrops(K, 0.45, 8, 0.45);
+    outcrops(K, 0.4, 5, 0.35);
     K.edgeBlend(); K.seaWater();
     // land cover: bare sand on the beaches and the dune crests, dune grass and scrub in the hollows, rock on the knolls
     K.each((k, x, z) => {
       if (K.sea[k]) return; const d = K.D[k], s = K.slope(x, z), n = fbm(K.n2, x / 160, z / 160, 3) + 0.5 * dune[k] - 0.2;
-      K.CV[k] = d < 50 + 30 * n ? C.BEACH : K.rockH[k] > 1.2 || s > 0.55 ? C.ROCK : n > 0.2 ? C.BEACH : n > -0.05 ? C.GRASS : n > -0.35 ? C.HEATH : C.GRASS;
+      const grove = fbm(K.n3, x / 260 + 7, z / 260, 3) - 0.25 * dune[k];        // palm groves and scrub in the sheltered hollows between the dunes
+      K.CV[k] = d < 50 + 30 * n ? C.BEACH : K.rockH[k] > 1.8 || s > 0.55 ? C.ROCK : grove > 0.32 && d > 120 ? C.FOREST : n > 0.22 ? C.BEACH : n > -0.1 ? C.DUNE : n > -0.4 || grove > 0.15 ? C.HEATH : C.DUNE;
     });
     // the oasis: a small lake in a hollow among the dunes, a palm grove round it
     const oa = K.P([o.lv.pools[0].x, o.lv.pools[0].z]);
@@ -98,7 +99,7 @@ const RECIPES = {
     K.pond(pd[0], pd[1], 20, { depth: 0.3, y: K.h(pd[0], pd[1]) - 0.15, shallow: true, r: 10 });
     // the village and the ferry quay in the north-east
     const V = K.village({ at: vil, h: vh, name: 'Bykkevika', houses: 9 });
-    K.paint(V.square[0], V.square[1], 110, C.GARDEN, c => c === C.GRASS || c === C.HEATH || c === C.BEACH);
+    K.paint(V.square[0], V.square[1], 110, C.GARDEN, c => c === C.DUNE || c === C.HEATH || c === C.BEACH);
     // the island road from the village through the dunes to the south shore, and the two courses on the old race line
     const P = K.PL(o.def.path);
     const main = K.road([V.out, [520, -420], [240, -120], [60, 220], [260, 560], [720, 830]], { c: 4, s: 1, n: 'Klitteveien', g: 0.1 });
@@ -278,7 +279,8 @@ const RECIPES = {
     const V = K.village({ at: vil, h: vh, name: 'Kaimanøya', houses: 7, s: 3 });
     const OR = o.def.roads.map(r => K.PL(r));
     K.road([V.out, ...OR[0]], { c: 5, s: 3, n: 'Leirveien', g: 0.1 });
-    for (let i = 1; i < OR.length; i++) K.road(OR[i], { c: i === 5 || i === 6 ? 6 : 5, s: 3, g: 0.13, w: 3.6 });
+    for (let i = 1; i < 5; i++) K.road(OR[i], { c: 5, s: 3, g: 0.13, w: 3.6 });
+    K.road([...OR[5], ...OR[6]], { c: 6, s: 3, w: 3.6, g: 0.13, n: 'Hengebroa', clear: 3.5 });      // over Storelva on the old suspension bridge
     const CH = o.def.challenges, kinds = ['sump', 'terreng', 'terreng', 'sump', 'bakke'];
     CH.forEach((ch, i) => trackCourse(K, { id: ch.id, name: ch.name, kind: kinds[i], diff: ch.diff, pts: i === 2 ? [...K.PL(ch.path), [tp[0], tp[1] + 66]] : K.PL(ch.path), road: ch.name, ford: true, g: i === 4 ? 0.24 : 0.2, desc: KAIMAN_DESC[i],
       holes: i === 0 ? [[0.12, 14, 'bog'], [0.3, 14, 'mud'], [0.48, 15, 'bog'], [0.66, 14, 'mud'], [0.84, 15, 'bog']] : i === 2 ? [[0.3, 10, 'mud']] : [] }));
@@ -302,6 +304,8 @@ Object.assign(RECIPES, {
     outcrops(K, 0.35, 4, 0.4);
     K.edgeBlend(); K.seaWater();
     K.each((k, x, z) => { if (K.sea[k]) return; const d = K.D[k], s = K.slope(x, z), n = fbm(K.n2, x / 90, z / 90, 2); K.CV[k] = d < 25 + 15 * n ? (n > 0 ? C.GRAVEL : C.ROCK) : s > 0.62 + 0.15 * n || K.rockH[k] > 1.8 ? C.ROCK : C.SNOW; });
+    // spruce forest up to the tree line (150–210 m), with clearings and bogs (open snow); the pistes are cut through it below
+    K.each((k, x, z) => { if (K.CV[k] !== C.SNOW || K.D[k] < 50) return; const n = fbm(K.n3, x / 260, z / 260, 3); if (K.H[k] < 150 + 60 * (n + 0.5) && n > -0.22) K.CV[k] = C.SNOWFOREST; });
     K.lake({ poly: wobble(LK, 245, 0.8, K), y: K.h(...LK) - 1.5, ice: true, name: 'Isvannet', margin: 50 });
     // the pistes: groomed snow (smoothed ground), kept free of trees by the winter scatter; the chairlift up to the top
     const Hs = blur(K.H, K.nx, K.nz, 3), PC = ['', 'green', 'green', 'blue', 'red', 'black'];
@@ -343,10 +347,11 @@ Object.assign(RECIPES, {
   vulkan: { S: 34, V: 16, build(K) {
     const o = K.old, [vil, vh] = oldVillage(K), rOf = (x, z) => Math.hypot(x - 8, z - 6), cr = K.P([8, 6]);
     const RIVER = [[-19.5, -15], [-21, -17], [-23, -19.5], [-25.2, -22.5], [-27, -25.5], [-29.5, -28.5]], seaD = (x, z) => Math.hypot(x + 36, z + 36);
-    const cliff = (x, z) => 2.4 * smooth(0, 0.9, z + 6.65) * smooth(0, 6, -6 - x);
+    // the old level's cliff ran dead straight to the east coast; it goes, and a lower, wavy cliff ~650 m long stays round the waterfall
+    const cliff = (x, z) => 2.4 * smooth(0, 0.9, z + 6.65) * smooth(0, 6, -6 - x) - 1.1 * smooth(0, 0.9, z + 6.65 + 0.3 * Math.sin((x + 18) * 0.8)) * smooth(0, 5, -5 - x) * smooth(0, 5, x + 30);
     // a concave cone (steeper towards the top, like a real stratovolcano) instead of the old rounded hill, and a lower cliff by the waterfall
     const cone = (x, z) => { const rr = rOf(x, z); if (rr >= 19 || rr <= 4.2) return 0; const u = Math.min(1, (19 - rr) / 15); return 5.6 * (Math.pow(u, 1.7) - u * u * (3 - 2 * u)); };
-    K.base({ fill: (x, z) => seaD(x, z) > 15 && lineDist(RIVER, x, z) < 3.4, adjust: (x, z) => -0.55 * cliff(x, z) + cone(x, z),
+    K.base({ fill: (x, z) => seaD(x, z) > 15 && lineDist(RIVER, x, z) < 3.4, adjust: (x, z) => -cliff(x, z) + cone(x, z),
       vmap: (u, x, z) => lerp(u < 1.3 ? u * 16 : 20.8 + (u - 1.3) * 46, u * 16, smooth(17, 21, rOf(x, z))),
       protect: [[...vil, 420], [...K.P([-34, -34]), 520]], coastA: 170, coastL: 800, shore: (x, z) => { const r = smooth(0.2, 0.5, K.n3(x / 700, z / 700)); return { beach: 1 - r, rock: r }; } });
     // radial ridges and gullies on the cone, rough lava fields lower down
@@ -396,7 +401,7 @@ Object.assign(RECIPES, {
     }
     const A = L[ia], B = L[ib], scP = K.route(A, B, { g: 0.19, gmax: 0.27, water: 2, turn: 10, avoid: (x, z) => lineDist([A, B], x, z) > 160 });
     const sc = K.road(scP, { c: 6, w: 4.6, s: 1, n: 'Snarveien', g: 0.18, clear: 4, sigma: 3 });
-    K.course({ id: 'snarvei', name: 'Snarveien', kind: 'bakke', diff: 3, path: K.line(sc), desc: 'Den modige snarveien: rett opp flanken og over lavaelva på en smal bro, i stedet for den lange runden rundt krateret.' });
+    K.course({ id: 'snarvei', name: 'Snarveien', kind: 'bakke', diff: 3, path: [...L.slice(Math.max(0, ia - 70), ia), ...K.line(sc)], desc: 'Et stykke opp Kraterveien, så den modige snarveien: rett opp flanken og over lavaelva på en smal bro, i stedet for den lange runden rundt krateret.' });
     for (let k = 0; k < K.H.length; k++) if (K.LAVA[k]) K.W[k] = NONE;
     // the waterfall falls from the lip of the cliff straight onto the ledge road; the water runs on down into the pool
     K.special.falls.push({ kind: 'fall', x0: R1(lip[0]), z0: R1(lip[1]), y0: R2(K.h(...add(lip, [0, -1], 12)) + 0.3), x1: R1(ledge[0]), z1: R1(ledge[1] - 4), y1: R2(K.h(...ledge)), w: 22, spray: true });
@@ -428,10 +433,13 @@ Object.assign(RECIPES, {
     K.cells(AIR.x0 - 60, AIR.z0 - 60, AIR.x1 + 60, AIR.z1 + 60, (k, x, z) => { const e = Math.max(AIR.x0 - x, x - AIR.x1, AIR.z0 - z, z - AIR.z1, 0); if (e > 60) return; K.H[k] = lerp(K.H[k], AY, 1 - smooth(0, 60, e)); if (e <= 0) K.KEEP[k] = 1; });
     K.edgeBlend(); K.seaWater();
     const L0 = K.h(0, 170), L1 = K.h(0, -620);
+    // the farmland round the town in parcels (150 × 95 m, rows staggered): fields, meadows, woodlots and heath; bigger woods where n is high
+    const hh = (i, j) => { let h = Math.imul(i, 374761393) ^ Math.imul(j, 668265263); h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+    const parcel = (x, z) => { const u = x * 0.94 + z * 0.34, v = -x * 0.34 + z * 0.94, j = Math.floor(v / 95), r = hh(Math.floor((u + 57 * j) / 150), j); return r < 0.45 ? C.FARM : r < 0.72 ? C.GRASS : r < 0.86 ? C.DECID : r < 0.93 ? C.MIXED : C.HEATH; };
     K.each((k, x, z) => {
       if (K.sea[k]) return; const d = K.D[k], s = K.slope(x, z), n = fbm(K.n2, x / 150, z / 150, 3);
       const lower = x > -470 && x < 440 && z > -160 && z < 540, upper = x > -380 && x < 380 && z > -1010 && z < -350;
-      K.CV[k] = d < 30 + 15 * n ? C.BEACH : s > 0.3 ? C.ROCK : lower ? C.URBAN : upper ? (n > 0 ? C.GARDEN : C.URBAN) : x > AIR.x0 - 20 && z > AIR.z0 - 20 && z < AIR.z1 + 20 ? C.GRASS : n > 0.3 ? C.DECID : n > -0.2 ? C.GARDEN : C.GRASS;
+      K.CV[k] = d < 30 + 15 * n ? C.BEACH : s > 0.3 ? C.ROCK : lower ? C.URBAN : upper ? (n > 0 ? C.GARDEN : C.URBAN) : x > AIR.x0 - 20 && z > AIR.z0 - 20 && z < AIR.z1 + 20 ? C.GRASS : n > 0.3 ? C.MIXED : n > 0.22 ? C.DECID : parcel(x, z);     // woods, fields and meadows round the town
     });
     const V = K.village({ at: vil, h: vh, name: 'Trinnvik', houses: 0, boathouses: 2, back: 70, sign: 'kjør om bord · Kaia' });
     // ---- the streets of Nedre by (a grid inside Ringveien) and Øvre by, and the two hills between them
@@ -443,6 +451,7 @@ Object.assign(RECIPES, {
     st([[-390, -394], [340, -394]], 'Øvre gate', { w: 8 });
     st([[340, -394], [420, -330], [425, -160], [374, -102]], 'Østbakken', { w: 8, g: 0.09, raw: false });
     st([[-204, -394], [-204, -673]], 'Smauet', { w: 6 }); st([[120, -394], [120, -880]], 'Kirkegata'); st([[-330, -640], [330, -640]], 'Rådhusgata');
+    st([[-380, -520], [330, -520]], 'Hagegata', { w: 6 }); st([[-330, -790], [120, -790]], 'Lia', { w: 6 }); st([[300, -394], [300, -640]], 'Kirkebakken', { w: 6 });
     const uts = K.P([-0.5, 30]); K.flatten(uts[0], uts[1], 70, K.h(...uts), 40);
     st([[120, -880], [100, -950], [60, -995], uts], 'Utsiktsveien', { w: 6, g: 0.11, raw: false });
     st([[-408, 476], [-560, 600], [-697, 697], V.out], 'Havnegata', { w: 8 });
@@ -455,7 +464,7 @@ Object.assign(RECIPES, {
     // ---- the harbour: warehouses on Kaiveien, containers on the quay, the marina below Promenaden
     K.row([-600, 628], [-1040, 622], -6, { k: () => 8, f: () => 2, len: R => 30 + R() * 20, dep: R => 18 + R() * 6, gap: R => 6 + R() * 8, m: 3 });
     for (let i = 0; i < 18; i++) { const x = -900 - (i % 6) * 14, z = 650 + Math.floor(i / 6) * 4; K.special.props.push({ kind: 'container', x, z, y: R2(K.h(x, z)), a: 0, s: 1 + (i % 3 === 0 ? 1 : 0), c: i % 4 }); }
-    marina(K, [140, 1088], Math.PI, 'Gjestehavna');
+    marina(K, [140, 1060], 0, 'Gjestehavna');
     // ---- the stadium: a football pitch inside a running track, stands on all four sides with a gap for the tunnel
     const stc = [-765, -500];
     stadium(K, stc);
@@ -485,17 +494,23 @@ Object.assign(RECIPES, {
     // ---- Torget, the blocks of the town along the streets, Øvre by with the town hall and the church
     const torg = [25, 145]; K.special.squares.push({ x: 25, z: 145, w: 110, l: 120, kind: 'torg', n: 'Torget' });
     const blk = (a, b, off, k, f, o2 = {}) => K.row(a, b, off, Object.assign({ gap0: 11, k: () => k, f: () => f[0] + Math.floor(K.R() * (f[1] - f[0] + 1)), len: R => 18 + R() * 16, dep: R => 12 + R() * 4, gap: R => 1 + R() * 3, m: 3 }, o2));
+    // a mix along each block front: shops and offices (flat roofs), blocks of flats, and painted wooden terrace houses with gables
+    const mixK = () => { const r = K.R(); return r < 0.25 ? 9 : r < 0.6 ? 2 : 1; }, mixF = k => k === 1 ? [2, 3] : k === 9 ? [2, 4] : [3, 5];
     for (const z of [-102, 60, 230, 360, 476]) for (const [x0, x1] of [[-408, -230], [-230, -60], [-60, 110], [110, 250], [250, 374]]) {
       if (z === 230 && x0 === -60) continue;                                   // Torget
-      if (z > -102) blk([x0, z], [x1, z], -7.5, K.R() < 0.4 ? 9 : 2, [3, 5]);
-      if (z < 476) blk([x1, z], [x0, z], -7.5, K.R() < 0.3 ? 9 : 2, [3, 5]);
+      if (z > -102) { const k = mixK(); blk([x0, z], [x1, z], -7.5, k, mixF(k)); }
+      if (z < 476) { const k = mixK(); blk([x1, z], [x0, z], -7.5, k, mixF(k)); }
     }
     for (const x of [-408, -230, -60, 110, 250, 374]) for (const [z0, z1] of [[-102, 60], [60, 230], [230, 360], [360, 476]]) {
       if (x === -60 && z0 === 60) continue;
-      if (x > -408) blk([x, z1], [x, z0], -7.5, 2, [3, 4]); if (x < 374) blk([x, z0], [x, z1], -7.5, 2, [3, 4]);
+      if (x > -408) { const k = mixK(); blk([x, z1], [x, z0], -7.5, k, mixF(k)); } if (x < 374) { const k = mixK(); blk([x, z0], [x, z1], -7.5, k, mixF(k)); }
     }
+    // pavement and squares along the streets, gardens and yards behind the houses
+    K.each((k, x, z) => { if (K.CV[k] === C.URBAN && !(Math.abs(x - torg[0]) < 62 && Math.abs(z - torg[1]) < 55)) K.CV[k] = 255; });
+    for (const r of K.roads) if (r.c <= 5) K.paintLine(r._P, r._hw + 11, C.URBAN, c => c === 255);
+    K.each(k => { if (K.CV[k] === 255) K.CV[k] = C.GARDEN; });
     K.building(-160, -560, 56, 24, 0, 10, 3, { n: 'Rådhuset' }); K.building(120 + 40, -760, 32, 16, Math.PI / 2, 11, 2, { n: 'Kirken' });
-    for (const [a, b] of [[[-390, -394], [340, -394]], [[-204, -394], [-204, -673]], [[120, -394], [120, -880]], [[-330, -640], [330, -640]]]) {
+    for (const [a, b] of [[[-390, -394], [340, -394]], [[-204, -394], [-204, -673]], [[120, -394], [120, -880]], [[-330, -640], [330, -640]], [[-380, -520], [330, -520]], [[-330, -790], [120, -790]], [[300, -394], [300, -640]]]) {
       K.row(a, b, -6.5, { k: R => R() < 0.5 ? 2 : 0, f: R => 2 + Math.floor(R() * 2), len: R => 12 + R() * 10, dep: R => 9 + R() * 4, gap: R => 4 + R() * 8, m: 3 });
       K.row(b, a, -6.5, { k: R => R() < 0.4 ? 2 : 0, f: R => 2 + Math.floor(R() * 2), len: R => 12 + R() * 10, dep: R => 9 + R() * 4, gap: R => 4 + R() * 8, m: 3 });
     }
@@ -510,7 +525,7 @@ Object.assign(RECIPES, {
     { const lap = K.special.stadium.lap, i = lap.reduce((b, p, k) => Math.hypot(p[0] - stc[0] + 69, p[1] - stc[1]) < Math.hypot(lap[b][0] - stc[0] + 69, lap[b][1] - stc[1]) ? k : b, 0), l2 = [...lap.slice(i), ...lap.slice(1, i + 1)];
       K.course({ id: 'stadion', name: 'Stadionrunden', kind: 'by', diff: 2, gates: 10, path: [...K.viaRoads([[-1047, -560], [-1047, -500], [-905, -500]]), ...l2, ...l2.slice(1), [-905, -500], [-985, -500]],
         desc: 'Inn porten på vestsiden og to runder på løpebanen rundt fotballbanen. Publikum heier.' }); }
-    K.course({ id: 'spiral', name: 'Spiraltoppen', kind: 'by', diff: 2, gates: 8, path: [...K.viaRoads([[-408, 260], [-408, 220], [-708, 220]]), ...K.line(ramp)], desc: 'Inn P-husveien og opp spiralrampen rundt parkeringshuset. Mål på taket.' });
+    K.course({ id: 'spiral', name: 'Spiraltoppen', kind: 'by', diff: 2, gates: 8, path: [...K.viaRoads([[-408, 440], [-408, 220], [-708, 220]]), ...K.line(ramp)], desc: 'Ned Ringveien, inn P-husveien og opp spiralrampen rundt parkeringshuset. Mål på taket.' });
     K.course({ id: 'trapp', name: 'Trappeløpet', kind: 'bakke', diff: 3, gates: 10, desc: 'Byens bakkeløp fra Ringveien: opp Bakken til Øvre by, gjennom Øvre gate og Kirkegata og opp Utsiktsveien til toppen.',
       path: K.viaRoads([[-408, -60], [-408, -102], [-390, -394], [120, -394], [120, -880], uts]) });
     K.course({ id: 'natt', name: 'Nattbyen', kind: 'natt', diff: 2, night: true, gates: 9, desc: 'Byen etter mørkets frembrudd: Ringveien, ut Havnegata og langs Kaiveien til containerkaia med lyskasterne.',
@@ -524,7 +539,7 @@ Object.assign(RECIPES, {
 });
 // a marina: a wooden pier from the shore out over a dredged basin, boats moored along it (drawn by Special)
 function marina(K, at, h, name) {
-  const u = dirv(h); let s0 = null; for (let s = -200; s < 400; s += 2) { const p = add(at, u, s); if (K.d(p[0], p[1]) <= 0) { s0 = p; break; } }
+  const u = dirv(h); let s0 = null; for (let s = -60; s < 600; s += 2) { const p = add(at, u, s); if (K.d(p[0], p[1]) <= 0) { s0 = p; break; } }
   if (!s0) return;
   const root = add(s0, u, -6), end = add(s0, u, 70);
   K.cells(Math.min(root[0], end[0]) - 60, Math.min(root[1], end[1]) - 60, Math.max(root[0], end[0]) + 60, Math.max(root[1], end[1]) + 60, (k, x, z) => {
@@ -561,7 +576,8 @@ function garage(K, c, y0) {
   const up0 = 30, up1 = L - (r1 - R + 7);
   const ramp = K.road(P, { c: 5, w: 6.5, s: 0, n: 'P-husrampen', raw: true, profile: i => y0 + 0.05 + (top - y0) * clamp((T[i] - up0) / (up1 - up0), 0, 1), bridgeAll: [Math.ceil(up0 / 3) + 1, 0] });
   K.special.decks.push({ x: R1(c[0]), z: R1(c[1]), hw: 17, hd: 17, ang: 0, y: R2(top), kind: 'roof' });
-  K.special.garage = { x: R1(c[0]), z: R1(c[1]), r: R, y0: R2(y0), y1: R2(top), levels: 4, n: 'P-huset' };
+  const gap = ((-Math.PI / 2 - turns * Math.PI * 2) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);      // where the ramp comes onto the roof
+  K.special.garage = { x: R1(c[0]), z: R1(c[1]), r: R, y0: R2(y0), y1: R2(top), levels: 4, gap: R2(gap), n: 'P-huset' };
   K.special.signs.push({ x: R1(c[0] + 44), z: R1(c[1] - r0 + 12), h: Math.PI / 2, text: 'P-HUS', sub: 'spiral til taket' });
   return ramp;
 }
@@ -607,6 +623,7 @@ function lift(K, a, b) {
     for (let s = 0.25; s < 1; s += 0.25) { const d = lerp(pts[i - 1].d, pts[i + 1].d, s), p = add(a, u, d), g = K.h(...p), cy = lerp(pts[i - 1].y, pts[i + 1].y, s); if (cy < g + 6) { pts[i].y += 0.5; towers[i - 1].h = R1(pts[i].y - towers[i - 1].y); } }
   }
   K.special.lift = { name: 'Gautefallheisen', bottom: { x: R1(a[0]), z: R1(a[1]), y: R2(ya) }, top: { x: R1(b[0]), z: R1(b[1]), y: R2(yb) }, towers, off: 2.6, station: 7 };
+  K.pois.ski = { bottom: { x: R1(a[0]), z: R1(a[1]) }, top: { x: R1(b[0]), z: R1(b[1]) } };
   for (const [p, n] of [[a, 'Bunnstasjonen'], [b, 'Toppstasjonen']]) { K.flatten(p[0], p[1], 16, K.h(...p), 10); K.building(...add(p, u, p === a ? -9 : 9), 14, 12, h, 8, 1, { n }); }
 }
 const KAIMAN_DESC = ['Rundt den store gjørmesletta i sørøst. Gjørmehull, siv og hegrer. Hold farten oppe!',
@@ -656,7 +673,7 @@ function nordicCover(K, o = {}) {
     if (o.field && n > 0.35 && s < 0.08) c = m > 0 ? C.FARM : C.GRASS;
     if (K.FILL[k] && (o.bogFill || s < 0.05)) c = m > 0.05 ? C.BOG : C.GRASS;
     if (s < 0.03 && m > 0.45) c = C.BOG;
-    if (s > 0.42 || (o.rock && o.rock(k)) || (K.rockH && K.rockH[k] > 1.2) || d < 14 + 12 * m) c = C.ROCK;
+    if (s > 0.42 || (o.rock && o.rock(k)) || (K.rockH && K.rockH[k] > 1.8) || d < 14 + 12 * m) c = C.ROCK;
     if (o.cove && o.cove(x, z) > 0.5 && d < 40) c = C.BEACH;
     K.CV[k] = c;
   });

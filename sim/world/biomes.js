@@ -17,6 +17,7 @@ function tables() {
     [C.FOREST]: [0.5, [[K.PALM, 7, 0.75, 1.25], [K.BUSH, 2, 0.6, 1.1], [K.FERN, 2, 0.6, 1.2]]],
     [C.GARDEN]: [0.08, [[K.PALM, 3, 0.7, 1.1], [K.CYPRESS, 3, 0.5, 0.9], [K.OLIVE, 3, 0.6, 1.0], [K.BUSH, 2, 0.5, 0.9]]],
     [C.ROCK]: [0.05, [[K.AGAVE, 5, 0.7, 1.3], [K.ROCK, 3, 0.5, 1.4], [K.BUSH, 2, 0.4, 0.8]]],
+    [C.DUNE]: [0.07, [[K.GRASSCLUMP, 6, 0.7, 1.3], [K.AGAVE, 2, 0.6, 1.1], [K.BUSH, 1, 0.4, 0.8], [K.PALM, 0.6, 0.7, 1.1]]],
   };
   const jungle = {
     [C.JUNGLE]: [0.85, [[K.JUNGLE, 7, 0.45, 1.05], [K.FERN, 5, 0.7, 1.4], [K.BUSH, 4, 0.6, 1.2], [K.PALM, 2, 0.7, 1.2]]],
@@ -42,7 +43,8 @@ function tables() {
       [C.BEACH]: [0.008, [[K.PALM, 1, 0.8, 1.1]]],
     } },
     winter: { n: 40, cover: {
-      [C.SNOW]: [0.42, [[K.SNOWSPRUCE, 8, 0.45, 1.05], [K.BIRCH, 1, 0.35, 0.65], [K.ROCK, 1, 0.4, 1.2]]],
+      [C.SNOWFOREST]: [0.6, [[K.SNOWSPRUCE, 10, 0.45, 1.05], [K.BIRCH, 1, 0.35, 0.65], [K.ROCK, 1, 0.4, 1.2]]],
+      [C.SNOW]: [0.05, [[K.SNOWSPRUCE, 6, 0.35, 0.9], [K.BIRCH, 1, 0.35, 0.6], [K.ROCK, 2, 0.4, 1.2]]],
       [C.ROCK]: [0.05, [[K.ROCK, 6, 0.5, 1.6], [K.SNOWSPRUCE, 3, 0.35, 0.7]]],
       [C.GRAVEL]: [0.02, [[K.ROCK, 1, 0.4, 1.2]]],
       [C.URBAN]: [0.01, [[K.SNOWSPRUCE, 1, 0.4, 0.7]]],
@@ -82,6 +84,8 @@ function keepOut(isl) {
   if (sp.garage) shapes.push({ x: sp.garage.x, z: sp.garage.z, r: 62 });
   if (sp.stadium) shapes.push({ x: sp.stadium.x, z: sp.stadium.z, r: 120 });
   for (const v of sp.vents || []) shapes.push({ x: v.x, z: v.z, r: Math.max(12, v.s * 0.6) });
+  if (sp.runway) { const r = sp.runway, dx = r.x1 - r.x0, dz = r.z1 - r.z0, e = 200 / Math.hypot(dx, dz); shapes.push({ L: [r.x0 - dx * e, r.z0 - dz * e, r.x1 + dx * e, r.z1 + dz * e], w: r.w / 2 + 150 }); }   // the cleared strip
+  if (sp.airport) for (const c of [sp.airport.terminal, sp.airport.tower]) if (c) shapes.push({ x: c.x, z: c.z, r: c === sp.airport.tower ? 30 : 130 });
   const put = (s, x0, z0, x1, z1) => { for (let j = Math.floor(z0 / 64); j <= Math.floor(z1 / 64); j++) for (let i = Math.floor(x0 / 64); i <= Math.floor(x1 / 64); i++) { const key = i * 73856093 ^ j * 19349663; let L = grid.get(key); if (!L) grid.set(key, L = []); L.push(s); } };
   for (const s of shapes) {
     if (s.L) for (let i = 0; i + 3 < s.L.length; i += 2) { const seg = { a: [s.L[i], s.L[i + 1]], b: [s.L[i + 2], s.L[i + 3]], w: s.w }; put(seg, Math.min(seg.a[0], seg.b[0]) - s.w, Math.min(seg.a[1], seg.b[1]) - s.w, Math.max(seg.a[0], seg.b[0]) + s.w, Math.max(seg.a[1], seg.b[1]) + s.w); }

@@ -21,9 +21,10 @@ export function addStructures(isl) {
   }
   // other flat decks (the roof of the parking garage)
   for (const d of sp.decks || []) decks.push({ x: d.x + ox, z: d.z + oz, hw: d.hw, hd: d.hd, ang: d.ang || 0, y: d.y, surf: SURF.CONCRETE });
-  // the parking garage: its walls up to just under the roof (the car on the roof passes over them), a parapet round the roof
+  // the parking garage: its walls up to just under the roof (the car on the roof passes over them), a parapet round the roof,
+  // open where the ramp arrives
   if (sp.garage) { const g = sp.garage; cols.push({ x: g.x + ox, z: g.z + oz, r: g.r, y0: g.y0 - 2, y1: g.y1 - 0.4, kind: 'house' });
-    for (let i = 0; i < 24; i++) { const a = i / 24 * Math.PI * 2, b = (i + 1) / 24 * Math.PI * 2; if (i === 0 || i === 23) continue; rail(cols, g.x + Math.cos(a) * g.r + ox, g.z + Math.sin(a) * g.r + oz, g.x + Math.cos(b) * g.r + ox, g.z + Math.sin(b) * g.r + oz, 0.25, g.y1 - 0.3, g.y1 + 1.1); } }
+    for (let i = 0; i < 24; i++) { const a = i / 24 * Math.PI * 2, b = (i + 1) / 24 * Math.PI * 2, m = (a + b) / 2 - (g.gap || 0), dm = Math.abs(Math.atan2(Math.sin(m), Math.cos(m))); if (dm < 0.4) continue; rail(cols, g.x + Math.cos(a) * g.r + ox, g.z + Math.sin(a) * g.r + oz, g.x + Math.cos(b) * g.r + ox, g.z + Math.sin(b) * g.r + oz, 0.25, g.y1 - 0.3, g.y1 + 1.1); } }
   // railings on every bridge (the roads with bridge points), so the car does not fall off into the river or the lava
   isl.roads.roads.forEach(r => {
     if (!r.b) return; const p = r.p, set = new Set(r.b);

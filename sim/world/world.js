@@ -29,9 +29,9 @@ export class World {
     for (const isl of this.islands) { if (!isl.inside(x, z, 10)) continue; if (isl.def.backdrop) { bd = bd || isl; continue; } this._last = isl; return isl; }
     return bd;
   }
-  height(x, z) {
+  height(x, z, bare) {
     const isl = this.islandAt(x, z);
-    if (isl) return isl.height(x, z);
+    if (isl) return isl.height(x, z, bare);
     return this.backdrop && this.backdrop.inside(x, z) ? this.backdrop.bilinear(x, z) : -30;
   }
   terrain(x, z) {

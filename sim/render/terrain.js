@@ -15,7 +15,8 @@ MAP[C.MIXED] = ['forest', 'grass', 0.3]; MAP[C.DECID] = ['forest', 'grass', 0.35
 MAP[C.FARM] = ['grass', 'field', 0.18]; MAP[C.GARDEN] = ['grass', 'dirt', 0.06]; MAP[C.URBAN] = ['asphalt', 'gravel', 0.4]; MAP[C.BOG] = ['mud', 'grass', 0.45];
 MAP[C.LAKE] = ['mud', 'sand', 0.4]; MAP[C.GRAVEL] = ['gravel', 'dirt', 0.3]; MAP[C.STREAM] = ['gravel', 'mud', 0.4]; MAP[C.SNOW] = ['snow', 'rock', 0.12];
 MAP[C.ASH] = ['ash', 'blacksand', 0.4]; MAP[C.LAVA] = ['ash', 'ash', 0]; MAP[C.JUNGLE] = ['forest', 'mud', 0.35]; MAP[C.SAVANNA] = ['drygrass', 'redearth', 0.3];
-MAP[C.MUD] = ['mud', 'dirt', 0.3]; MAP[C.DIRT] = ['dirt', 'gravel', 0.25]; MAP[C.ICE] = ['snow', 'rock', 0.06];
+MAP[C.MUD] = ['mud', 'dirt', 0.3]; MAP[C.DIRT] = ['dirt', 'gravel', 0.25]; MAP[C.ICE] = ['snow', 'rock', 0.06]; MAP[C.DUNE] = ['sand', 'drygrass', 0.45];
+MAP[C.SNOWFOREST] = ['snow', 'forest', 0.5];
 
 function mapTexture() {
   const d = new Uint8Array(32 * 4);
@@ -95,7 +96,7 @@ const FRAG_MAIN = `
 `;
 
 // the colour of bare rock on the made-up islands (biome in sim/data/world.js): dark basalt on the volcano, warm granite on the savanna
-const ROCK_TINT = { volcano: [0.36, 0.34, 0.33], savanna: [0.95, 0.78, 0.66], jungle: [0.72, 0.74, 0.66], subtropical: [1.05, 1.0, 0.9] };
+const ROCK_TINT = { volcano: [0.36, 0.34, 0.33], savanna: [0.95, 0.78, 0.66], jungle: [0.72, 0.74, 0.66], subtropical: [0.88, 0.84, 0.76] };
 export function terrainMaterial(gfx, isl, arrays) {
   const mat = new THREE.MeshStandardMaterial({ roughness: 1, metalness: 0 });
   const uni = { tCov: { value: isl ? coverTexture(isl) : blankCover() }, tMap: { value: mapTexture() }, tA: { value: arrays.A }, tN: { value: arrays.N },

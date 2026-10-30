@@ -7,12 +7,12 @@ import { BIOMES } from './biomes.js';
 
 // land cover classes (same order as tools/geo/build_*.py writes them)
 export const COVER = { SEA: 0, BEACH: 1, ROCK: 2, FOREST: 3, MIXED: 4, DECID: 5, HEATH: 6, GRASS: 7, FARM: 8, GARDEN: 9, URBAN: 10, BOG: 11, LAKE: 12, GRAVEL: 13, STREAM: 14,
-  SNOW: 15, ASH: 16, LAVA: 17, JUNGLE: 18, SAVANNA: 19, MUD: 20, DIRT: 21, ICE: 22 };
+  SNOW: 15, ASH: 16, LAVA: 17, JUNGLE: 18, SAVANNA: 19, MUD: 20, DIRT: 21, ICE: 22, DUNE: 23, SNOWFOREST: 24 };
 const C = COVER;
 export const COVER_SURF = [SURF.SEABED, SURF.SAND, SURF.ROCK, SURF.FOREST, SURF.FOREST, SURF.FOREST, SURF.FOREST, SURF.GRASS, SURF.FIELD, SURF.GRASS,
-  SURF.GRAVEL, SURF.BOG, SURF.SEABED, SURF.GRAVEL, SURF.MUD, SURF.SNOW, SURF.ASH, SURF.LAVA, SURF.FOREST, SURF.DIRT, SURF.MUD, SURF.DIRT, SURF.ICE];
+  SURF.GRAVEL, SURF.BOG, SURF.SEABED, SURF.GRAVEL, SURF.MUD, SURF.SNOW, SURF.ASH, SURF.LAVA, SURF.FOREST, SURF.DIRT, SURF.MUD, SURF.DIRT, SURF.ICE, SURF.SAND, SURF.SNOW];
 // how bumpy the ground is (m) on each cover, on top of the 5 m terrain grid
-const BUMP = [0.25, 0.07, 0.32, 0.2, 0.2, 0.18, 0.16, 0.06, 0.05, 0.03, 0.0, 0.1, 0.1, 0.08, 0.08, 0.12, 0.15, 0.1, 0.22, 0.1, 0.12, 0.12, 0.01];
+const BUMP = [0.25, 0.07, 0.32, 0.2, 0.2, 0.18, 0.16, 0.06, 0.05, 0.03, 0.0, 0.1, 0.1, 0.08, 0.08, 0.12, 0.15, 0.1, 0.22, 0.1, 0.12, 0.12, 0.01, 0.07, 0.14];
 
 export class Island {
   // def: {id,name,ox,oz (where the island's own origin lies in the world), seed, sea}
@@ -47,12 +47,12 @@ export class Island {
     return h;
   }
   // the ground height including road beds: the road is smooth, the shoulder is level, a ditch where the road is cut into the slope,
-  // and a fill sloping down where it runs on an embankment
-  height(x, z) {
+  // and a fill sloping down where it runs on an embankment. bare: the ground only, without decks and (where sim/render/special.js draws the piers) bridges, for the terrain mesh
+  height(x, z, bare = false) {
     let h = this.terrain(x, z);
     const q = this.roads.query(x - this.ox, z - this.oz);
     if (q) {
-      if (q.bridge) { if (q.d <= q.hw + 0.35) return Math.max(q.y, h); return this.deck(x, z, h); }     // the deck is a little wider than the lanes
+      if (q.bridge) { if (bare && this.feat.special) return h; if (q.d <= q.hw + 0.35) return Math.max(q.y, h); return this.deck(x, z, h); }     // the deck is a little wider than the lanes
       const core = q.hw + 0.5, crown = (q.s === 0 ? 0.02 : 0.035) * Math.min(q.d, q.hw);
       if (q.d <= core) h = q.y - crown * Math.min(1, q.d / q.hw) - (q.d > q.hw ? 0.03 : 0);
       else {
@@ -63,7 +63,7 @@ export class Island {
         }
       }
     }
-    return this.deck(x, z, h);
+    return bare ? h : this.deck(x, z, h);
   }
   deck(x, z, h) {
     for (const d of this.decks) {

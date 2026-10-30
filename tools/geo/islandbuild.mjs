@@ -120,7 +120,7 @@ export class IslandBuild {
         // skerries: bare rocks and small holms off the coast (never in front of the quay)
         if ((o.skerries ?? 1) > 0 && -d > 70 && -d < 520 && prot(x, z) > 0.99 && Math.min(x - this.x0, this.x1 - x, z - this.z0, this.z1 - z) > 680) {
           const grp = smooth(0.25, 0.55, this.n2(x / 1100 + 5, z / 1100 - 3)), v = (fbm(this.n3, x / 150 + 40, z / 150 - 17, 3) - (0.4 - 0.08 * (o.skerries ?? 1))) * grp;
-          if (v > 0) h = Math.max(h, v * 70 - 2.2 + 2.5 * this.noise(x / 22, z / 22));
+          if (v > 0) h = Math.max(h, Math.min(v * 45, 3.5 + 2 * fbm(this.noise, x / 40, z / 40, 2)) - 2.0 + 1.2 * this.noise(x / 18, z / 18));      // low, rounded rocks
         }
         this.H[k] = h;
       }
@@ -560,7 +560,7 @@ export class IslandBuild {
   // a picture of the island: land cover in colour, shaded by the slopes, water, roads, buildings and the courses
   preview(file, scale = 1) {
     const pal = [[38, 78, 120], [214, 196, 150], [140, 134, 124], [46, 82, 44], [64, 98, 52], [92, 122, 62], [120, 112, 70], [120, 160, 80], [170, 160, 90], [130, 150, 100],
-      [150, 150, 150], [90, 86, 60], [60, 110, 160], [170, 160, 140], [70, 120, 170], [240, 244, 248], [70, 66, 62], [230, 70, 20], [30, 90, 40], [190, 160, 90], [90, 70, 50], [130, 100, 70], [180, 215, 235]];
+      [150, 150, 150], [90, 86, 60], [60, 110, 160], [170, 160, 140], [70, 120, 170], [240, 244, 248], [70, 66, 62], [230, 70, 20], [30, 90, 40], [190, 160, 90], [90, 70, 50], [130, 100, 70], [180, 215, 235], [205, 190, 130], [150, 175, 160]];
     const w = Math.floor(this.nx / scale), hgt = Math.floor(this.nz / scale), img = Buffer.alloc(w * hgt * 3);
     for (let y = 0; y < hgt; y++) for (let x = 0; x < w; x++) {
       const i = x * scale, j = y * scale, k = j * this.nx + i, c = pal[this.CV[k]] || [255, 0, 255];

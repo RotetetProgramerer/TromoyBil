@@ -209,7 +209,8 @@ function buildKind(k) {
     }
   } else {
     // broadleaf trees and bushes: a trunk splitting into boughs, leaf clusters in a rounded crown
-    const bush = k === K.BUSH, crownY = bush ? H * 0.55 : H * (k === K.BIRCH ? 0.64 : 0.6), crownR = bush ? H * 0.55 : H * (k === K.OAK || k === K.ACACIA ? 0.38 : k === K.BAOBAB ? 0.32 : 0.27);
+    // (rainforest trees: a tall bare trunk and a wide, flattish crown on top)
+    const bush = k === K.BUSH, crownY = bush ? H * 0.55 : H * (k === K.BIRCH ? 0.64 : k === K.JUNGLE ? 0.74 : 0.6), crownR = bush ? H * 0.55 : H * (k === K.OAK || k === K.ACACIA ? 0.38 : k === K.BAOBAB ? 0.32 : k === K.JUNGLE ? 0.3 : 0.27);
     const c = V(0, crownY, 0);
     if (!bush) {
       const tr = k === K.BAOBAB ? 0.11 : k === K.OAK ? 0.035 : 0.022;
@@ -219,7 +220,7 @@ function buildKind(k) {
         b.cyl(V(0, crownY * 0.68, 0), end, H * tr * 0.55, H * 0.004, bark, 6, 0.2, 0.8);
       }
     }
-    const nCl = bush ? 22 : k === K.JUNGLE ? 40 : 34, flat = k === K.ACACIA ? 0.35 : k === K.BIRCH ? 1.25 : 0.85;
+    const nCl = bush ? 22 : k === K.JUNGLE ? 44 : 34, flat = k === K.ACACIA ? 0.35 : k === K.BIRCH ? 1.25 : k === K.JUNGLE ? 0.5 : 0.85;
     for (let j = 0; j < nCl; j++) {
       const u = R() * 2 - 1, a = R() * 6.28, rr = Math.pow(R(), 0.35);
       const p = V(Math.cos(a) * Math.sqrt(1 - u * u) * crownR * rr, crownY + u * crownR * flat * rr, Math.sin(a) * Math.sqrt(1 - u * u) * crownR * rr);

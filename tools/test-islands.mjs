@@ -103,7 +103,7 @@ for (const isl of isls) for (const c of isl.feat.courses || []) {
   const r = drive(isl, c); total++; if (r.done) finished++;
   if (c.gates.length < 8 || c.gates.length > 16) bad(`${isl.id}/${c.id}: ${c.gates.length} porter`);
   console.log((isl.id + '/' + c.id).padEnd(29), c.kind.padEnd(8), `${Math.round(r.len)} m`.padStart(7), `${r.gate}/${r.n}`.padStart(7), r.done ? '   ja' : '  NEI',
-    `${Math.floor(r.t / 60)}:${String(Math.round(r.t % 60)).padStart(2, '0')}`.padStart(6), String(r.flips).padStart(4), String(r.stuck).padStart(4), String(r.flood).padStart(7), `${Math.round(r.vmax)} km/t`.padStart(9));
+    `${Math.floor(r.t / 60)}:${String(Math.floor(r.t % 60)).padStart(2, "0")}`.padStart(6), String(r.flips).padStart(4), String(r.stuck).padStart(4), String(r.flood).padStart(7), `${Math.round(r.vmax)} km/t`.padStart(9));
   if (process.argv.includes('v') && r.ev.length) console.log('   hendelser:', r.ev.slice(0, 12).join(' '));
 }
 console.log(`\n${finished} av ${total} løyper kom i mål. ${problems ? problems + ' feil' : 'Ingen feil'} (fysikken brukte ${((performance.now() - t0) / 1000).toFixed(0)} s).`);
