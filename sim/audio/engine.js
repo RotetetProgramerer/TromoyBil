@@ -16,6 +16,7 @@ const LAYOUT = {
   V6: [0, 1, 0, 1, 0, 1],
   F6: [0, 1, 0, 1, 0, 1],               // boxer: left and right bank take turns
   V8: [0, 1, 1, 0, 1, 0, 0, 1],         // cross-plane crank, 1-8-4-3-6-5-7-2: each bank fires unevenly (the burble)
+  O4: [0, 0, 1, 1],                     // aircraft flat-four, 1-3-2-4: two firings on the right bank, then two on the left
 };
 //  width      decay of each exhaust pulse (crank degrees)   sharp  its rise time as a share of the decay (small = sharp, buzzy)
 //  edge       an extra crack at the very front (bite, rasp)    rough  flow noise riding on the pulses
@@ -82,6 +83,15 @@ export const VOICES = {
   ob300: { layout: 'V8', width: 50, sharp: 0.07, edge: 0.26, rough: 0.3, jitT: 0.012, jitA: 0.07, idleRough: 1.6, pipe: [2.9, 3.3], fb: -0.4, bankGain: [1, 0.88],
     drive: [0.9, 1.7], intake: [320, 2, 0.8], tick: 0.04, ext: { shelf: [90, 5], peaks: [[78, 1.2, 4], [480, 1.3, 2]], lp: 2300 }, int: { lp: 800, boom: [70, 5] },
     mix: [1.1, 0.6, 0.6, 0.5], whine: 0.5, horn: [300, 380], gain: 1.1 },
+  // aircraft (sim/audio/planesound.js): air-cooled flat-fours on short open stacks, a loud and raw drone at 2000–2700 rpm
+  // 180 hp O-360 in the trainer: deep, hard-edged, the banks' uneven rhythm gives the lope
+  lyc360: { layout: 'O4', width: 58, sharp: 0.07, edge: 0.32, rough: 0.34, jitT: 0.014, jitA: 0.08, idleRough: 1.6, pipe: [2.2, 2.7], fb: -0.32, bankGain: [1, 0.86],
+    drive: [1.0, 1.7], rpmGain: 0.55, intake: [380, 2.5, 0.7], tick: 0.08, ext: { shelf: [100, 3], peaks: [[85, 1.2, 3], [620, 1.3, 3], [1500, 1.8, 2]], lp: 6500 },
+    int: { lp: 700, boom: [70, 6] }, mix: [1.15, 0.8, 0.5, 0.5], whine: 0, horn: [400, 500], gain: 1.15 },
+  // 200 hp IO-390 in the aerobatic two-seater: sharper and busier
+  lyc390: { layout: 'O4', width: 52, sharp: 0.06, edge: 0.38, rough: 0.32, jitT: 0.012, jitA: 0.07, idleRough: 1.5, pipe: [1.8, 2.15], fb: -0.3, bankGain: [1, 0.88],
+    drive: [1.1, 1.9], rpmGain: 0.6, intake: [430, 2.5, 0.8], tick: 0.07, ext: { shelf: [110, 2], peaks: [[95, 1.2, 3], [750, 1.3, 3], [1800, 1.8, 3]], lp: 7500 },
+    int: { lp: 750, boom: [75, 5] }, mix: [1.2, 0.8, 0.5, 0.5], whine: 0, horn: [400, 500], gain: 1.2 },
 };
 // the voice for a car: its own entry, or a guess from the engine data (low redline → diesel)
 export function voiceFor(spec) {
