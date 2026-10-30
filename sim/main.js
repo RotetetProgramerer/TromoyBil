@@ -55,7 +55,7 @@ async function boot() {
   // browsers only start sound inside a user gesture: every tap, click or key tries until it runs
   const unlock = () => { if (snd.ready && snd.ac && snd.ac.state === 'running') return; snd.unlock && snd.unlock(); };
   for (const e of ['pointerdown', 'keydown', 'touchend']) addEventListener(e, unlock, { capture: true });
-  const game = new Game({ gfx, world, worker, terrain, features, forest, store, params, arrays, tex, snd });
+  const game = new Game({ gfx, world, worker, terrain, features, forest, water, store, params, arrays, tex, snd });
   await game.init(status);
   $('loading').hidden = true;
   let last = performance.now();

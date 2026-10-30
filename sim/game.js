@@ -14,6 +14,9 @@ import { UI } from './ui.js';
 import { U } from './render/gfx.js';
 
 const DT = 1 / 400;
+// what you can do instead of driving (sim/activities/<name>.js, see activity.js) and what lives alongside the game (sim/<path>.js:
+// default export a class made with the game, with optional async init() and frame(dt))
+const ACTS = ['boat', 'plane', 'ski'], EXTRAS = ['life/animals', 'net/net'];
 const TIMES = { morgen: [7.5, 172], dag: [13, 172], kveld: [20.5, 172], natt: [22.5, 300] };
 const WEATHER = { klart: { fog: 0.00007, fall: 0.0018, wet: 0, turb: 3.5 }, skyet: { fog: 0.00016, fall: 0.0014, wet: 0, turb: 9 }, regn: { fog: 0.00045, fall: 0.0010, wet: 1, turb: 12, rain: 1 }, taake: { fog: 0.0025, fall: 0.0022, wet: 0.4, turb: 6 } };
 
@@ -29,7 +32,9 @@ export class Game {
   saveProf() { this.store.set('prof', this.prof); }
   owns(spec) { return !spec.price || this.prof.cars.includes(spec.id); }
   parts(id = this.car.spec.id) { return this.prof.parts[id] || (this.prof.parts[id] = {}); }
-  island() { return this.world.islandAt(this.car.pos.x, this.car.pos.z) || this.world.islands[0]; }
+  island() { const p = this.focus().pos; return this.world.islandAt(p.x, p.z) || this.world.islands[0]; }
+  // what the camera follows: the car, or the boat, plane or skier of the running activity
+  focus() { return this.act && this.act.pose || this.car; }
 
   async init(status) {
     this.input = new Input(document.getElementById('stage'));
@@ -55,8 +60,14 @@ export class Game {
     this.courses.build(this.island());
     this.dockFerry(this.island());
     this.cam.snap = true;
+    status && status('Gjør klar båter, fly og dyr …');
+    this.acts = []; this.extras = [];
+    const load = async (path, list) => { try { const m = await import(path); const x = new m.default(this); await (x.init && x.init()); list.push(x); return x; } catch (e) { console.warn('kunne ikke laste', path, e); } };
+    for (const n of ACTS) await load(`./activities/${n}.js`, this.acts);
+    for (const n of EXTRAS) await load(`./${n}.js`, this.extras);
     this.ui.show('menu');
     if (this.params.has('play')) this.play();
+    const act = this.params.get('act'); if (act) { const a = this.acts.find(x => x.constructor.id === act); if (a) { this.ui.hide(); this.mode = 'drive'; a.start({}); } }
   }
   // ferry quays: Tromøya's from the data file, the other islands' from their features (pois.ferry)
   findQuays() {
@@ -81,7 +92,7 @@ export class Game {
     return out;
   }
   placeName() {
-    const isl = this.island(), p = this.car.pos; let best = null;
+    const isl = this.island(), p = this.focus().pos; let best = null;
     for (const l of isl.feat.labels || []) { if (!['island', 'beach', 'bay', 'peak', 'hill', 'recreation_ground', 'grave_yard', 'water', 'town', 'park', 'pitch', 'strait'].includes(l.t)) continue; const d = Math.hypot(l.x + (isl.id === 'tromoya' ? 0 : isl.ox) - p.x, l.z + (isl.id === 'tromoya' ? 0 : isl.oz) - p.z); if (d < 900 && (!best || d < best.d) && l.t !== 'island') best = { d, n: l.n }; }
     return best ? best.n + ', ' + isl.name : isl.name;
   }
@@ -152,9 +163,23 @@ export class Game {
   }
   // ---------------------------------------------------------------- modes
   play() { this.ui.hide(); this.mode = 'drive'; this.snd.unlock && this.snd.unlock(); this.cam.snap = true; }
-  toMenu() { this.courses.stop(); this.ui.course(null); this.mode = 'menu'; this.ui.show('menu'); }
+  toMenu() { if (this.act) this.act.stop(); this.courses.stop(); this.ui.course(null); this.mode = 'menu'; this.ui.show('menu'); }
   pause(on = true) { if (on && (this.mode === 'drive' || this.mode === 'race')) { this.prevMode = this.mode; this.mode = 'pause'; this.ui.show('pause'); } }
-  resume() { this.ui.hide(); if (this.mode === 'pause' || this.mode === 'menu' || this.mode === 'result') this.mode = 'drive'; }
+  resume() { this.ui.hide(); if (this.mode === 'pause' || this.mode === 'menu' || this.mode === 'result') this.mode = this.act ? 'act' : 'drive'; }
+  // an activity takes over the frame; the car waits where it is parked
+  startActivity(a) {
+    if (this.act && this.act !== a) this.act.stop();
+    this.courses.stop(); this.ui.course(null); this.ui.hide();
+    this.act = a; a.active = true; this.mode = 'act'; this.offer = null; document.getElementById('offer').hidden = true;
+    const I = this.car.input; I.gas = 0; I.brake = 1; I.steer = 0; I.handbrake = 1; this.car.vel.set(0, 0, 0); this.car.w.set(0, 0, 0);
+    document.body.classList.add('act'); document.body.dataset.act = a.constructor.id || '';
+  }
+  endActivity() {
+    const a = this.act; if (!a) return;
+    a.active = false; this.act = null; this.mode = 'drive'; this.cam.snap = true;
+    document.body.classList.remove('act'); delete document.body.dataset.act;
+    const I = this.car.input; I.brake = 0; I.handbrake = 0;
+  }
   // back on the road: the nearest road point, pointing along the road
   recover() {
     const p = this.car.pos, isl = this.island(); let best = null;
@@ -202,6 +227,7 @@ export class Game {
   // ---------------------------------------------------------------- the frame
   update(dt) {
     const inp = this.input.read(dt, Math.abs(this.car.speed));
+    if (this.mode === 'act' || this.act && this.mode === 'pause') return this.updateAct(dt, inp);
     for (const a of inp.presses) this.press(a);
     if (inp.releases.includes('horn')) this.snd.event && this.snd.event('horn', { on: false });
     if (this.mode === 'ferry') { this.updateFerry(dt); this.vis.sync(this.car, dt); this.ui.update(dt); return; }
@@ -220,6 +246,8 @@ export class Game {
     if (this.mode === 'menu' || this.mode === 'garage') this.menuCamera(dt); else this.cam.update(dt, this.car, this.vis, inp);
     if (this.car.lastHit && this.car.lastHit.t !== this._hitT) { this._hitT = this.car.lastHit.t; const j = this.car.lastHit.j / this.car.m; if (j > 1.5) this.cam.shake = Math.min(0.25, j * 0.03); }
     this.snd.update && this.snd.update(dt, this.car, this.soundEnv(dt));
+    for (const x of this.acts) x.frame && x.frame(dt);
+    for (const x of this.extras) x.frame && x.frame(dt);
     this.ui.update(dt);
     this.saveT = (this.saveT || 0) - dt; if (this.saveT <= 0 && driving) { this.saveT = 5; this.store.set('pos', { x: this.car.pos.x, z: this.car.pos.z, h: Math.atan2(this.car.fw.x, this.car.fw.z) }); }
   }
@@ -236,6 +264,20 @@ export class Game {
     }
     E.sea = sea / n; E.forest = fo / n; E.town = to / n;
     return E;
+  }
+  updateAct(dt, inp) {
+    const a = this.act;
+    for (const k of inp.presses) {
+      if (this.mode === 'pause') { if (k === 'pause') this.resume(); continue; }
+      if (!a.press(k) && k === 'pause') { this.mode = 'pause'; this.ui.show('pause'); }
+    }
+    if (this.mode === 'act') a.update(dt, inp);
+    if (inp.releases.includes('horn')) this.snd.event && this.snd.event('horn', { on: false });
+    this.vis.sync(this.car, dt);
+    for (const x of this.acts) x.frame && x.frame(dt);
+    for (const x of this.extras) x.frame && x.frame(dt);
+    this.snd.update && this.snd.update(dt, this.car, this.soundEnv(dt));
+    this.ui.update(dt);
   }
   menuCamera(dt) {
     const c = this.car, cam = this.gfx.camera, t = performance.now() * 0.00012 + 0.8, r = c.spec.dims.L * 1.6 + 3;
@@ -255,6 +297,7 @@ export class Game {
       const n = this.courses.nearest(c.pos);
       if (n && n.d < 14) o = { kind: 'Løype', name: n.c.name, info: (this.best[n.c.key] ? '★'.repeat(this.best[n.c.key].s) + ' ' : '') + (n.c.len / 1000).toFixed(1).replace('.', ',') + ' km', go: () => this.courses.start(n.c) };
       const a = this.base.ask; if (!o && Math.hypot(a.x - c.pos.x, a.z - c.pos.z) < a.r) o = { kind: 'Verkstedet', name: TROMOYA.base.name, info: 'deler, dekk, lakk og biler', go: () => { this.mode = 'garage'; this.ui.show('garage'); this.vis.clean(); } };
+      for (const a of this.acts) if (!o) o = a.offers(c);
       if (!o && this.ferry.group.visible && this.ferry.onDeck(c.pos)) o = { kind: 'Ferja', name: 'Hvor vil du reise?', info: '5 ⚙', go: () => this.ui.show('map') };
     }
     this.offer = o; off.hidden = !o;

@@ -88,3 +88,7 @@ body.tilt .tpad.l{display:none}
 #loading .bar{width:min(360px,80vw);height:6px;background:rgba(242,232,208,.12);border-radius:3px;overflow:hidden;margin-top:10px}#loading .bar i{display:block;height:100%;width:0;background:var(--acc);transition:width .3s}
 #loading .credits{position:absolute;bottom:14px;font-size:13px;opacity:.5}
 @media (max-width:760px){.overlay{flex-direction:column;align-items:stretch;justify-content:flex-start;gap:14px;padding:16px}.brand h1{font-size:46px}.lede{font-size:17px}.brand{max-width:none}.hud-btns{right:14px;top:auto;bottom:220px;flex-direction:column}#minimap{width:120px;height:120px}.place{min-width:0}.mapbox{width:100%}}
+
+/* an activity (boat, plane, ski) runs: the car's dashboard, its buttons and touch pads give way to the activity's own */
+body.act .dash,body.act .hud-btns [data-t=lights],body.act #hCourse{display:none}
+body.act .touch{display:none!important}

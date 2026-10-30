@@ -56,7 +56,7 @@ export class Input {
     }
     // tilt steering on phones (optional, set by the settings)
     if (this.tilt != null && this.tiltOn) out.steer = Math.max(-1, Math.min(1, -this.tilt / 28));
-    out.presses = this.presses; this.presses = []; out.releases = this.releases; this.releases = [];
+    out.presses = this.presses; this.presses = []; out.releases = this.releases; this.releases = []; out.down = this.down; out.touch = this.touch;
     return out;
   }
   enableTilt(on) {

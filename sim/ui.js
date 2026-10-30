@@ -27,7 +27,7 @@ export class UI {
     $('gDrive').onclick = () => this.g.play();
     document.querySelectorAll('#garage [data-tab]').forEach(b => b.onclick = () => { this.tab = b.dataset.tab; document.querySelectorAll('#garage [data-tab]').forEach(x => x.classList.toggle('on', x === b)); this.garage(); });
     document.querySelectorAll('[data-mtab]').forEach(b => b.onclick = () => { this.mapTab = b.dataset.mtab; document.querySelectorAll('[data-mtab]').forEach(x => x.classList.toggle('on', x === b)); this.drawMap(); });
-    $('pResume').onclick = () => this.g.resume(); $('pReset').onclick = () => { this.g.resume(); this.g.recover(); }; $('pAbort').onclick = () => { this.g.courses.stop(); this.course(null); this.g.resume(); };
+    $('pResume').onclick = () => this.g.resume(); $('pReset').onclick = () => { this.g.resume(); if (this.g.act) this.g.act.reset(); else this.g.recover(); }; $('pAbort').onclick = () => { this.g.courses.stop(); this.course(null); this.g.resume(); };
     $('pMap').onclick = () => this.show('map', 'pause'); $('pGarage').onclick = () => this.show('garage', 'pause'); $('pSettings').onclick = () => this.show('settings', 'pause'); $('pMenu').onclick = () => this.g.toMenu();
     $('rAgain').onclick = () => { this.hide(); this.g.mode = 'drive'; this.g.courses.start(this.lastResult.c); };
     $('rDone').onclick = () => { this.hide(); this.g.mode = 'drive'; };
@@ -170,8 +170,15 @@ export class UI {
   }
   // ---------------------------------------------------------------- HUD
   update(dt) {
-    const g = this.g, car = g.car;
+    const g = this.g;
     if (this.toastT > 0) { this.toastT -= dt; if (this.toastT <= 0) $('toast').classList.remove('on'); }
+    if (g.act) {
+      // a boat, a plane or skis: they draw their own instruments; the place, the nuts and the minimap stay
+      this.hudT = (this.hudT || 0) - dt; if (this.hudT > 0) return; this.hudT = 0.1;
+      $('hNuts').textContent = fmtN(g.prof.nuts); $('hPlace').textContent = g.placeName(); $('hRoad').textContent = g.act.where || '';
+      this.drawMini(g.focus()); return;
+    }
+    const car = g.car;
     this.drawSpeedo(car);
     const st = car.state;
     $('lAbs').className = st.absOn ? 'on' : ''; $('lTcs').className = st.tcsOn ? 'on' : ''; $('lEsp').className = st.espOn ? 'on' : ''; $('lLow').className = st.low ? 'on' : ''; $('lLight').className = g.vis.lights ? 'on' : '';
