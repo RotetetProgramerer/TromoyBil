@@ -131,10 +131,10 @@ export default class SkiActivity extends Activity {
     const g = this.game; if (!this.active) return;
     this.phase = ''; this.run = null; this.fadeQ = null; $('kFade').classList.remove('on'); g.ui.countdown(null);
     if (this.sound) { this.sound.stop(); this.sound = null; }
-    if (this.vis) this.vis.root.visible = false; this.spray && this.spray.clear(); this.arrow && this.arrow.hide(); this.resort.showGate(null); this.resort.skip = -1; this.resort.live(null); this.lamp.intensity = 0;
+    if (this.vis) this.vis.root.visible = false; this.spray && this.spray.clear(); this.ghost = null; this.showGhost(); this.arrow && this.arrow.hide(); this.resort.showGate(null); this.resort.skip = -1; this.resort.live(null); this.lamp.intensity = 0;
     g.car.engineOff = false; g.cam.mode = this.camSave || 0;
     if (this.pauseSave) { $('pReset').textContent = this.pauseSave.reset; $('pAbort').textContent = this.pauseSave.abort; $('pAbort').onclick = this.pauseSave.abortClick; $('pAbort').hidden = true; }
-    $('offer').hidden = true; this.pose = null; $('kRun').hidden = true; $('kLift').hidden = true;
+    $('offer').hidden = true; this.nearShown = ''; this.pose = null; $('kRun').hidden = true; $('kLift').hidden = true;
     g.endActivity();
   }
   // a short fade to black: cb runs while it is dark
@@ -146,7 +146,7 @@ export default class SkiActivity extends Activity {
       const L = this.area.lift, C = this.resort.chairLoop(); let best = 1e9;
       // the chair just leaving the bottom station
       for (let i = 0; i < C.n; i++) { const s = this.resort.chairS(i); if (s < best) { best = s; this.chair = i; } }
-      this.phase = 'lift'; this.run = null; this.k = null; this.resort.skip = this.chair; this.resort.live(null); this.resort.showGate(null); this.lastTower = -1; this.snap = true; this.tracks.clear();
+      this.phase = 'lift'; this.run = null; this.k = null; this.ghost = null; this.showGhost(); this.resort.skip = this.chair; this.resort.live(null); this.resort.showGate(null); this.lastTower = -1; this.snap = true; this.tracks.clear();
       $('kRun').hidden = true; $('kLift').hidden = false; this.hint('Stolheisen tar deg til toppen · Enter eller mellomrom hopper over turen · C kamera', 8);
     };
     if (now) go(); else this.fade(go);
@@ -170,7 +170,7 @@ export default class SkiActivity extends Activity {
   }
   free(now) {
     this.game.ui.hide(); this.game.mode = 'act';
-    const go = () => { const L = this.area.lift, s = this.skier; s.place(L.b[0] - Math.sin(L.ang) * 10, L.b[2] - Math.cos(L.ang) * 10, L.ang + Math.PI); this.phase = 'free'; this.run = null; this.k = null; this.snap = true; this.tracks.clear(); $('kRun').hidden = true; $('kLift').hidden = true;
+    const go = () => { const s = this.skier, k = this.area.pistes.find(p => p.kind === 'slalom') || this.area.pistes[0], P = this.area.P(k, 16), T = this.area.T(k, 16); s.place(P.x, P.z, Math.atan2(T.x, T.z)); this.phase = 'free'; this.run = null; this.k = null; this.snap = true; this.tracks.clear(); $('kRun').hidden = true; $('kLift').hidden = true;
       this.hint('Fri kjøring: hele fjellet er ditt. Kjør ned til stolheisen og trykk Enter for å ta den opp igjen. ' + HINT_RUN, 12); };
     if (now) go(); else this.fade(go);
   }
@@ -179,6 +179,7 @@ export default class SkiActivity extends Activity {
     const go = () => {
       const s = this.skier, st = k.start; s.place(st.x - Math.sin(st.h) * 2.2, st.z - Math.cos(st.h) * 2.2, st.h);
       this.k = k; this.phase = 'count'; this.count = 3.5; this.beat = 4; this.run = new SkiRun(k); this.run.best = this.game.best[k.key]; this.snap = true; this.tracks.clear(); this.spray.clear();
+      this.rec = []; this.recT = 0; const gd = this.game.store.get('ski-ghost:' + k.id, null); this.ghost = gd && gd.d && gd.d.length >= 14 && this.run.best ? { d: gd.d, n: gd.d.length / 7, i: 0 } : null;
       this.resort.live(k, this.run); this.resort.skip = -1; this.highlight();
       $('kLift').hidden = true; $('kRun').hidden = false; $('kName').textContent = k.name; $('kGate').textContent = '0/' + k.gates.length; $('kTime').textContent = '0:00,0'; $('kSplit').textContent = '';
       $('kGateL').textContent = 'Port'; $('kBestL').textContent = k.points ? 'Poeng' : 'Beste'; $('kBest').textContent = k.points ? '0' : this.run.best ? fmtTime(this.run.best.t) : '–';
@@ -210,10 +211,10 @@ export default class SkiActivity extends Activity {
     if (!r.missed) { nuts += 25; why.push('ingen bom +25'); }
     if (k.points && r.points) { const n = Math.round(r.points / 10); nuts += n; why.push(r.points + ' poeng +' + n); }
     if (first) { nuts += 60; why.push('første tur +60'); } else if (rec) { nuts += 20; why.push('ny rekord +20'); }
-    if (rec) g.best[k.key] = { t, s: Math.max(stars, old ? old.s : 0), pts: r.points, splits: r.splits.slice() }; else if (old && stars > old.s) old.s = stars;
+    if (rec) { g.best[k.key] = { t, s: Math.max(stars, old ? old.s : 0), pts: r.points, splits: r.splits.slice() }; if (this.rec && this.rec.length >= 14) g.store.set('ski-ghost:' + k.id, { d: this.rec }); } else if (old && stars > old.s) old.s = stars;
     g.store.set('best', g.best); g.prof.nuts += nuts; g.saveProf();
     this.resort.result(k, { big: k.points ? r.points + ' p' : fmtTime(t), small: rec ? (first ? 'FØRSTE TUR' : 'NY REKORD!') : old ? (k.points ? (r.points - old.pts >= 0 ? '+' : '') + (r.points - old.pts) + ' POENG' : (t - old.t <= 0 ? '−' : '+') + Math.abs(t - old.t).toFixed(2).replace('.', ',') + ' MOT BESTE') : '', col: rec ? '#8bbb4a' : '#f2e8d0' });
-    this.phase = 'done'; this.doneT = 0; this.highlight(); this.sound && (this.sound.beep(1180, 0.2), setTimeout(() => this.sound && this.sound.beep(1480, 0.35), 180));
+    this.phase = 'done'; this.doneT = 0; this.resultShown = false; this.highlight(); this.sound && (this.sound.beep(1180, 0.2), setTimeout(() => this.sound && this.sound.beep(1480, 0.35), 180));
     g.ui.toast('Mål! ' + fmtTime(t));
     const carve = r.turnT > 1 ? Math.round(100 * r.carveT / r.turnT) : null;
     $('krKind').textContent = 'I mål · ' + k.diff.toLowerCase() + ' nedfart'; $('krName').textContent = k.name; $('krStars').textContent = '★'.repeat(stars) + '☆'.repeat(3 - stars);
@@ -233,6 +234,7 @@ export default class SkiActivity extends Activity {
         if (this.phase === 'lift') { this.toTop(); return true; }
         if (k === 'enter' && (this.phase === 'free' || this.phase === 'done') && this.atLift()) { this.ride(); return true; }
         if (k === 'enter' && this.phase === 'done' && this.doneT > 1) { this.showResult(); return true; }
+        if (k === 'enter' && this.phase === 'top') { this.menu(); return true; }
         return k === 'handbrake';
       case 'lights': this.lampOn = !(this.lampOn ?? U.uNight.value > 0.4); g.ui.toast(this.lampOn ? 'Hodelykt på' : 'Hodelykt av'); return true;
       case 'map': g.mode = 'pause'; g.ui.show('map'); return true;
@@ -246,7 +248,7 @@ export default class SkiActivity extends Activity {
     return false;
   }
   atLift() { const L = this.area.lift, s = this.skier; return Math.hypot(s.pos.x - L.a[0], s.pos.z - L.a[2]) < 40 && s.speed < 3; }
-  showResult() { const g = this.game; if (g.ui.open === 'skiResult') return; g.mode = 'pause'; g.ui.show('skiResult'); }
+  showResult() { const g = this.game; if (g.ui.open === 'skiResult' || this.fadeQ || this.phase !== 'done') return; g.mode = 'pause'; g.ui.show('skiResult'); }
   // ---------------------------------------------------------------- every frame
   update(dt, inp) {
     const g = this.game, s = this.skier, T = this.touch;
@@ -277,23 +279,25 @@ export default class SkiActivity extends Activity {
         }
       }
       if (n >= MAXSTEP) this.acc = 0;
-      if (r && this.phase === 'run' && r.started) { r.time += dt; r.top = Math.max(r.top, s.speed); if (Math.abs(s.inc) > 0.15 && !s.air && s.crashT === 0) { r.turnT += dt; if (s.carve > 0.6) r.carveT += dt; } }
+      if (r && this.phase === 'run' && r.started) { r.time += dt; r.top = Math.max(r.top, s.speed); if (Math.abs(s.inc) > 0.15 && !s.air && s.crashT === 0) { r.turnT += dt; if (s.carve > 0.6) r.carveT += dt; }
+        // the run for the ghost, ten times a second [time, x, y, z, heading, lean, tuck]
+        if ((this.recT = (this.recT || 0) - dt) <= 0 && this.rec.length < 7 * 10 * 600) { this.recT = 0.1; this.rec.push(+r.time.toFixed(2), +(s.pos.x - this.isl.ox).toFixed(2), +s.pos.y.toFixed(2), +(s.pos.z - this.isl.oz).toFixed(2), +s.head.toFixed(2), +s.inc.toFixed(2), s.tuck > 0.5 ? 1 : 0); } }
       // other skiers: a real collision takes you both down
       if (s.crashT === 0 && this.resort.hit(s)) s.crash('Krasjet med en skiløper');
       // a fall: tumble, lie still, get up (where you fell if that is on the piste and clear, otherwise at the last gate or the top)
       if (s.crashT > 2.6) this.getUp();
     }
-    if (this.phase === 'done') { this.doneT += dt; if (this.doneT > 1.8 && s.speed < 2) this.showResult(); }
+    if (this.phase === 'done' && !this.fadeQ) { this.doneT += dt; if (this.doneT > 1.8 && s.speed < 2 && !this.resultShown) { this.resultShown = true; this.showResult(); } }
     // on screen
     this.vis.sync(s, dt, { area: this.area, going: this.phase !== 'top' && this.phase !== 'count', kick: (() => { const kk = !s.air && this.area.kickerAt(s.pos.x, s.pos.z); return kk && kk.a > -1.6 && kk.a < 0; })() });
-    this.spray.update(dt, s); this.tracks.update(dt, s);
+    this.spray.update(dt, s); this.tracks.update(dt, s); this.showGhost();
     this.camera(dt, inp);
     this.pose.pos.set(s.pos.x, s.pos.y, s.pos.z); this.pose.fw.set(Math.sin(s.head), 0, Math.cos(s.head)); this.pose.kmh = s.speed * 3.6;
     this.where = this.k ? this.k.name + (this.phase === 'done' ? ' · i mål' : '') : this.phase === 'free' ? 'Fri kjøring' + (s.surf === 'deep' ? ' · løssnø' : s.surf === 'groomed' ? ' · preparert løype' : '') : 'Toppen';
     this.hud(dt);
     // at the bottom in free skiing (or after a run): the lift
-    const off = $('offer'), near = (this.phase === 'free' || this.phase === 'done') && this.atLift() && !this.fadeQ;
-    if (near !== this.nearShown) { this.nearShown = near; off.hidden = !near; if (near) { $('oKind').textContent = 'Stolheisen'; $('oName').textContent = 'Ta heisen opp'; $('oInfo').textContent = 'Enter'; } }
+    const off = $('offer'), near = this.fadeQ ? '' : (this.phase === 'free' || this.phase === 'done') && this.atLift() ? 'lift' : this.phase === 'top' ? 'top' : this.phase === 'done' && this.resultShown ? 'done' : '';
+    if (near !== this.nearShown) { this.nearShown = near; off.hidden = !near; const O = { lift: ['Stolheisen', 'Ta heisen opp', 'til toppen'], top: ['Toppen', 'Velg nedfart', 'eller fri kjøring'], done: ['I mål', 'Se resultatet', 'og kjør igjen'] }[near]; if (O) { $('oKind').textContent = O[0]; $('oName').textContent = O[1]; $('oInfo').textContent = O[2]; } }
     this.sounds(dt);
   }
   event(e) {
@@ -310,13 +314,26 @@ export default class SkiActivity extends Activity {
     }
     if (e.type === 'hit' && e.j > 200) this.shake = 0.15;
   }
+  // the ghost of your best run in this piste: waits at the start until you push off, then skis with your clock
+  showGhost() {
+    const G = this.ghost, r = this.run, on = G && r && (this.phase === 'count' || this.phase === 'run');
+    if (!this.ghostVis) { if (!on) return; this.ghostVis = this.resort.ghost(); }
+    const V = this.ghostVis; V.up.visible = V.tuck.visible = false; if (!on) return;
+    const d = G.d, n = G.n, t = r.started ? r.time : 0; if (t > d[(n - 1) * 7] + 0.5) return;
+    let i = Math.min(G.i, n - 2); while (i > 0 && d[i * 7] > t) i--; while (i < n - 2 && d[(i + 1) * 7] <= t) i++; G.i = i;
+    const a = i * 7, b = a + 7, u = clamp((t - d[a]) / Math.max(1e-3, d[b] - d[a]), 0, 1), L = j => d[a + j] + (d[b + j] - d[a + j]) * u, h = d[a + 4] + wrap(d[b + 4] - d[a + 4]) * u;
+    const m = d[a + 6] ? V.tuck : V.up, x = L(1) + this.isl.ox, z = L(3) + this.isl.oz; m.visible = true; m.position.set(x, L(2), z);
+    const fx = Math.sin(h), fz = Math.cos(h), slope = Math.atan2(this.area.ground(x + fx * 0.8, z + fz * 0.8) - this.area.ground(x - fx * 0.8, z - fz * 0.8), 1.6); m.rotation.set(-slope, h, -L(5) * 0.85, 'YXZ');
+  }
   getUp() {
     const s = this.skier, r = this.run, x = s.pos.x, z = s.pos.z, pi = this.area.piste(x, z);
     const clear = !this.game.world.colliders(x, z, 1).some(c => (c.r != null ? Math.hypot(c.x - x, c.z - z) < c.r + 1 : Math.hypot(c.x - x, c.z - z) < Math.max(c.hw, c.hd) + 1));
     if (pi && pi.m > 1 && clear && this.game.world.water(x, z) < s.pos.y) { const k = pi.k, sOn = this.area.sOn(k, x, z), T = this.area.T(k, Math.min(k.len, sOn.s + 3)); s.place(x, z, Math.atan2(T.x, T.z)); }
     else if (r && this.phase === 'run') { const c = r.cp; s.place(c.x, c.z, c.h); }
-    else if (pi) { const k = pi.k, sOn = this.area.sOn(k, x, z), P = this.area.P(k, sOn.s), T = this.area.T(k, sOn.s); s.place(P.x, P.z, Math.atan2(T.x, T.z)); }
-    else { s.place(x, z, s.head); }
+    else if (clear && this.game.world.water(x, z) < s.pos.y - 0.05 && this.isl.inside(x, z, 50) && (!pi || pi.m > 0)) s.place(x, z, s.head);
+    else { // back up on the nearest piste
+      let best = null; for (const k of this.area.pistes) { const o = this.area.sOn(k, x, z); if (!best || o.d < best.d) best = Object.assign(o, { k }); }
+      const P = this.area.P(best.k, best.s), T = this.area.T(best.k, best.s); s.place(P.x, P.z, Math.atan2(T.x, T.z)); }
     this.snap = true;
   }
   updateLift(dt) {
@@ -347,7 +364,7 @@ export default class SkiActivity extends Activity {
       if (G && !s.air) { const d = Math.hypot(G.x - s.pos.x, G.z - s.pos.z), ahead = (G.x - s.pos.x) * Math.sin(s.dir) + (G.z - s.pos.z) * Math.cos(s.dir); if (d > 160 || ahead < -15) this.arrow.set(s.pos.x, s.pos.y + 2.3, s.pos.z, G.x, G.z, ahead < -15, U.uTime.value); else this.arrow.hide(); } else this.arrow.hide();
       // the headlamp in the dark
       const on = this.lampOn ?? U.uNight.value > 0.4; const hp = this.vis.fig.headG.getWorldPosition(_v);
-      this.lamp.intensity = on && ph !== 'lift' ? 14 : 0; this.lamp.position.copy(hp); this.lamp.target.position.set(hp.x + Math.sin(s.dir) * 16, hp.y - 2.2, hp.z + Math.cos(s.dir) * 16); this.lamp.target.updateMatrixWorld();
+      this.lamp.intensity = on && ph !== 'lift' ? 8 : 0; this.lamp.position.copy(hp); this.lamp.target.position.set(hp.x + Math.sin(s.dir) * 16, hp.y - 2.2, hp.z + Math.cos(s.dir) * 16); this.lamp.target.updateMatrixWorld();
       // at the top, while the menu is open: the camera circles the skier
       if (ph === 'top' && g.mode === 'pause') { const a = performance.now() * 0.00012, p = s.pos; cam.position.set(p.x + Math.sin(a) * 5, p.y + 2.2, p.z + Math.cos(a) * 5); cam.up.set(0, 1, 0); cam.lookAt(p.x, p.y + 0.9, p.z); cam.fov = 50; cam.updateProjectionMatrix();
         this.vis.sync(s, dt, { area: this.area, going: false }); }

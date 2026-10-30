@@ -37,14 +37,14 @@ export class SkiResort {
     this.floodLens = prep(new THREE.MeshStandardMaterial({ color: '#dddad0', emissive: '#fff1d0', emissiveIntensity: 0, roughness: 0.3 }));
     const mk = (g, m) => { const im = new THREE.InstancedMesh(g, m, L.length); im.castShadow = true; im.frustumCulled = false; L.forEach((o, i) => { _q.setFromAxisAngle(_s.set(0, 1, 0), o.ang); _m.compose(_p.set(o.x, o.y - 0.2, o.z), _q, _s.set(1, 1, 1)); im.setMatrixAt(i, _m); }); this.group.add(im); return im; };
     mk(pole, metal); mk(head, this.floodLens);
-    this.spots = [0, 1, 2].map(() => { const s = new THREE.SpotLight(0xfff0d8, 0, 85, 0.8, 0.55, 1.15); s.castShadow = false; this.gfx.scene.add(s, s.target); return s; });
+    this.spots = Array.from({ length: { lav: 0, middels: 2 }[this.gfx.qName] ?? 3 }, () => { const s = new THREE.SpotLight(0xfff0d8, 0, 85, 0.8, 0.55, 1.15); s.castShadow = false; this.gfx.scene.add(s, s.target); return s; });
   }
   updFloods(dt, cam, player) {
     const on = THREE.MathUtils.smoothstep(U.uNight.value, 0.3, 0.6); this.floodLens.emissiveIntensity = on * 12;
     if ((this.floodT = (this.floodT || 0) - dt) > 0) return; this.floodT = 0.3;
     const p = player || cam, near = on > 0 ? this.lamps.map(o => [o, (o.x - p.x) ** 2 + (o.z - p.z) ** 2]).sort((a, b) => a[1] - b[1]).slice(0, this.spots.length) : [];
     this.spots.forEach((s, i) => { const e = near[i]; if (!e || e[1] > 250 * 250) { s.intensity = 0; return; } const o = e[0];
-      s.position.set(o.x + Math.sin(o.ang) * 0.5, o.y + 11, o.z + Math.cos(o.ang) * 0.5); s.target.position.set(o.x + Math.sin(o.ang) * 22, o.y - 2, o.z + Math.cos(o.ang) * 22); s.target.updateMatrixWorld(); s.intensity = on * 900; });
+      s.position.set(o.x + Math.sin(o.ang) * 0.5, o.y + 11, o.z + Math.cos(o.ang) * 0.5); s.target.position.set(o.x + Math.sin(o.ang) * 22, o.y - 2, o.z + Math.cos(o.ang) * 22); s.target.updateMatrixWorld(); s.intensity = on * 110; });
   }
   // the groomed snow: a 2 m grid over every piste at the height the skis ride on (the island's ground smoothed, plus the packed
   // layer), with the groomer's corduroy in passes down the hill and the seams between them; it fades out at the edges
@@ -188,6 +188,12 @@ export class SkiResort {
     for (const o of this.npcs) { if (o.down > 0) continue; const dx = s.pos.x - o.x, dz = s.pos.z - o.z, d = Math.hypot(dx, dz); if (d > 0.7 || Math.abs(s.pos.y - o.y) > 1 || d < 1e-4) continue;
       if (Math.hypot(s.vel.x - o.vx, s.vel.z - o.vz) > 3) { o.down = 3; return true; } s.pos.x += dx / d * (0.7 - d); s.pos.z += dz / d * (0.7 - d); }
     return false;
+  }
+  // the ghost of the best run: a pale see-through skier, upright and tucked
+  ghost() {
+    const mat = prep(new THREE.MeshStandardMaterial({ vertexColors: true, color: '#cfeeff', emissive: '#3a6a8a', emissiveIntensity: 0.6, transparent: true, opacity: 0.38, depthWrite: false, roughness: 0.5 }));
+    const mk = P => { const m = new THREE.Mesh(figureGeometry(P, { jacket: '#9fd2ff', pants: '#9fd2ff', helmet: '#ffffff', ski: '#ffffff', boot: '#ffffff' }), mat); m.rotation.order = 'YXZ'; m.visible = false; m.renderOrder = 3; this.gfx.scene.add(m); return m; };
+    return { up: mk({ c: 0.4 }), tuck: mk({ c: 0.4, tk: 1 }) };
   }
   // the run starts (wand swings open), a run is live on the board, a result comes in
   wand(k) { const w = (this.wands || []).find(o => o.k === k); if (w) w.t = 0; }
