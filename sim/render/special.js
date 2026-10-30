@@ -378,7 +378,8 @@ float ln(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f); return m
   // ---------------------------------------------------------------- every frame
   update(dt, cam) {
     const g = this.gfx, c = g.camera;
-    this.ou.tDepth.value = g.rtDepth.texture;          // the copy: the overlay is drawn into rtScene, so it must not read its own depth this.ou.uNear.value = c.near; this.ou.uFar.value = c.far; this.ou.fogDensity.value = g.scene.fog.density;
+    // (the copy of the depth: the overlay is drawn into rtScene, so it must not read that target's own depth)
+    this.ou.tDepth.value = g.rtDepth.texture; this.ou.uNear.value = c.near; this.ou.uFar.value = c.far; this.ou.fogDensity.value = g.scene.fog.density;
     this.ou.uRes.value.set(g.size.W, g.size.H); this.ou.uPx.value = g.size.H / (2 * Math.tan(c.fov * Math.PI / 360));
     // islands far away are hidden
     for (const gr of this.groups) { const i = gr.isl, dx = Math.max(i.x0 - cam.x, 0, cam.x - i.x1), dz = Math.max(i.z0 - cam.z, 0, cam.z - i.z1), vis = Math.hypot(dx, dz) < 9000; gr.scene.visible = vis; gr.over.visible = vis; }
