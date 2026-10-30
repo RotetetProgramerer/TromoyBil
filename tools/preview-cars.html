@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Car models</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #9fb6c8; overflow: hidden; font: 13px/1.3 system-ui, sans-serif; }
+  canvas { display: block; }
+  .tag { position: absolute; color: #fff; background: rgba(0, 0, 0, .45); padding: 2px 6px; border-radius: 3px; pointer-events: none; }
+</style>
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.min.js","three/addons/":"../vendor/three/addons/"}}</script>
+</head>
+<body>
+<!--
+  Preview of assets/cars/*.glb (built by tools/build-cars.mjs).
+    preview-cars.html                 every car, 3/4 front and 3/4 rear
+    preview-cars.html?car=kobbe       one car: 3/4 front, 3/4 rear, side and the driver's view
+  Options: &view=0…5 (one view only), &lights=1 (all lamps on), &col=%23ff0000 (paint), &t=<sun height in degrees>
+-->
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { CARS } from '../sim/data/cars.js';
+
+const P = new URLSearchParams(location.search), one = P.get('car'), lightsOn = P.has('lights');
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(2, devicePixelRatio)); renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.setScissorTest(true);
+document.body.appendChild(renderer.domElement);
+
+// sky: a gradient dome, also used as the environment for reflections
+const sky = new THREE.Scene(), skyGeo = new THREE.SphereGeometry(500, 48, 24), cols = [], pos = skyGeo.attributes.position;
+const top = new THREE.Color(0x3d6fb0), hor = new THREE.Color(0xd8e4ee), gnd = new THREE.Color(0x5c5448), c = new THREE.Color();
+for (let i = 0; i < pos.count; i++) { const h = pos.getY(i) / 500; if (h > 0) c.copy(hor).lerp(top, Math.pow(h, 0.6)); else c.copy(hor).lerp(gnd, Math.min(1, -h * 4)); cols.push(c.r, c.g, c.b); }
+skyGeo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+sky.add(new THREE.Mesh(skyGeo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, depthWrite: false })));
+const sunDir = new THREE.Vector3().setFromSphericalCoords(1, (90 - (+P.get('t') || 42)) * Math.PI / 180, Math.PI * 0.2);
+const sunBlob = new THREE.Mesh(new THREE.SphereGeometry(18, 16, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(30, 28, 24) }));
+sunBlob.position.copy(sunDir).multiplyScalar(450); sky.add(sunBlob);
+const pmrem = new THREE.PMREMGenerator(renderer), env = pmrem.fromScene(sky, 0.02).texture;
+
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0xb8cad8); scene.environment = env;
+scene.add(sky.children[0].clone());
+scene.add(new THREE.HemisphereLight(0xcfe0ff, 0x6b5e4c, 0.7));
+const sun = new THREE.DirectionalLight(0xfff1dc, 2.6); sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096); sun.shadow.bias = -0.0002; sun.shadow.normalBias = 0.02;
+scene.add(sun, sun.target);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshStandardMaterial({ color: 0x8c8a84, roughness: 0.95 }));
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+const grid = new THREE.GridHelper(400, 400, 0x6f6d68, 0x7c7a75); grid.position.y = 0.001; scene.add(grid);
+
+const cars = CARS.filter(s => !one || s.model === one), loader = new GLTFLoader(), models = [];
+const gap = 10;
+await Promise.all(cars.map((spec, i) => new Promise((res, rej) => loader.load(`../assets/cars/${spec.model}.glb`, g => {
+  const root = g.scene; root.position.set(one ? 0 : (i - (cars.length - 1) / 2) * gap, spec.cgH, 0);
+  root.traverse(o => {
+    if (!o.isMesh) return; o.castShadow = o.material.name !== 'glass'; o.receiveShadow = true;
+    const m = o.material;
+    if (m.name === 'paint') m.color.set(P.get('col') || spec.col || '#c43b2f');
+    if (m.name.startsWith('light_')) m.emissiveIntensity = lightsOn ? 2 : ({ light_drl: 1.5, light_tail: 0.0 }[m.name] ?? 0);
+  });
+  scene.add(root); models[i] = { spec, root, eye: root.getObjectByName('driver_eye') }; res();
+}, undefined, rej))));
+
+// views: [label, camera direction (from the car, in its frame), distance factor, fov]
+const views = one ? [['3/4 front', [1, 0.42, 1.1], 1.0, 32], ['3/4 rear', [-1, 0.45, -1.15], 1.0, 32], ['side (left)', [1, 0.03, 0], 0.78, 14],
+    ['front', [0.08, 0.12, 1], 1.15, 20], ['rear', [-0.08, 0.15, -1], 1.15, 20], ['driver', null, 0, 70]]
+  : [['3/4 front', [1, 0.4, 1.1], 1.0, 30], ['3/4 rear', [-1, 0.45, -1.15], 1.0, 30]];
+if (one && P.has('view')) views.splice(0, views.length, views[+P.get('view')]);
+const cam = new THREE.PerspectiveCamera(30, 1, 0.05, 1000), tags = [];
+function draw() {
+  const W = innerWidth, H = innerHeight, solo = views.length === 1, cols = solo ? 1 : one ? 3 : models.length, rows = solo ? 1 : one ? 2 : views.length, cw = W / cols, ch = H / rows;
+  tags.forEach(t => t.remove()); tags.length = 0;
+  const cells = one ? views.map((v, k) => [models[0], v, k % 3, Math.floor(k / 3)]) : models.flatMap((m, i) => views.map((v, k) => [m, v, i, k]));
+  for (const [m, [label, dir, f, fov], cx, cy] of cells) {
+    const L = m.spec.dims.L, ctr = new THREE.Vector3(m.root.position.x, m.spec.dims.H * 0.45, -0.1);
+    if (dir) {
+      const d = new THREE.Vector3(...dir).normalize(), size = Math.abs(d.z) > 0.9 ? Math.max(m.spec.dims.W, m.spec.dims.H) * 1.6 : Math.max(L, m.spec.dims.H * 2), dist = (size * 0.62 / Math.tan(fov * Math.PI / 360)) * f;
+      cam.position.copy(ctr).addScaledVector(d, dist); cam.up.set(0, 1, 0); cam.lookAt(ctr);
+    } else {
+      m.root.updateMatrixWorld(true); const e = m.eye.getWorldPosition(new THREE.Vector3());
+      cam.position.copy(e); cam.lookAt(e.clone().add(new THREE.Vector3(0, -0.12, 1)));
+    }
+    cam.fov = fov; cam.aspect = cw / ch; cam.near = dir ? 0.5 : 0.03; cam.updateProjectionMatrix();
+    sun.position.copy(ctr).addScaledVector(sunDir, 30); sun.target.position.copy(ctr);
+    const sc = sun.shadow.camera, ext = Math.max(L, 4) * 0.75; sc.left = -ext; sc.right = ext; sc.top = ext; sc.bottom = -ext; sc.near = 1; sc.far = 80; sc.updateProjectionMatrix();
+    const x = cx * cw, y = H - (cy + 1) * ch;
+    renderer.setViewport(x, y, cw, ch); renderer.setScissor(x, y, cw, ch); renderer.render(scene, cam);
+    const t = document.createElement('div'); t.className = 'tag'; t.style.left = (x + 6) + 'px'; t.style.top = (cy * ch + 6) + 'px';
+    t.textContent = `${m.spec.name} (${m.spec.model}) — ${label}`; document.body.appendChild(t); tags.push(t);
+  }
+}
+draw(); addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); draw(); });
+window.READY = true;
+</script>
+</body>
+</html>
