@@ -79,11 +79,14 @@ def forest():
         t = np.linspace(0, 1, int(L) + 2); px = (x + np.cos(a) * L * t).astype(int) % S; py = (y + np.sin(a) * L * t).astype(int) % S
         nd[py, px] = 0.6 + r.random() * 0.4
     nd = np.maximum(nd, ndimage.grey_dilation(nd, size=(2, 2)) * 0.7)
-    needle_col = blend(srgb('#8a5a2e'), srgb('#b07a3e'), spectral(1, 40, None, 24) * 0.3 + 0.5)
+    needle_col = blend(srgb('#6a4a2c'), srgb('#8c6538'), spectral(1, 40, None, 24) * 0.3 + 0.5)
     col = blend(col, needle_col, nd * 0.9)
-    mm = np.clip(moss * 0.8 - 0.1, 0, 1)
-    moss_col = blend(srgb('#3d5a1f'), srgb('#6b8a2e'), norm01(spectral(1.5, 30, None, 25)))
-    col = blend(col, moss_col * 0.8, mm * 0.75)
+    # a Norwegian spruce forest floor is mostly moss and blueberry scrub, with needles where the moss is thin
+    mm = np.clip(moss * 0.9 + 0.35, 0, 1)
+    moss_col = blend(srgb('#34501b'), srgb('#5f7f28'), norm01(spectral(1.5, 30, None, 25)))
+    col = blend(col, moss_col * 0.85, mm * 0.82)
+    bb = np.clip(spectral(1.6, 25, None, 27) - 1.1, 0, 1)
+    col = blend(col, srgb('#263c16'), np.clip(bb * 1.6, 0, 0.8))
     # a few twigs and cones
     tw = (spectral(0.8, 90, None, 26) > 2.9)
     col[tw] = srgb('#2a1c12')
@@ -218,6 +221,8 @@ def birchbark():
     save('bark_birch', col, norm01(n) * 0.3 - lent * 0.3, 3.0, 0.7)
 
 if __name__ == '__main__':
+  if len(sys.argv) > 2: [globals()[n]() for n in sys.argv[2:]]
+  else:
     grass(); forest(); rock(); dirt(); gravel(); sand(); snow(); field(); mud(); asphalt(); ash()
     grass('drygrass', base=('#8a7a3a', '#c2a85a'), dry=('#a08a4a', '#d2bc78'), seed=201)
     dirt('redearth', a='#6b3420', b='#9a5a32', seed=211)

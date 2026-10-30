@@ -27,6 +27,7 @@ export class Island {
     this.buildBuildings(feat.buildings || []);
     this.scatterCache = new Map();
     this.extraColliders = [];        // things the game places (fences, pier posts …): {x,z,r} or {x,z,hw,hd,ang}
+    this.propCells = new Map();      // many small fixed things (street-light poles …) hashed in 32 m cells: addCollider()
     this.decks = [];                 // flat drivable decks the game adds (piers, the ferry): {x,z,hw,hd,ang,y}
     this.pads = [];                  // levelled ground the game adds (the workshop yard): {x,z,r,y,blend} in island coordinates
   }
@@ -126,6 +127,8 @@ export class Island {
     this.scatterCache.set(key, L);
     return L;
   }
+  // a small fixed collider in world coordinates ({x,z,r} or a box), found by colliders() through its cell
+  addCollider(c) { const k = Math.floor((c.x - this.ox) / 32) * 73856093 ^ Math.floor((c.z - this.oz) / 32) * 19349663; let L = this.propCells.get(k); if (!L) this.propCells.set(k, L = []); L.push(c); }
   colliders(x, z, r, out) {
     const lx = x - this.ox, lz = z - this.oz;
     for (const k of this.buildingsNear(lx, lz)) { const o = this.buildings[k].obb; out.push({ x: o.x + this.ox, z: o.z + this.oz, hw: o.hw, hd: o.hd, ang: o.ang, y1: this.buildings[k].y1 + 30, kind: 'house' }); }
@@ -138,6 +141,7 @@ export class Island {
       }
     }
     for (const c of this.extraColliders) { const dx = c.x - x, dz = c.z - z; if (dx * dx + dz * dz < (r + 20) * (r + 20)) out.push(c); }
+    for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) { const L = this.propCells.get((ci + di) * 73856093 ^ (cj + dj) * 19349663); if (L) for (const c of L) { const dx = c.x - x, dz = c.z - z; if (dx * dx + dz * dz < (r + 2) * (r + 2)) out.push(c); } }
     return out;
   }
 }

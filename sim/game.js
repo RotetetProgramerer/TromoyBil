@@ -18,7 +18,7 @@ const DT = 1 / 400;
 // default export a class made with the game, with optional async init() and frame(dt))
 const ACTS = ['boat', 'plane', 'ski'], EXTRAS = ['life/animals', 'net/net'];
 const TIMES = { morgen: [7.5, 172], dag: [13, 172], kveld: [20.5, 172], natt: [22.5, 300] };
-const WEATHER = { klart: { fog: 0.00007, fall: 0.0018, wet: 0, turb: 3.5 }, skyet: { fog: 0.00016, fall: 0.0014, wet: 0, turb: 9 }, regn: { fog: 0.00045, fall: 0.0010, wet: 1, turb: 12, rain: 1 }, taake: { fog: 0.0025, fall: 0.0022, wet: 0.4, turb: 6 } };
+const WEATHER = { klart: { fog: 0.00007, fall: 0.0018, wet: 0, turb: 3.5, cover: 0.32 }, skyet: { fog: 0.00016, fall: 0.0014, wet: 0, turb: 9, cover: 0.72 }, regn: { fog: 0.00045, fall: 0.0010, wet: 1, turb: 12, rain: 1, cover: 0.97 }, taake: { fog: 0.0025, fall: 0.0022, wet: 0.4, turb: 6, cover: 0.8 } };
 
 export class Game {
   constructor(ctx) {
@@ -147,9 +147,9 @@ export class Game {
     if (k === 'quality') { this.gfx.setQuality(S.quality); this.store.set('quality', S.quality); }
     this.applyAids();
     this.input.enableTilt(S.tilt === 'tilt'); document.body.classList.toggle('tilt', S.tilt === 'tilt');
-    this.setClock();
-    const W = WEATHER[S.weather] || WEATHER.klart; this.gfx.setFog(W.fog, W.fall); U.uWet.value = W.wet; this.gfx.sky.material.uniforms.turbidity.value = W.turb; this.weather = W;
-    if (this.rain) this.rain.set(W.rain || 0);
+    const W = WEATHER[S.weather] || WEATHER.klart; this.gfx.cover = W.cover;
+    this.setClock(); this.gfx.setFog(W.fog, W.fall); U.uWet.value = W.wet; this.gfx.sky.material.uniforms.turbidity.value = W.turb; this.weather = W;
+    if (this.rain) this.rain.set(W.rain || 0, this.island().def.biome === 'winter' ? 'snow' : 'rain');
     this.snd.setVolume && this.snd.setVolume(S.vol);
   }
   setClock() {
@@ -222,7 +222,7 @@ export class Game {
       this.ui.toast('Velkommen til ' + b.isl.name + '!');
     }
   }
-  afterIslandChange() { this.courses.build(this.island()); }
+  afterIslandChange() { this.courses.build(this.island()); this.applySettings(); }
 
   // ---------------------------------------------------------------- the frame
   update(dt) {

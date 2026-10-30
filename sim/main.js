@@ -5,6 +5,8 @@ import { Terrain, LAYERS } from './render/terrain.js';
 import { Features, roadMaterial, buildingMaterial } from './render/features.js';
 import { Forest } from './render/trees.js';
 import { Water } from './render/water.js';
+import { Rain } from './render/rain.js';
+import { StreetLights } from './render/streetlights.js';
 import { World } from './world/world.js';
 import { WORLD } from './data/world.js';
 import { CARS } from './data/cars.js';
@@ -50,12 +52,14 @@ async function boot() {
   const features = new Features(gfx, world, worker, { road: roadMaterial(gfx, arrays), building: buildingMaterial(gfx, bArr) });
   const forest = new Forest(gfx, world, worker);
   const water = new Water(gfx, world);
+  const lamps = new StreetLights(gfx, world, gfx.q.shadow ? 6 : 0);
+  const rain = new Rain(gfx, { lav: 3000, middels: 6000, hoy: 9000, ultra: 14000 }[gfx.qName] || 6000);
   let snd = null;
   try { const m = await import('./audio/audio.js'); snd = new m.Sound(); } catch (e) { const m = await import('./audio/stub.js'); snd = new m.Sound(); }
   // browsers only start sound inside a user gesture: every tap, click or key tries until it runs
   const unlock = () => { if (snd.ready && snd.ac && snd.ac.state === 'running') return; snd.unlock && snd.unlock(); };
   for (const e of ['pointerdown', 'keydown', 'touchend']) addEventListener(e, unlock, { capture: true });
-  const game = new Game({ gfx, world, worker, terrain, features, forest, water, store, params, arrays, tex, snd });
+  const game = new Game({ gfx, world, worker, terrain, features, forest, water, rain, store, params, arrays, tex, snd });
   await game.init(status);
   $('loading').hidden = true;
   let last = performance.now();
@@ -67,9 +71,11 @@ async function boot() {
     features.update(gfx.camera.position);
     forest.update(gfx.camera.position);
     water.update(dt);
+    rain.update(dt);
+    lamps.update(dt);
     gfx.render(dt);
   };
   requestAnimationFrame(frame);
-  window.SIM = { gfx, world, terrain, features, forest, water, game, THREE };
+  window.SIM = { gfx, world, worker, terrain, features, forest, water, rain, lamps, game, THREE };
 }
 boot().catch(e => { console.error(e); const el = document.getElementById('loadText'); if (el) el.textContent = 'Noe gikk galt: ' + e.message; });

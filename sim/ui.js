@@ -32,6 +32,18 @@ export class UI {
     $('rAgain').onclick = () => { this.hide(); this.g.mode = 'drive'; this.g.courses.start(this.lastResult.c); };
     $('rDone').onclick = () => { this.hide(); this.g.mode = 'drive'; };
     $('mapHome').onclick = () => this.g.towHome();
+    // the save: every sim:* key in localStorage, as a file to download and to read back
+    $('sSave').onclick = () => {
+      const o = {}; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k.startsWith('sim:')) o[k] = localStorage.getItem(k); }
+      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({ game: 'tromoybil', v: 1, saved: new Date().toISOString(), data: o })], { type: 'application/json' }));
+      a.download = 'tromoybil-lagring.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    };
+    $('sLoad').onclick = () => {
+      const f = document.createElement('input'); f.type = 'file'; f.accept = '.json,application/json';
+      f.onchange = async () => { try { const j = JSON.parse(await f.files[0].text()); if (j.game !== 'tromoybil' || !j.data) throw 0; for (const [k, v] of Object.entries(j.data)) if (k.startsWith('sim:')) localStorage.setItem(k, v); location.reload(); } catch (e) { this.toast('Kunne ikke lese lagringen', true); } };
+      f.click();
+    };
+    $('sWipe').onclick = () => { if (!confirm('Slette alle muttere, biler, deler og bestetider?')) return; for (const k of Object.keys(localStorage)) if (k.startsWith('sim:') && k !== 'sim:quality') localStorage.removeItem(k); location.reload(); };
     this.settings();
     this.speedo = $('speedo').getContext('2d'); this.mini = $('minimap').getContext('2d');
     if (matchMedia('(pointer:coarse)').matches) document.body.classList.add('is-touch');

@@ -25,21 +25,24 @@ uniform float uTime; uniform float uWave; uniform float uClear; uniform vec3 fog
 varying vec3 vW; varying vec4 vClip;
 float wh(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float wn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f); return mix(mix(wh(i), wh(i+vec2(1,0)), f.x), mix(wh(i+vec2(0,1)), wh(i+vec2(1,1)), f.x), f.y); }
-// the surface normal: the Gerstner slope plus small ripples (sums of moving sines)
-vec3 surfN(vec2 p, float dist){
+// the surface normal: the Gerstner slopes plus short wind waves in many directions. px is how many metres one pixel covers here:
+// every wave shorter than a few pixels fades out, so the far sea does not shimmer (and the sun's glint widens instead)
+float aa(float L, float px){ return 1.0 - smoothstep(0.06 * L, 0.3 * L, px); }
+vec3 surfN(vec2 p, float px){
   float t = uTime; vec2 g = vec2(0.0);
   vec2 d1 = normalize(vec2(1.0, 0.35)), d2 = normalize(vec2(0.6, 1.0)), d3 = normalize(vec2(-0.4, 1.0));
   float k1 = 6.2832 / 31.0, k2 = 6.2832 / 13.0, k3 = 6.2832 / 7.0;
-  g += d1 * 0.22 * k1 * cos(k1 * (dot(d1, p) - sqrt(9.81 / k1) * t));
-  g += d2 * 0.09 * k2 * cos(k2 * (dot(d2, p) - sqrt(9.81 / k2) * t));
-  g += d3 * 0.045 * k3 * cos(k3 * (dot(d3, p) - sqrt(9.81 / k3) * t));
+  g += d1 * 0.22 * k1 * cos(k1 * (dot(d1, p) - sqrt(9.81 / k1) * t)) * aa(31.0, px);
+  g += d2 * 0.09 * k2 * cos(k2 * (dot(d2, p) - sqrt(9.81 / k2) * t)) * aa(13.0, px);
+  g += d3 * 0.045 * k3 * cos(k3 * (dot(d3, p) - sqrt(9.81 / k3) * t)) * aa(7.0, px);
   g *= uWave;
-  float rip = 1.0 - smoothstep(60.0, 400.0, dist);
-  for (int i = 0; i < 4; i++) {
-    float a = float(i) * 2.1 + 0.6, k = 6.2832 / (2.2 - float(i) * 0.4); vec2 d = vec2(cos(a), sin(a));
-    g += d * 0.02 * k * cos(k * dot(d, p) - t * (2.2 + float(i))) * rip * (0.5 + uWave);
+  for (int i = 0; i < 7; i++) {
+    float fi = float(i), a = fi * 2.399 + 0.4 + 0.3 * sin(fi * 5.1), L = 3.6 * pow(0.7, fi), k = 6.2832 / L; vec2 d = vec2(cos(a), sin(a));
+    g += d * 0.035 * cos(k * dot(d, p) - sqrt(9.81 * k) * t + fi * 1.7) * aa(L, px) * (0.35 + uWave);
   }
-  g += (vec2(wn(p * 0.7 + t * 0.3), wn(p * 0.7 - t * 0.27 + 9.0)) - 0.5) * 0.08 * rip;
+  // and patches where the wind roughens the water more (cat's paws), slowly drifting
+  float paw = wn(p * 0.035 + t * vec2(0.012, 0.008)) * 0.8 + 0.4;
+  g += (vec2(wn(p * 0.9 + t * 0.35), wn(p * 0.9 - t * 0.31 + 9.0)) - 0.5) * 0.06 * aa(1.0, px) * paw;
   return normalize(vec3(-g.x, 1.0, -g.y));
 }
 void main(){
@@ -51,20 +54,22 @@ void main(){
   vec4 vp = viewMatrix * vec4(vW, 1.0); waterZ = -vp.z;
   if (sceneZ < waterZ - 0.02) discard;                      // (the depth test already hides water behind solid things)
   float thick = max(sceneZ - waterZ, 0.0);                   // how much water the eye looks through
-  vec3 N = surfN(vW.xz, dist);
+  float px = length(fwidth(vW.xz));
+  vec3 N = surfN(vW.xz, px);
   // through the water: the bottom, shifted by the waves, tinted and absorbed with depth
   vec2 off = N.xz * 0.04 * clamp(thick, 0.0, 3.0) / (1.0 + dist * 0.02);
   vec3 under = texture2D(tColor, suv + off).rgb;
   float sceneZ2 = -perspectiveDepthToViewZ(texture2D(tDepth, suv + off).x, uNear, uFar);
   if (sceneZ2 < waterZ) under = texture2D(tColor, suv).rgb;
   float depthAlong = thick * (0.35 + 0.65 * clamp(V.y, 0.0, 1.0));
-  vec3 absorb = exp(-depthAlong * vec3(0.45, 0.12, 0.09) * uClear);
+  vec3 absorb = exp(-depthAlong * vec3(0.75, 0.3, 0.26) * uClear);
   vec3 body = mix(uDeep, uShallow, exp(-depthAlong * 0.25)) * (0.25 + 0.75 * (1.0 - uNight));
   vec3 refr = under * absorb + body * (1.0 - absorb);
   // off the surface: the sky (darker straight up, the horizon colour low down) and the sun
   vec3 R = reflect(-V, N); float up = clamp(R.y, 0.0, 1.0);
   vec3 sky = mix(uHorCol, uSkyCol, pow(up, 0.5));
-  float sun = pow(max(dot(R, uSunDir), 0.0), 900.0) * 60.0 + pow(max(dot(R, uSunDir), 0.0), 60.0) * 0.6;
+  float rs = max(dot(R, uSunDir), 0.0), sp = mix(900.0, 90.0, clamp(px * 1.5, 0.0, 1.0));
+  float sun = pow(rs, sp) * 60.0 * sqrt(sp / 900.0) + pow(rs, 60.0) * 0.6;
   float fres = 0.02 + 0.98 * pow(1.0 - max(dot(N, V), 0.0), 5.0);
   vec3 col = mix(refr, sky, fres) + uSunCol * sun * (1.0 - uNight);
   // foam: along the shore and on the crests out at sea
@@ -88,7 +93,7 @@ export class Water {
     const uni = this.uni = {
       tDepth: { value: null }, tColor: { value: null }, uNear: { value: 0.1 }, uFar: { value: 20000 }, uRes: { value: new THREE.Vector2() },
       uSunCol: { value: new THREE.Color(1, 0.95, 0.85) }, uSkyCol: { value: new THREE.Color(0.25, 0.42, 0.68) }, uHorCol: { value: new THREE.Color(0.62, 0.72, 0.82) },
-      uDeep: { value: new THREE.Color(0.01, 0.05, 0.07) }, uShallow: { value: new THREE.Color(0.06, 0.3, 0.3) }, uWave: { value: 0.8 }, uClear: { value: 1.0 },
+      uDeep: { value: new THREE.Color(0.01, 0.05, 0.07) }, uShallow: { value: new THREE.Color(0.045, 0.21, 0.2) }, uWave: { value: 0.8 }, uClear: { value: 1.0 },
       fogColor: { value: gfx.scene.fog.color }, fogDensity: { value: 0 },
       uTime: U.uTime, uSunDir: U.uSunDir, uFogFall: U.uFogFall, uFogSun: U.uFogSun, uNight: U.uNight,
     };

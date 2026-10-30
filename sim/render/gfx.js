@@ -63,6 +63,34 @@ export function prep(mat, patch) {
   return mat;
 }
 
+// clouds: one layer at 1800 m, drawn on a dome at the far plane like the sky. The view ray meets the layer; fbm noise there gives
+// the clouds, lit from the sun's side and darker underneath, thicker and greyer as the cover grows (clear 0.25 … rain 0.95)
+const CLOUD_VERT = `varying vec3 vDir; void main(){ vDir = position; vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0); gl_Position = p.xyww; }`;
+const CLOUD_FRAG = `
+uniform vec3 uSunDir; uniform vec3 uSunCol; uniform vec3 uFogCol; uniform float uCover; uniform float uTime; uniform float uNight; uniform vec3 uCam;
+varying vec3 vDir;
+float ch(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float cn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f); return mix(mix(ch(i), ch(i+vec2(1,0)), f.x), mix(ch(i+vec2(0,1)), ch(i+vec2(1,1)), f.x), f.y); }
+float fbm(vec2 p){ float a = 0.5, s = 0.0; for (int i = 0; i < 5; i++) { s += a * cn(p); p = mat2(1.6, 1.2, -1.2, 1.6) * p; a *= 0.5; } return s; }
+void main(){
+  vec3 d = normalize(vDir);
+  if (d.y < 0.005) discard;
+  float t = (1800.0 - uCam.y) / d.y; vec2 p = uCam.xz + d.xz * min(t, 60000.0);
+  vec2 q = p * 0.00032 + vec2(0.006, 0.0025) * uTime;
+  float n = fbm(q), lo = 1.0 - uCover;
+  float c = smoothstep(lo, lo + 0.28, n);
+  float n2 = fbm(q + uSunDir.xz * 0.06);
+  float lit = clamp(0.6 + (n - n2) * 3.0, 0.0, 1.0);
+  float ov = smoothstep(0.55, 1.0, uCover);
+  vec3 dark = mix(vec3(0.5, 0.54, 0.6), vec3(0.36, 0.38, 0.42), ov), bright = mix(vec3(1.0), vec3(0.72, 0.74, 0.77), ov);
+  vec3 col = mix(dark, bright, lit) * mix(uSunCol * 0.85 + 0.15, vec3(1.0), 0.35) * (0.05 + 0.95 * (1.0 - uNight));
+  float sunGlow = pow(max(dot(d, uSunDir), 0.0), 12.0);
+  col += uSunCol * sunGlow * (1.0 - c) * 0.8;
+  float hz = smoothstep(0.0, 0.3, d.y);
+  col = mix(uFogCol, col, 0.25 + 0.75 * hz);
+  gl_FragColor = vec4(col, c * smoothstep(0.005, 0.07, d.y) * (0.75 + 0.25 * ov));
+}`;
+
 export class Gfx {
   constructor(container, quality = 'hoy') {
     this.container = container;
@@ -83,6 +111,10 @@ export class Gfx {
     this.sky.frustumCulled = false;
     const su = this.sky.material.uniforms; su.turbidity.value = 4.5; su.rayleigh.value = 1.4; su.mieCoefficient.value = 0.004; su.mieDirectionalG.value = 0.82;
     this.scene.add(this.sky);
+    this.cover = 0.3;
+    this.cloudU = { uSunDir: U.uSunDir, uSunCol: { value: new THREE.Color(1, 1, 1) }, uFogCol: { value: this.scene.fog.color }, uCover: { value: this.cover }, uTime: U.uTime, uNight: U.uNight, uCam: { value: new THREE.Vector3() } };
+    this.clouds = new THREE.Mesh(new THREE.SphereGeometry(100, 32, 16), new THREE.ShaderMaterial({ uniforms: this.cloudU, vertexShader: CLOUD_VERT, fragmentShader: CLOUD_FRAG, side: THREE.BackSide, transparent: true, depthWrite: false }));
+    this.clouds.frustumCulled = false; this.clouds.renderOrder = -9; this.scene.add(this.clouds);
     this.envScene = new THREE.Scene(); this.envSky = new Sky(); this.envSky.scale.setScalar(1000); this.envSky.material = this.sky.material; this.envScene.add(this.envSky);
     this.envT = null; this.envSun = new THREE.Vector3(9, 9, 9);
     this.clock = 12; this.sunDir = new THREE.Vector3();
@@ -149,7 +181,7 @@ export class Gfx {
 
   // time of day in hours (0–24). Sets the sun, the sky, the light colours and the fog.
   setTime(hours, latDeg = 58.5, dayOfYear = 172) {
-    this.clock = hours;
+    this.clock = hours; this.lat = latDeg; this.doy = dayOfYear;
     const decl = 23.44 * Math.sin((2 * Math.PI / 365) * (dayOfYear - 81)) * Math.PI / 180, lat = latDeg * Math.PI / 180, ha = (hours - 12) * 15 * Math.PI / 180;
     const alt = Math.asin(Math.sin(lat) * Math.sin(decl) + Math.cos(lat) * Math.cos(decl) * Math.cos(ha));
     const az = Math.atan2(Math.sin(ha), Math.cos(ha) * Math.sin(lat) - Math.tan(decl) * Math.cos(lat));   // 0 = south, + towards west
@@ -161,15 +193,17 @@ export class Gfx {
     const e = d.y, day = THREE.MathUtils.smoothstep(e, -0.08, 0.12), low = 1 - THREE.MathUtils.smoothstep(e, 0.0, 0.35);
     U.uNight.value = 1 - day;
     const sunCol = new THREE.Color().setRGB(1, 0.96 - low * 0.28, 0.9 - low * 0.55);
-    const I = 3.4 * day;
+    // under clouds the sun weakens and the sky's diffuse light takes over
+    const ov = THREE.MathUtils.smoothstep(this.cover, 0.45, 1.0), I = 3.4 * day * (1 - 0.82 * ov);
     if (this.csm) { for (const l of this.csm.lights) { l.color.copy(sunCol); l.intensity = I; } this.csm.lightDirection.copy(d).negate(); }
     if (this.sunLight) { this.sunLight.color.copy(sunCol); this.sunLight.intensity = I; }
     this.hemi.color.setRGB(0.55 + 0.2 * day, 0.68 + 0.18 * day, 0.95).multiplyScalar(0.15 + 0.75 * day);
     this.hemi.groundColor.setRGB(0.32, 0.28, 0.22).multiplyScalar(0.15 + 0.7 * day);
-    this.hemi.intensity = 0.9;
+    this.hemi.intensity = 0.42 + 0.4 * ov;
     // fog colour near the horizon: blue-grey by day, warm at sunset, dark blue at night
     const fog = new THREE.Color().setRGB(0.58, 0.68, 0.8).lerp(new THREE.Color(0.85, 0.62, 0.48), low * day * 0.6).multiplyScalar(0.08 + 0.92 * day);
-    this.scene.fog.color.copy(fog);
+    fog.lerp(new THREE.Color(0.6, 0.63, 0.66).multiplyScalar(0.08 + 0.85 * day), ov * 0.75);
+    this.scene.fog.color.copy(fog); this.cloudU.uSunCol.value.copy(sunCol).multiplyScalar(day); this.cloudU.uCover.value = this.cover;
     U.uFogSun.value.copy(sunCol).multiplyScalar(day);
     this.sky.material.uniforms.rayleigh.value = 1.2 + low * 1.5;
     this.renderer.toneMappingExposure = 0.85 + 0.6 * (1 - day);
@@ -178,15 +212,17 @@ export class Gfx {
       this.envSun.copy(d);
       const t = this.pmrem.fromScene(this.envScene, 0, 1, 2000);
       if (this.envT) this.envT.dispose();
-      this.envT = t; this.scene.environment = t.texture; this.scene.environmentIntensity = 0.35 + 0.65 * day;
+      this.envT = t; this.scene.environment = t.texture;
     }
+    this.scene.environmentIntensity = (0.12 + 0.34 * day) * (1 - 0.3 * ov);
   }
+  setCover(c) { this.cover = c; this.setTime(this.clock, this.lat, this.doy); }
   setFog(density, falloff = 0.0016) { this.scene.fog.density = density; U.uFogFall.value = falloff; }
 
   render(dt) {
     const r = this.renderer, cam = this.camera;
     U.uTime.value += dt;
-    this.sky.position.copy(cam.position);
+    this.sky.position.copy(cam.position); this.clouds.position.copy(cam.position); this.cloudU.uCam.value.copy(cam.position);
     if (this.csm) this.csm.update();
     if (this.sunLight) { this.sunLight.position.copy(cam.position).addScaledVector(U.uSunDir.value, 500); this.sunLight.target.position.copy(cam.position); }
     r.setRenderTarget(this.rtScene); r.clear(); r.render(this.scene, cam);

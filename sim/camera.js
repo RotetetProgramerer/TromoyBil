@@ -20,6 +20,17 @@ export class CameraRig {
     addEventListener('pointerup', end); addEventListener('pointercancel', end);
     el.addEventListener('wheel', e => { e.preventDefault(); this.zoom = Math.max(0.5, Math.min(2.5, this.zoom * (1 + Math.sign(e.deltaY) * 0.08))); }, { passive: false });
   }
+  // is this point inside a house (below its roof) or under the ground?
+  blocked(x, y, z) {
+    if (y < this.world.height(x, z) + 0.25) return true;
+    const isl = this.world.islandAt(x, z); if (!isl || !isl.buildings || !isl.buildings.length) return false;
+    const lx = x - isl.ox, lz = z - isl.oz;
+    for (const k of isl.buildingsNear(lx, lz)) {
+      const b = isl.buildings[k], r = b.obb, dx = lx - r.x, dz = lz - r.z, cs = Math.cos(r.ang), sn = Math.sin(r.ang);
+      if (y < b.y1 + (b.f || 1) * 3 + 3.5 && Math.abs(dx * cs - dz * sn) <= r.hw + 0.4 && Math.abs(dx * sn + dz * cs) <= r.hd + 0.4) return true;
+    }
+    return false;
+  }
   next() { this.mode = (this.mode + 1) % CAM_NAMES.length; this.snap = true; this.tv = null; return CAM_NAMES[this.mode]; }
   get inside() { return this.mode === 3; }
 
@@ -60,6 +71,12 @@ export class CameraRig {
       const gy = this.world.height(want.x, want.z) + 0.6; if (want.y < gy) want.y = gy;
       if (this.snap) { this.pos.copy(want); this.snap = false; }
       else { const k = 1 - Math.exp(-dt * (far ? 3 : 7)); this.pos.lerp(want, k); const ky = 1 - Math.exp(-dt * 4); this.pos.y += (want.y - this.pos.y) * (ky - k); }
+      // keep out of houses and hills between the car and the camera: pull in along the arm at once, ease back out
+      const ax = c.pos.x, ay = c.pos.y + h * 0.6, az = c.pos.z, P = this.pos;
+      for (let k = 1; k <= 14; k++) {
+        const u = k / 14, x = ax + (P.x - ax) * u, y = ay + (P.y - ay) * u, z = az + (P.z - az) * u;
+        if (this.blocked(x, y, z)) { const f = Math.max(0.12, (k - 1.6) / 14); P.set(ax + (P.x - ax) * f, ay + (P.y - ay) * f, az + (P.z - az) * f); break; }
+      }
       cam.position.copy(this.pos); cam.up.set(0, 1, 0);
       this.look.set(c.pos.x + fw.x * (2 + kmh * 0.03), c.pos.y + 0.6 + s.dims.H * 0.25, c.pos.z + fw.z * (2 + kmh * 0.03));
       cam.lookAt(this.look);
