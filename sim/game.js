@@ -256,7 +256,7 @@ export class Game {
     const E = this.env || (this.env = { inside: 0, sea: 0, forest: 0.5, rain: 0, wind: 0.3, night: 0, town: 0, t: 0 });
     E.inside = this.cam.inside ? 1 : 0; E.rain = this.weather && this.weather.rain || 0; E.night = U.uNight.value; E.wind = 0.25 + E.rain * 0.4;
     if ((E.t -= dt) > 0) return E; E.t = 0.4;
-    const p = this.car.pos, isl = this.world.islandAt(p.x, p.z); let sea = 0, fo = 0, to = 0, n = 0;
+    const p = this.focus().pos, isl = this.world.islandAt(p.x, p.z); let sea = 0, fo = 0, to = 0, n = 0;
     for (let k = 0; k < 12; k++) for (const r of [25, 60]) {
       const a = k / 12 * Math.PI * 2, x = p.x + Math.sin(a) * r, z = p.z + Math.cos(a) * r; n++;
       if (!isl || this.world.terrain(x, z) < (isl.def.sea || 0)) { sea++; continue; }

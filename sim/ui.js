@@ -53,6 +53,7 @@ export class UI {
   show(id, from) {
     for (const o of document.querySelectorAll('.overlay')) o.hidden = true;
     this.from = from || (this.open && this.open !== id ? this.open : this.from); this.open = id; $(id).hidden = false;
+    if (id === 'pause') $('pGarage').hidden = !!this.g.act;
     if (id === 'menu') this.menu(); if (id === 'garage') this.garage(); if (id === 'courses') this.courseList(); if (id === 'map') this.drawMap(); if (id === 'settings') this.settings();
     $('hud').hidden = id === 'menu' || id === 'garage';
   }
@@ -157,14 +158,14 @@ export class UI {
   }
   drawMap() {
     const g = this.g, cv = $('mapCanvas'), x = cv.getContext('2d'), S = cv.width; x.clearRect(0, 0, S, S);
-    const car = g.car.pos;
+    const F = g.focus(), car = F.pos;          // the car, or the boat / plane / skier while an activity runs
     if (this.mapTab === 'island') {
       const isl = g.island(), im = this.islandImage(isl); x.drawImage(im.cv, 0, 0, S, S);
       const k = S / im.cv.width, P = (wx, wz) => [(wx - im.x0) / im.sc * k, (wz - im.z0) / im.sc * k];
       for (const c of g.courses.forIsland(isl)) { const [X, Z] = P(c.start.x, c.start.z); x.fillStyle = DIFFCOL[c.diff]; x.beginPath(); x.arc(X, Z, 7, 0, 7); x.fill(); x.strokeStyle = '#14120e'; x.lineWidth = 2; x.stroke(); x.fillStyle = '#fff'; x.font = '700 14px "Barlow Condensed"'; x.fillText(c.name, X, Z - 11); }
       for (const p of g.pois(isl)) { const [X, Z] = P(p.x, p.z); x.fillStyle = '#e5a92b'; x.fillRect(X - 6, Z - 6, 12, 12); x.fillStyle = '#fff'; x.font = '700 15px "Barlow Condensed"'; x.fillText(p.name, X, Z + 22); }
       if (g.net) g.net.drawMap(x, P, 'island');
-      const [X, Z] = P(car.x, car.z), h = Math.atan2(g.car.fw.x, g.car.fw.z);
+      const [X, Z] = P(car.x, car.z), h = Math.atan2(F.fw.x, F.fw.z);
       x.save(); x.translate(X, Z); x.rotate(-h + Math.PI); x.fillStyle = '#ff4a2a'; x.beginPath(); x.moveTo(0, -12); x.lineTo(8, 9); x.lineTo(0, 4); x.lineTo(-8, 9); x.closePath(); x.fill(); x.restore();
       $('mapNote').textContent = 'Kjør til ferjekaia, eller ta ferja herfra for 5 muttere.';
     } else {
