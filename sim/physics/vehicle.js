@@ -274,8 +274,9 @@ export class Vehicle {
     const v = this.speed, vabs = Math.abs(v);
     let dmax = this.steerMax;
     if (this.aids.steer && vabs > 3) {
-      const mu = 1.0 * surfGrip(W[0].surf, this.tyre, world.wet);
-      dmax = Math.min(dmax, Math.atan(this.spec.wb * mu * G * 1.15 / (vabs * vabs)) + 0.035);
+      // the angle that turns as tight as the grip allows, plus the slip angle the front tyres need to get there
+      const mu = surfGrip(W[0].surf, this.tyre, world.wet), ap = (TYRES[this.tyre] || TYRES.sommer).ap * Math.sqrt((SURF_PROPS[W[0].surf] || SURF_PROPS[0])[4]);
+      dmax = Math.min(dmax, Math.atan(this.spec.wb * mu * G * 1.1 / (vabs * vabs)) + ap * 1.35);
     }
     const target = clamp(I.steer, -1, 1) * dmax;
     st.steer += clamp(target - st.steer, -dt * 1.6, dt * 1.6);

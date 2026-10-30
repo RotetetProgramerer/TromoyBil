@@ -19,6 +19,7 @@ const ready = new Promise(res => {
 });
 
 function handle(m) {
+  if (m.type === 'pads') { const isl = world.islands.find(i => i.id === m.id); if (isl) { isl.pads = m.pads; isl.scatterCache.clear(); } return; }
   if (m.type === 'terrain') {
     const c = terrainChunk(world, m.x0, m.z0, m.size, m.n);
     self.postMessage({ type: 'terrain', id: m.id, P: c.P, N: c.N, ymin: c.ymin, ymax: c.ymax }, [c.P.buffer, c.N.buffer]);

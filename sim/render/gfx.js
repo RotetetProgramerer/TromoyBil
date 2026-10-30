@@ -126,13 +126,17 @@ export class Gfx {
     r.setSize(w, h, false); this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
     const pr = r.getPixelRatio(), W = Math.floor(w * pr), H = Math.floor(h * pr);
     const mk = (opts) => new THREE.WebGLRenderTarget(W, H, Object.assign({ type: THREE.HalfFloatType, colorSpace: THREE.LinearSRGBColorSpace }, opts));
-    for (const t of [this.rtScene, this.rtFinal, this.rtLdr]) if (t) t.dispose();
+    for (const t of [this.rtScene, this.rtColor, this.rtDepth, this.rtLdr]) if (t) t.dispose();
     const dt = new THREE.DepthTexture(W, H); dt.type = THREE.FloatType;
     this.rtScene = mk({ depthTexture: dt, samples: this.q.msaa });
-    this.rtFinal = mk({ depthBuffer: false });
+    // copies of the opaque scene's colour and depth: the water reads them while it is drawn into rtScene with a real depth test
+    this.rtColor = mk({ depthBuffer: false });
+    this.rtDepth = new THREE.WebGLRenderTarget(W, H, { type: THREE.FloatType, format: THREE.RedFormat, depthBuffer: false, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
     this.rtLdr = new THREE.WebGLRenderTarget(W, H, { depthBuffer: false });
     if (!this.copy) {
       this.copy = new ShaderPass(CopyShader);
+      this.depthCopy = new ShaderPass({ uniforms: { tDepth: { value: null } }, vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+        fragmentShader: 'uniform sampler2D tDepth; varying vec2 vUv; void main(){ gl_FragColor = vec4(texture2D(tDepth, vUv).x, 0.0, 0.0, 1.0); }' });
       this.output = new OutputPass();
       this.fxaa = new ShaderPass(FXAAShader);
     }
@@ -186,12 +190,14 @@ export class Gfx {
     if (this.csm) this.csm.update();
     if (this.sunLight) { this.sunLight.position.copy(cam.position).addScaledVector(U.uSunDir.value, 500); this.sunLight.target.position.copy(cam.position); }
     r.setRenderTarget(this.rtScene); r.clear(); r.render(this.scene, cam);
-    // copy, then draw the water over it (the water reads rtScene's depth and colour)
-    this.copy.render(r, this.rtFinal, this.rtScene);
+    // the water and other see-through things: drawn into the same target (so the depth test hides them behind solid things),
+    // reading copies of the opaque colour (refraction) and depth (how deep the water is)
     if (this.overlay.children.length) {
-      r.setRenderTarget(this.rtFinal); r.autoClear = false; r.render(this.overlay, cam); r.autoClear = true;
+      this.copy.render(r, this.rtColor, this.rtScene);
+      this.depthCopy.uniforms.tDepth.value = this.rtScene.depthTexture; this.depthCopy.render(r, this.rtDepth, null);
+      r.setRenderTarget(this.rtScene); r.autoClear = false; r.render(this.overlay, cam); r.autoClear = true;
     }
-    let src = this.rtFinal;
+    let src = this.rtScene;
     if (this.q.bloom && U.uNight.value > 0.05 || this.q.bloom && this.bloomDay) this.bloom.render(r, null, src, dt, false);
     this.output.renderToScreen = this.q.msaa > 0;
     if (this.q.msaa > 0) { this.output.render(r, null, src); }

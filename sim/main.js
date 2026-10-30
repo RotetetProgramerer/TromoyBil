@@ -38,7 +38,7 @@ async function boot() {
   const worker = new MeshWorker();
   const [, ...rest] = await Promise.all([
     worker.init(base, islands),
-    ...islands.map(d => world.addIsland(base, d)),
+    ...islands.map((d, i) => world.addIsland(base, Object.assign({ order: i }, d))),
   ]);
   status('Laster teksturer …');
   const tex = u => new URL('../assets/tex/' + u, import.meta.url).href;
@@ -50,7 +50,9 @@ async function boot() {
   const features = new Features(gfx, world, worker, { road: roadMaterial(gfx, arrays), building: buildingMaterial(gfx, bArr) });
   const forest = new Forest(gfx, world, worker);
   const water = new Water(gfx, world);
-  const game = new Game({ gfx, world, worker, terrain, features, forest, store, params, arrays, tex });
+  let snd = null;
+  try { const m = await import('./audio/audio.js'); snd = new m.Sound(); } catch (e) { const m = await import('./audio/stub.js'); snd = new m.Sound(); }
+  const game = new Game({ gfx, world, worker, terrain, features, forest, store, params, arrays, tex, snd });
   await game.init(status);
   $('loading').hidden = true;
   let last = performance.now();

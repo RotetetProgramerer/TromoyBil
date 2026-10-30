@@ -270,8 +270,15 @@ for r, g in rows('building'):
 buildings = [b for b in buildings if near_tro(np.array(b['p'][0::2]), np.array(b['p'][1::2]), 1300).any()]
 print('bygninger', len(buildings))
 
-# roads get narrower where a building stands close to them (the map has houses right by narrow old roads)
+# a building that stands in the roadway itself (the map's road and footprint disagree by a metre or two) is left out
 from shapely import STRtree, points as shp_points
+road_lines = [LineString(list(zip(r['x'], r['z']))) for r in roads if r['c'] <= 6]
+road_tree = STRtree([l.buffer(1.4) for l in road_lines])
+foot_all = [Polygon(list(zip(b['p'][0::2], b['p'][1::2]))).buffer(0) for b in buildings]
+hit = set(int(i) for i in road_tree.query(foot_all, predicate='intersects')[0])
+print('bygninger i veibanen (fjernet):', len(hit))
+buildings = [b for i, b in enumerate(buildings) if i not in hit]
+# roads get narrower where a building stands close to them (the map has houses right by narrow old roads)
 foot = [Polygon(list(zip(b['p'][0::2], b['p'][1::2]))) for b in buildings]
 tree = STRtree(foot)
 for rd in roads:

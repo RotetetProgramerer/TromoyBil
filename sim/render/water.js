@@ -49,7 +49,7 @@ void main(){
   float waterZ = dist * dot(-V, normalize(vec3(viewMatrix[0][2], viewMatrix[1][2], viewMatrix[2][2])) * -1.0);
   // view-space depth of this water fragment
   vec4 vp = viewMatrix * vec4(vW, 1.0); waterZ = -vp.z;
-  if (sceneZ < waterZ - 0.02) discard;                      // something solid is in front of the water
+  if (sceneZ < waterZ - 0.02) discard;                      // (the depth test already hides water behind solid things)
   float thick = max(sceneZ - waterZ, 0.0);                   // how much water the eye looks through
   vec3 N = surfN(vW.xz, dist);
   // through the water: the bottom, shifted by the waves, tinted and absorbed with depth
@@ -92,7 +92,7 @@ export class Water {
       fogColor: { value: gfx.scene.fog.color }, fogDensity: { value: 0 },
       uTime: U.uTime, uSunDir: U.uSunDir, uFogFall: U.uFogFall, uFogSun: U.uFogSun, uNight: U.uNight,
     };
-    this.mat = new THREE.ShaderMaterial({ uniforms: uni, vertexShader: VERT, fragmentShader: FRAG, transparent: true, depthTest: false, depthWrite: false });
+    this.mat = new THREE.ShaderMaterial({ uniforms: uni, vertexShader: VERT, fragmentShader: FRAG, transparent: true, depthTest: true, depthWrite: false });
     // the sea: a square grid round the camera, dense near the middle (it moves with the camera in whole steps)
     const g = new THREE.PlaneGeometry(1, 1, 256, 256), p = g.attributes.position;
     for (let i = 0; i < p.count; i++) { const x = p.getX(i) * 2, y = p.getY(i) * 2, r = Math.max(Math.abs(x), Math.abs(y)), k = r < 1e-6 ? 0 : (Math.pow(r, 3) * 24000 + r * 600) / r; p.setXY(i, x * k, y * k); }
@@ -110,7 +110,7 @@ export class Water {
   update(dt) {
     const g = this.gfx, cam = g.camera, u = this.uni;
     const step = 50; this.sea.position.set(Math.round(cam.position.x / step) * step, this.world.sea || 0, Math.round(cam.position.z / step) * step);
-    u.tDepth.value = g.rtScene.depthTexture; u.tColor.value = g.rtScene.texture; u.uNear.value = cam.near; u.uFar.value = cam.far;
+    u.tDepth.value = g.rtDepth.texture; u.tColor.value = g.rtColor.texture; u.uNear.value = cam.near; u.uFar.value = cam.far;
     u.fogDensity.value = g.scene.fog.density;
     const day = 1 - U.uNight.value;
     u.uHorCol.value.copy(g.scene.fog.color).multiplyScalar(1.05);

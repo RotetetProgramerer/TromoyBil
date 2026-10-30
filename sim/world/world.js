@@ -13,14 +13,16 @@ export class World {
     const dir = base + (def.dir || def.id) + '/';
     const [g, c, f] = await Promise.all([loadBytes(dir + 'terrain.bin.gz'), loadBytes(dir + 'cover.bin.gz'), loadJSON(dir + 'features.json.gz')]);
     const isl = new Island(def, parseGrid(g), parseGrid(c), f);
-    this.islands.push(isl);
+    // keep the order of the definitions (files arrive in any order): the backdrop must stay last, it covers everything
+    isl.order = def.order ?? (this.nextOrder = (this.nextOrder || 0) + 1);
+    this.islands.push(isl); this.islands.sort((a, b) => a.order - b.order); this._last = null;
     return isl;
   }
   async setBackdrop(url) { this.backdrop = parseGrid(await loadBytes(url)); }
 
   islandAt(x, z) {
     const l = this._last;
-    if (l && l.inside(x, z, 10)) return l;
+    if (l && !l.def.backdrop && l.inside(x, z, 10)) return l;     // (never trust the backdrop: an island may lie inside it)
     for (const isl of this.islands) if (isl.inside(x, z, 10)) { this._last = isl; return isl; }
     return null;
   }

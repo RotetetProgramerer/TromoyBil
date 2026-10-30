@@ -28,6 +28,7 @@ export class Island {
     this.scatterCache = new Map();
     this.extraColliders = [];        // things the game places (fences, pier posts …): {x,z,r} or {x,z,hw,hd,ang}
     this.decks = [];                 // flat drivable decks the game adds (piers, the ferry): {x,z,hw,hd,ang,y}
+    this.pads = [];                  // levelled ground the game adds (the workshop yard): {x,z,r,y,blend} in island coordinates
   }
   inside(x, z, m = 0) { return x >= this.x0 + m && z >= this.z0 + m && x <= this.x1 - m && z <= this.z1 - m; }
 
@@ -61,6 +62,10 @@ export class Island {
           h = q.y - crown + (h - q.y + crown) * w - (cut ? 0.35 * Math.sin(Math.PI * Math.min(1, t / 0.4)) * (1 - w) : 0);
         }
       }
+    }
+    for (const p of this.pads) {
+      const d = Math.hypot(x - this.ox - p.x, z - this.oz - p.z);
+      if (d < p.r + p.blend) { const t = d <= p.r ? 0 : (d - p.r) / p.blend, w = 1 - t * t * (3 - 2 * t); h += (p.y - h) * w; }
     }
     return this.deck(x, z, h);
   }
@@ -116,6 +121,7 @@ export class Island {
     let L = this.scatterCache.get(key);
     if (L) return L;
     L = this.def.scatter ? this.def.scatter(this, ci, cj) : scatterNordic(this, ci, cj);
+    if (this.pads.length) L = L.filter(t => this.pads.every(p => Math.hypot(t.x - p.x, t.z - p.z) > p.r + p.blend * 0.6));
     if (this.scatterCache.size > 4000) this.scatterCache.delete(this.scatterCache.keys().next().value);
     this.scatterCache.set(key, L);
     return L;
@@ -162,7 +168,7 @@ function scatterNordic(isl, ci, cj) {
     const y = isl.grid.bicubic(x, z);
     if (y < 0.6) continue;
     const q = isl.roads.query(x, z);
-    if (q && q.d < q.hw + (q.c <= 4 ? 4.5 : q.c <= 5 ? 3.0 : 1.6)) continue;     // the verge is kept clear along the roads
+    if (q && q.d < q.hw + (q.c <= 4 ? 4.5 : q.c <= 5 ? 3.0 : q.c === 6 ? 2.4 : 1.9)) continue;     // the verge is kept clear along the roads
     if (isl.inBuilding(x, z, 3)) continue;
     const h1 = isl.grid.bilinear(x + 2, z), h2 = isl.grid.bilinear(x, z + 2), slope = Math.hypot(h1 - y, h2 - y) / 2;
     const v = vnoise(x / 60, z / 60, isl.seed), w = vnoise(x / 17, z / 17, isl.seed + 5), r2 = R();
