@@ -197,6 +197,16 @@ function buildKind(k) {
     let p = V(0, -0.2, 0); const lean = V(R() - 0.5, 0, R() - 0.5).multiplyScalar(0.25);
     for (let i = 0; i < 6; i++) { const q = V(lean.x * H * (i + 1) / 6 * (i + 1) / 6, H * (i + 1) / 6, lean.z * H * (i + 1) / 6 * (i + 1) / 6); b.cyl(p, q, H * 0.03, H * 0.026, bark, 7, i / 6, (i + 1) / 6); p = q; }
     for (let f = 0; f < 11; f++) { const a = f / 11 * 6.28, d = V(Math.cos(a), -0.25, Math.sin(a)).normalize(), side = V(-Math.sin(a), 0, Math.cos(a)); b.card(p.clone().addScaledVector(d, H * 0.24), d, side, H * 0.48, H * 0.22, 8, V(0, 1, 0), leafCol(), 1); }
+  } else if (k === K.DEADTREE) {
+    // a dead tree (the ash slopes of the volcano): a bare, leaning trunk and a few broken, forked branches
+    const lean = V((R() - 0.5) * 0.3, 1, (R() - 0.5) * 0.3).normalize(), top = lean.clone().multiplyScalar(H * 0.85);
+    b.cyl(V(0, -0.3, 0), top, H * 0.03, H * 0.008, bark, 7, 0, 0.1);
+    for (let i = 0; i < 6; i++) {
+      const t = 0.35 + i * 0.1, a = R() * 6.28, base = lean.clone().multiplyScalar(H * 0.85 * t), L = H * (0.28 - t * 0.15);
+      const end = base.clone().add(V(Math.cos(a) * L, L * (0.35 + R() * 0.4), Math.sin(a) * L));
+      b.cyl(base, end, H * 0.012, H * 0.003, bark, 5, 0.05, 0.2);
+      const fork = end.clone().add(V((R() - 0.5) * L * 0.6, L * 0.3, (R() - 0.5) * L * 0.6)); b.cyl(end.clone().lerp(base, 0.3), fork, H * 0.005, H * 0.002, bark, 4, 0.1, 0.25);
+    }
   } else {
     // broadleaf trees and bushes: a trunk splitting into boughs, leaf clusters in a rounded crown
     const bush = k === K.BUSH, crownY = bush ? H * 0.55 : H * (k === K.BIRCH ? 0.64 : 0.6), crownR = bush ? H * 0.55 : H * (k === K.OAK || k === K.ACACIA ? 0.38 : k === K.BAOBAB ? 0.32 : 0.27);
@@ -356,12 +366,12 @@ export class Forest {
   rebuildBlocks(cam) {
     const blocks = new Map();
     for (const t of this.tiles.values()) { if (t.state !== 2) continue; const bk = Math.floor(t.i / 4) + ':' + Math.floor(t.j / 4); (blocks.get(bk) || blocks.set(bk, []).get(bk)).push(t); }
-    for (const [bk, b] of this.blocks) if (!blocks.has(bk)) { this.group.remove(b.mesh); b.mesh.geometry.dispose(); this.blocks.delete(bk); }
+    for (const [bk, b] of this.blocks) if (!blocks.has(bk)) { this.group.remove(b.mesh); if (b.mesh.geometry) b.mesh.geometry.dispose(); this.blocks.delete(bk); }
     for (const [bk, ts] of blocks) {
       const sig = ts.filter(t => t.far).map(t => t.i + ',' + t.j).sort().join(';');
       const old = this.blocks.get(bk);
       if (old && old.sig === sig) continue;
-      if (old) { this.group.remove(old.mesh); old.mesh.geometry.dispose(); this.blocks.delete(bk); }
+      if (old) { this.group.remove(old.mesh); if (old.mesh.geometry) old.mesh.geometry.dispose(); this.blocks.delete(bk); }
       let n = 0; for (const t of ts) if (t.far) n += t.data.length / 6;
       if (!n) { this.blocks.set(bk, { sig, mesh: new THREE.Group() }); continue; }
       // per instance: iData = (x, y, z, atlas cell), iSize = the height of the picture

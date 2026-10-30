@@ -5,6 +5,7 @@ import { Terrain, LAYERS } from './render/terrain.js';
 import { Features, roadMaterial, buildingMaterial } from './render/features.js';
 import { Forest } from './render/trees.js';
 import { Water } from './render/water.js';
+import { Special } from './render/special.js';
 import { World } from './world/world.js';
 import { WORLD } from './data/world.js';
 import { CARS } from './data/cars.js';
@@ -50,6 +51,7 @@ async function boot() {
   const features = new Features(gfx, world, worker, { road: roadMaterial(gfx, arrays), building: buildingMaterial(gfx, bArr) });
   const forest = new Forest(gfx, world, worker);
   const water = new Water(gfx, world);
+  const special = new Special(gfx, world);
   const game = new Game({ gfx, world, worker, terrain, features, forest, store, params, arrays, tex });
   await game.init(status);
   $('loading').hidden = true;
@@ -62,9 +64,10 @@ async function boot() {
     features.update(gfx.camera.position);
     forest.update(gfx.camera.position);
     water.update(dt);
+    special.update(dt, gfx.camera.position);
     gfx.render(dt);
   };
   requestAnimationFrame(frame);
-  window.SIM = { gfx, world, terrain, features, forest, water, game, THREE };
+  window.SIM = { gfx, world, worker, terrain, features, forest, water, special, game, THREE };
 }
 boot().catch(e => { console.error(e); const el = document.getElementById('loadText'); if (el) el.textContent = 'Noe gikk galt: ' + e.message; });

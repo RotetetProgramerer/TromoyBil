@@ -15,7 +15,7 @@ MAP[C.MIXED] = ['forest', 'grass', 0.3]; MAP[C.DECID] = ['forest', 'grass', 0.35
 MAP[C.FARM] = ['grass', 'field', 0.18]; MAP[C.GARDEN] = ['grass', 'dirt', 0.06]; MAP[C.URBAN] = ['asphalt', 'gravel', 0.4]; MAP[C.BOG] = ['mud', 'grass', 0.45];
 MAP[C.LAKE] = ['mud', 'sand', 0.4]; MAP[C.GRAVEL] = ['gravel', 'dirt', 0.3]; MAP[C.STREAM] = ['gravel', 'mud', 0.4]; MAP[C.SNOW] = ['snow', 'rock', 0.12];
 MAP[C.ASH] = ['ash', 'blacksand', 0.4]; MAP[C.LAVA] = ['ash', 'ash', 0]; MAP[C.JUNGLE] = ['forest', 'mud', 0.35]; MAP[C.SAVANNA] = ['drygrass', 'redearth', 0.3];
-MAP[C.MUD] = ['mud', 'dirt', 0.3]; MAP[C.DIRT] = ['dirt', 'gravel', 0.25];
+MAP[C.MUD] = ['mud', 'dirt', 0.3]; MAP[C.DIRT] = ['dirt', 'gravel', 0.25]; MAP[C.ICE] = ['snow', 'rock', 0.06];
 
 function mapTexture() {
   const d = new Uint8Array(32 * 4);

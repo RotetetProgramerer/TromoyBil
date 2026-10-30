@@ -22,12 +22,18 @@ export class Game {
     this.gfx.setFog(0.00011, 0.0018);
     this.camPos = new THREE.Vector3().copy(this.car.pos).add(new THREE.Vector3(0, 3, -8));
   }
-  // where you start: on a road near the middle of Tromøya (later: the base)
+  // where you start: on a road near the point asked for (?x=&z= in world coordinates; default the middle of Tromøya), on the island
+  // that contains it (the bigger roads first, any road if the island has none of those)
   spawnPoint() {
-    const isl = this.world.islands[0], want = { x: +(this.params.get('x') ?? -40), z: +(this.params.get('z') ?? 2400) };
+    const want = { x: +(this.params.get('x') ?? -40), z: +(this.params.get('z') ?? 2400) };
+    const here = this.world.islands.find(i => !i.def.backdrop && i.inside(want.x, want.z)), isl = here || this.world.islands[0];
+    const lx = want.x - isl.ox, lz = want.z - isl.oz;
     let best = null;
-    for (const r of isl.roads.roads) { if (r.c > 4) continue; const p = r.p; for (let i = 0; i < p.length - 3; i += 3) { const d = Math.hypot(p[i] - want.x, p[i + 1] - want.z); if (!best || d < best.d) best = { d, x: p[i], z: p[i + 1], h: Math.atan2(p[i + 3] - p[i], p[i + 4] - p[i + 1]) }; } }
-    return best ? { x: best.x + isl.ox, z: best.z + isl.oz, h: best.h } : { x: 0, z: 0, h: 0 };
+    for (const maxC of [4, 6, 7]) {
+      for (const r of isl.roads.roads) { if (r.c > maxC || r.b && r.b.length > r.p.length / 6) continue; const p = r.p; for (let i = 0; i < p.length - 3; i += 3) { const d = Math.hypot(p[i] - lx, p[i + 1] - lz); if (!best || d < best.d) best = { d, x: p[i], z: p[i + 1], h: Math.atan2(p[i + 3] - p[i], p[i + 4] - p[i + 1]) }; } }
+      if (best && best.d < 400) break;
+    }
+    return best ? { x: best.x + isl.ox, z: best.z + isl.oz, h: best.h } : { x: want.x, z: want.z, h: 0 };
   }
   buildCarVisual() {
     const s = this.car.spec, g = new THREE.Group();

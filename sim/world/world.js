@@ -14,15 +14,20 @@ export class World {
     const [g, c, f] = await Promise.all([loadBytes(dir + 'terrain.bin.gz'), loadBytes(dir + 'cover.bin.gz'), loadJSON(dir + 'features.json.gz')]);
     const isl = new Island(def, parseGrid(g), parseGrid(c), f);
     this.islands.push(isl);
+    // the islands load in parallel and arrive in any order; the backdrop covers everything, so it must always be asked last
+    this.islands.sort((a, b) => (a.def.backdrop ? 1 : 0) - (b.def.backdrop ? 1 : 0));
     return isl;
   }
   async setBackdrop(url) { this.backdrop = parseGrid(await loadBytes(url)); }
 
+  // the island at a point: the last one found if it still contains it, else the first that does; the backdrop (it contains every
+  // point) is never remembered, so a point out at sea does not hide the islands from the next query
   islandAt(x, z) {
     const l = this._last;
     if (l && l.inside(x, z, 10)) return l;
-    for (const isl of this.islands) if (isl.inside(x, z, 10)) { this._last = isl; return isl; }
-    return null;
+    let bd = null;
+    for (const isl of this.islands) { if (!isl.inside(x, z, 10)) continue; if (isl.def.backdrop) { bd = bd || isl; continue; } this._last = isl; return isl; }
+    return bd;
   }
   height(x, z) {
     const isl = this.islandAt(x, z);

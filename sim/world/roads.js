@@ -2,7 +2,7 @@
 // A spatial hash finds the road under a point in one lookup: each segment is stored in every cell its influence reaches.
 import { SURF } from '../physics/surfaces.js';
 
-export const ROAD_SURF = [SURF.ASPHALT, SURF.GRAVEL, SURF.COBBLE, SURF.DIRT];
+export const ROAD_SURF = [SURF.ASPHALT, SURF.GRAVEL, SURF.COBBLE, SURF.DIRT, SURF.SNOW];      // 4: packed snow (the winter island)
 export const ROAD_CLASS = ['motorvei', 'riksvei', 'fylkesvei', 'fylkesvei', 'kommunal vei', 'privat vei', 'traktorvei', 'sti'];
 const CELL = 24, REACH = 15;               // metres the embankment and the ditch reach beyond the road edge
 
