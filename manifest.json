@@ -1,7 +1,7 @@
 {
-  "name": "Skare Offroad",
-  "short_name": "Skare Offroad",
-  "description": "RC-crawlerspill i skala 1:24.",
+  "name": "TromøyBil",
+  "short_name": "TromøyBil",
+  "description": "Bilsimulator på den ekte Tromøya og øyene rundt, i ekte størrelse.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
