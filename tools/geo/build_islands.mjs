@@ -344,18 +344,20 @@ Object.assign(RECIPES, {
     const o = K.old, [vil, vh] = oldVillage(K), rOf = (x, z) => Math.hypot(x - 8, z - 6), cr = K.P([8, 6]);
     const RIVER = [[-19.5, -15], [-21, -17], [-23, -19.5], [-25.2, -22.5], [-27, -25.5], [-29.5, -28.5]], seaD = (x, z) => Math.hypot(x + 36, z + 36);
     const cliff = (x, z) => 2.4 * smooth(0, 0.9, z + 6.65) * smooth(0, 6, -6 - x);
-    K.base({ fill: (x, z) => seaD(x, z) > 15 && lineDist(RIVER, x, z) < 3.4, adjust: (x, z) => -0.55 * cliff(x, z),
+    // a concave cone (steeper towards the top, like a real stratovolcano) instead of the old rounded hill, and a lower cliff by the waterfall
+    const cone = (x, z) => { const rr = rOf(x, z); if (rr >= 19 || rr <= 4.2) return 0; const u = Math.min(1, (19 - rr) / 15); return 5.6 * (Math.pow(u, 1.7) - u * u * (3 - 2 * u)); };
+    K.base({ fill: (x, z) => seaD(x, z) > 15 && lineDist(RIVER, x, z) < 3.4, adjust: (x, z) => -0.55 * cliff(x, z) + cone(x, z),
       vmap: (u, x, z) => lerp(u < 1.3 ? u * 16 : 20.8 + (u - 1.3) * 46, u * 16, smooth(17, 21, rOf(x, z))),
       protect: [[...vil, 420], [...K.P([-34, -34]), 520]], coastA: 170, coastL: 800, shore: (x, z) => { const r = smooth(0.2, 0.5, K.n3(x / 700, z / 700)); return { beach: 1 - r, rock: r }; } });
     // radial ridges and gullies on the cone, rough lava fields lower down
     K.detail((x, z) => {
       const r = Math.hypot(x - cr[0], z - cr[1]), a = Math.atan2(z - cr[1], x - cr[0]), cone = smooth(150, 260, r) * (1 - smooth(560, 700, r));
-      return cone * 7 * (ridged(K.noise, Math.cos(a) * 3.2 + r / 300, Math.sin(a) * 3.2, 3) - 0.5) + (1 - cone) * 3 * fbm(K.n2, x / 160, z / 160, 3) + 1.2 * fbm(K.n3, x / 50, z / 50, 2);
+      return cone * (12 * (ridged(K.noise, Math.cos(a) * 4.5 + r / 260, Math.sin(a) * 4.5, 3) - 0.5) + 4 * fbm(K.n3, x / 70, z / 70, 3)) + (1 - cone) * 3 * fbm(K.n2, x / 160, z / 160, 3) + 1.2 * fbm(K.n3, x / 50, z / 50, 2);
     }, 90);
     K.edgeBlend(); K.seaWater();
     K.each((k, x, z) => {
       if (K.sea[k]) return; const [ox, oz] = K.toOld(x, z), rr = rOf(ox, oz), d = K.D[k], s = K.slope(x, z), n = fbm(K.n2, x / 120, z / 120, 3);
-      K.CV[k] = d < 40 + 20 * n ? C.BEACH : rr < 15.5 + 1.2 * n ? (s > 0.85 + 0.3 * n + 0.2 * fbm(K.n3, x / 40, z / 40, 2) ? C.ROCK : C.ASH) : rr < 18.5 + n ? (n > 0 ? C.ASH : C.DIRT) : s > 0.7 ? C.ROCK : n > 0.35 ? C.MUD : C.JUNGLE;
+      K.CV[k] = d < 40 + 20 * n ? C.BEACH : rr < 15.5 + 1.2 * n ? (s > 1.1 + 0.3 * n ? C.ROCK : C.ASH) : rr < 18.5 + n ? (n > 0 ? C.ASH : C.DIRT) : s > 0.7 ? C.ROCK : n > 0.35 ? C.MUD : C.JUNGLE;
     });
     // the jungle river: from the pool under the waterfall to the bay; the waterfall off the cliff, over the ledge road and into the pool
     const pool = K.P([-18, -12.6]), pl = K.pond(pool[0], pool[1], 48, { name: 'Fossekulpen', depth: 4 });
@@ -375,7 +377,7 @@ Object.assign(RECIPES, {
     const V = K.village({ at: vil, h: vh, name: 'Hisøya', houses: 8, s: 1 });
     const P = o.def.path.map(p => K.P(p)), beach = P.slice(0, 15), toFall = P.slice(14, 28);
     let rim = 0; for (let a = 0; a < 6.28; a += 0.2) rim = Math.max(rim, K.h(cr[0] + Math.cos(a) * 150, cr[1] + Math.sin(a) * 150));
-    const s0 = K.P([8 + 19 * Math.cos(225 * DEG), 6 + 19 * Math.sin(225 * DEG)]), spiral = coneRoad(K, cr, s0, 0.085, rim - 7, 175);
+    const s0 = K.P([8 + 19 * Math.cos(225 * DEG), 6 + 19 * Math.sin(225 * DEG)]), spiral = coneRoad(K, cr, s0, 0.085, rim - 12, 175);
     K.road([V.out, [700, -520], [520, -150], s0], { c: 4, s: 1, n: 'Vulkanveien', g: 0.1 });
     K.road([[520, -150], [800, 120], [880, 520], beach[0]], { c: 5, s: 1, n: 'Strandveien', g: 0.12 });
     const vv = K.road(spiral, { c: 4, w: 6, s: 1, n: 'Kraterveien', g: 0.11, clear: 5, sigma: 4 });
@@ -386,9 +388,12 @@ Object.assign(RECIPES, {
       desc: 'Over vadestedet i jungelelva, opp til hyllen under klippen og rett gjennom fossen. Vannet spruter over veien.' });
     K.course({ id: 'vulkan', name: 'Kraterveien', kind: 'bakke', diff: 3, path: K.line(vv), desc: 'Spiralveien opp vulkanen til kraterkanten, over lavaelvene på broer. Ikke stopp på broene.' });
     // the shortcut: from halfway up straight towards the rim, over a lava river on a narrow bridge
-    // (two points of the spiral 60 m apart in height with a lava bridge between them; the shortcut climbs straight from one to the other)
+    // (two points of the spiral 85 m apart in height with a lava bridge between them; the shortcut climbs straight from one to the other)
     const L = K.line(vv), Y = vv._y, br = vv._br; let ia = 0, ib = 0;
-    for (let i = 0; i < L.length && !ib; i++) { if (Y[i] < rim * 0.3) continue; const j = Y.findIndex((y, k) => k > i && y > Y[i] + 60); if (j < 0) break; if (br.slice(i, j).some(Boolean)) { ia = i; ib = j; } }
+    for (const needBridge of [true, false]) {
+      for (let i = 0; i < L.length && !ib; i++) { if (Y[i] < rim * 0.3) continue; const j = Y.findIndex((y, k) => k > i && y > Y[i] + 85); if (j < 0) break; if (!needBridge || br.slice(i, j).some(Boolean)) { ia = i; ib = j; } }
+      if (ib) break;
+    }
     const A = L[ia], B = L[ib], scP = K.route(A, B, { g: 0.19, gmax: 0.27, water: 2, turn: 10, avoid: (x, z) => lineDist([A, B], x, z) > 160 });
     const sc = K.road(scP, { c: 6, w: 4.6, s: 1, n: 'Snarveien', g: 0.18, clear: 4, sigma: 3 });
     K.course({ id: 'snarvei', name: 'Snarveien', kind: 'bakke', diff: 3, path: K.line(sc), desc: 'Den modige snarveien: rett opp flanken og over lavaelva på en smal bro, i stedet for den lange runden rundt krateret.' });
@@ -560,16 +565,17 @@ function garage(K, c, y0) {
   K.special.signs.push({ x: R1(c[0] + 44), z: R1(c[1] - r0 + 12), h: Math.PI / 2, text: 'P-HUS', sub: 'spiral til taket' });
   return ramp;
 }
-// a road that climbs round a cone at a steady grade g: each step goes along the slope, turned uphill just enough (on smoothed heights)
+// a road that climbs round a cone at a steady grade g: from the cone's mean height at each radius, each 8 m step goes round and inwards
+// just enough to climb g (at least 45° round, so it never heads straight for the top on the flat foot)
 function coneRoad(K, c, start, g, stopH, rMin) {
-  const Hs = blur(K.H, K.nx, K.nz, 5), H = (x, z) => K.sample(Hs, x, z), pts = [start.slice()]; let p = start.slice();
-  for (let i = 0; i < 1500; i++) {
-    const e = 8, gx = (H(p[0] + e, p[1]) - H(p[0] - e, p[1])) / (2 * e), gz = (H(p[0], p[1] + e) - H(p[0], p[1] - e)) / (2 * e), G = Math.hypot(gx, gz) || 1e-6, nx = gx / G, nz = gz / G;
-    const an = Math.atan2(p[1] - c[1], p[0] - c[0]); let tx = -nz, tz = nx; if (tx * -Math.sin(an) + tz * Math.cos(an) < 0) { tx = -tx; tz = -tz; }
-    const sf = Math.min(1, g / G), cf = Math.sqrt(1 - sf * sf);
-    p = [p[0] + (tx * cf + nx * sf) * 8, p[1] + (tz * cf + nz * sf) * 8];
-    if (i % 3 === 2) pts.push(p);
-    if (H(...p) >= stopH || Math.hypot(p[0] - c[0], p[1] - c[1]) < rMin) { pts.push(p); break; }
+  const prof = []; for (let r = 0; r <= 1400; r += 10) { let sum = 0, n = 0; for (let a = 0; a < 6.283; a += 0.05) { sum += K.h(c[0] + Math.cos(a) * r, c[1] + Math.sin(a) * r); n++; } prof.push(sum / n); }
+  const Hr = r => { const f = Math.max(0, r) / 10, i = Math.min(prof.length - 2, Math.floor(f)); return lerp(prof[i], prof[i + 1], f - i); };
+  let r = Math.hypot(start[0] - c[0], start[1] - c[1]), th = Math.atan2(start[1] - c[1], start[0] - c[0]); const pts = [start.slice()];
+  for (let i = 0; i < 3000; i++) {
+    const dH = (Hr(r - 5) - Hr(r + 5)) / 10, ds = 8, dr = dH > 1e-3 ? Math.min(ds * 0.7, g * ds / dH) : ds * 0.7;
+    r -= dr; th += Math.sqrt(Math.max(0, ds * ds - dr * dr)) / r;
+    if (i % 3 === 2) pts.push([c[0] + Math.cos(th) * r, c[1] + Math.sin(th) * r]);
+    if (Hr(r) >= stopH || r < rMin) { pts.push([c[0] + Math.cos(th) * r, c[1] + Math.sin(th) * r]); break; }
   }
   return chaikin(pts, 2);
 }

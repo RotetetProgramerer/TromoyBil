@@ -29,7 +29,7 @@ function coverTexture(isl) {
 
 const FRAG_PARS = `
 uniform sampler2D tCov; uniform sampler2D tMap; uniform mediump sampler2DArray tA; uniform mediump sampler2DArray tN;
-uniform vec4 uCov; uniform float uWet; uniform float uSnow; uniform float uTime; uniform int uDbg;
+uniform vec4 uCov; uniform float uWet; uniform float uSnow; uniform float uTime; uniform int uDbg; uniform vec3 uRock;
 varying vec3 vWPos; varying vec3 vWNrm;
 float hsh(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);
@@ -42,6 +42,7 @@ void lay(int l, vec2 uv, vec2 dx, vec2 dy, float far, inout vec3 a, inout vec3 n
   vec2 uv2 = mat2(0.8, -0.6, 0.6, 0.8) * uv * 0.23;
   vec4 A2 = textureGrad(tA, vec3(uv2, float(l)), dx * 0.23, dy * 0.23), N2 = textureGrad(tN, vec3(uv2, float(l)), dx * 0.23, dy * 0.23);
   A = mix(A, A2, 0.35 + 0.5 * far); N = mix(N, N2, 0.35 + 0.5 * far);
+  if (l == 2) A.rgb *= uRock;
   a += A.rgb * w; n += vec3(N.rg * 2.0 - 1.0, 0.0) * w; r += N.b * w;
 }
 `;
@@ -93,9 +94,12 @@ const FRAG_MAIN = `
   vec3 terrN = normalize(vWNrm + vec3(tn.x, 0.0, tn.y) * (1.0 - far * 0.7) * 0.9);
 `;
 
+// the colour of bare rock on the made-up islands (biome in sim/data/world.js): dark basalt on the volcano, warm granite on the savanna
+const ROCK_TINT = { volcano: [0.36, 0.34, 0.33], savanna: [0.95, 0.78, 0.66], jungle: [0.72, 0.74, 0.66], subtropical: [1.05, 1.0, 0.9] };
 export function terrainMaterial(gfx, isl, arrays) {
   const mat = new THREE.MeshStandardMaterial({ roughness: 1, metalness: 0 });
   const uni = { tCov: { value: isl ? coverTexture(isl) : blankCover() }, tMap: { value: mapTexture() }, tA: { value: arrays.A }, tN: { value: arrays.N },
+    uRock: { value: new THREE.Vector3(...(isl && ROCK_TINT[isl.def.biome] || [1, 1, 1])) },
     uDbg: { value: 0 }, uCov: { value: isl ? new THREE.Vector4(isl.x0, isl.z0, 1 / isl.cover.cell, isl.cover.nx) : new THREE.Vector4(-1e6, -1e6, 1e-4, 1) } };
   const patch = sh => {
     Object.assign(sh.uniforms, uni);

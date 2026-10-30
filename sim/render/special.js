@@ -153,10 +153,12 @@ float ln(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f); return m
 ` + sh.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
   float flow = vLv.x * 0.06 - uTime * 0.18;
   float h1 = ln(vec2(flow, vLv.y * 3.0)), h2 = ln(vec2(flow * 4.0, vLv.y * 10.0 + 5.0)), h3 = ln(vec2(flow * 13.0, vLv.y * 30.0));
-  float plates = h1 * 0.55 + h2 * 0.3 + h3 * 0.15, crack = 1.0 - smoothstep(0.08, 0.2, abs(plates - 0.5));
-  float edge = smoothstep(0.0, 0.3, vLv.y) * smoothstep(1.0, 0.7, vLv.y), hot = clamp(crack * 0.85 + (1.0 - edge) * 0.0 + smoothstep(0.62, 0.9, h2) * 0.5, 0.0, 1.0);
-  diffuseColor.rgb = mix(vec3(0.05, 0.035, 0.03), vec3(0.5, 0.12, 0.03), hot);
-  totalEmissiveRadiance = vec3(1.0, 0.33, 0.07) * (0.08 + 2.6 * hot * (0.5 + 0.5 * edge)) * (0.7 + 1.3 * uNight);`);
+  // dark crust in plates, thin glowing cracks between them and a few hot, bright patches; far away the pattern fades to its average
+  float plates = h1 * 0.55 + h2 * 0.3 + h3 * 0.15, far = smoothstep(150.0, 700.0, length(vViewPosition));
+  float crack = (1.0 - smoothstep(0.012, 0.045, abs(plates - 0.5))) * (1.0 - far * 0.7), spot = smoothstep(0.8, 0.95, h2) * smoothstep(0.55, 0.8, h1);
+  float edge = smoothstep(0.0, 0.3, vLv.y) * smoothstep(1.0, 0.7, vLv.y), hot = clamp(crack + spot * 0.8 + far * 0.12, 0.0, 1.0);
+  diffuseColor.rgb = mix(vec3(0.045, 0.032, 0.028), vec3(0.45, 0.1, 0.025), hot);
+  totalEmissiveRadiance = vec3(1.0, 0.3, 0.06) * (0.03 + 2.2 * hot * (0.4 + 0.6 * edge)) * (0.6 + 1.6 * uNight);`);
     };
     patch.key = 'lava'; prep(m, patch); this.gfx.shadowed(m);
     return m;

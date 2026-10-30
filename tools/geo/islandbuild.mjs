@@ -306,10 +306,10 @@ export class IslandBuild {
       // the fords (under the water) and bridge decks (over it) are fixed: clamp the profile into the band every road through them must
       // keep to at this grade, so it ramps down to a ford and up to a bridge instead of stepping
       const g = o.g ?? 0.12, dg = g * STEP, Lf = new Float64Array(n).fill(-1e9), Uf = new Float64Array(n).fill(1e9);
-      for (let k = 0; k < n; k++) if (fixed[k]) Lf[k] = Uf[k] = bridge[k] ? Math.max(t[k], deck[k]) : t[k];
+      for (let k = 0; k < n; k++) if (fixed[k]) { if (bridge[k]) Lf[k] = deck[k]; else Lf[k] = Uf[k] = t[k]; }      // a deck only has to clear the water
       for (let k = 1; k < n; k++) { Lf[k] = Math.max(Lf[k], Lf[k - 1] - dg); Uf[k] = Math.min(Uf[k], Uf[k - 1] + dg); }
       for (let k = n - 2; k >= 0; k--) { Lf[k] = Math.max(Lf[k], Lf[k + 1] - dg); Uf[k] = Math.min(Uf[k], Uf[k + 1] + dg); }
-      for (let k = 0; k < n; k++) y[k] = fixed[k] ? (bridge[k] ? Math.max(y[k], deck[k]) : t[k]) : Math.min(Math.max(y[k], Lf[k]), Math.max(Lf[k], Uf[k]));
+      for (let k = 0; k < n; k++) y[k] = fixed[k] && !bridge[k] ? t[k] : Math.min(Math.max(y[k], Lf[k]), Math.max(Lf[k], Uf[k]));
     }
     this.carveRoad(P, y, hw, bridge, o);
     const bi = []; for (let k = 0; k < n; k++) if (bridge[k]) bi.push(k);
