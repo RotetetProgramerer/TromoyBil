@@ -24,13 +24,13 @@ export class PlaneSound {
     this.prop = ac.createOscillator(); this.prop.setPeriodicWave(ac.createPeriodicWave(re, im)); this.prop.frequency.value = 20;
     this.propF = filt(ac, 'lowpass', 900, 0.8); this.propG = gain(ac, 0); chain(this.prop, this.propF, this.propG);
     this.propGate = new Gate(this.propG, this.ext); this.propIn = gain(ac, 0); chain(this.propG, this.propIn, this.int); this.prop.start();
-    // layers that are only connected while heard
-    const lay = (dest, src, ...f) => { const g = gain(ac, 0); chain(src, ...f, g); return { g, gate: new Gate(g, dest) }; };
-    this.windF = filt(ac, 'bandpass', 600, 0.5); this.wind = lay(this.out, loop(ac, B.pink), this.windF);
-    this.hissF = filt(ac, 'highpass', 3000, 0.6); this.hiss = lay(this.out, loop(ac, B.white), this.hissF, filt(ac, 'lowpass', 9000, 0.5));
-    this.whistleF = filt(ac, 'bandpass', 1800, 9); this.whistle = lay(this.out, loop(ac, B.white), this.whistleF);
-    this.rollF = filt(ac, 'lowpass', 300, 0.8); this.roll = lay(this.out, loop(ac, B.brown), this.rollF);
-    this.grassF = filt(ac, 'bandpass', 900, 0.6); this.grass = lay(this.out, loop(ac, B.gravel, 0.6), this.grassF);
+    // layers that are only connected while heard (the noise loops under them play on, so stop() stops them)
+    const lay = (dest, src, ...f) => { const g = gain(ac, 0); chain(src, ...f, g); return { g, gate: new Gate(g, dest) }; }, loops = this.loops = [], noise = (b, rate) => { const s = loop(ac, b, rate); loops.push(s); return s; };
+    this.windF = filt(ac, 'bandpass', 600, 0.5); this.wind = lay(this.out, noise(B.pink), this.windF);
+    this.hissF = filt(ac, 'highpass', 3000, 0.6); this.hiss = lay(this.out, noise(B.white), this.hissF, filt(ac, 'lowpass', 9000, 0.5));
+    this.whistleF = filt(ac, 'bandpass', 1800, 9); this.whistle = lay(this.out, noise(B.white), this.whistleF);
+    this.rollF = filt(ac, 'lowpass', 300, 0.8); this.roll = lay(this.out, noise(B.brown), this.rollF);
+    this.grassF = filt(ac, 'bandpass', 900, 0.6); this.grass = lay(this.out, noise(B.gravel, 0.6), this.grassF);
     // the stall horn: a reed's buzzy tone
     const hw = ac.createOscillator(); hw.type = 'sawtooth'; hw.frequency.value = 1620; const hm = ac.createOscillator(); hm.type = 'square'; hm.frequency.value = 28;
     const am = gain(ac, 0.35), amd = gain(ac, 0.25); chain(hm, amd); amd.connect(am.gain); hm.start(); hw.start();
@@ -78,6 +78,6 @@ export class PlaneSound {
   }
   stop() {
     const t = this.ac.currentTime; this.out.gain.setTargetAtTime(0, t, 0.1);
-    setTimeout(() => { this.engine.stop(); for (const o of [this.prop, ...this.hornOsc]) try { o.stop(); } catch (e) { } this.out.disconnect(); }, 700);
+    setTimeout(() => { this.engine.stop(); for (const o of [this.prop, ...this.hornOsc, ...this.loops]) try { o.stop(); o.disconnect(); } catch (e) { } this.out.disconnect(); }, 700);
   }
 }

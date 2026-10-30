@@ -31,7 +31,7 @@ export class Airfield {
     const R = A.rwy, y = R.y, isl = A.isl;
     const paint = std(gfx, '#f2d23a', { roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -6 }), white = std(gfx, '#f2f0ea', { roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -6 });
     const steel = std(gfx, '#9da2a6', { metalness: 0.7, roughness: 0.4 }), dark = std(gfx, '#2a2c2e', { roughness: 0.7 }), orange = std(gfx, '#e8661c', { roughness: 0.6 });
-    // a painted line from (x0, z0) to (x1, z1), w wide, lying on the ground (the apron is cambered)
+    // a painted line from (x0, z0) to (x1, z1), w wide, lying on the ground
     const line = (m, x0, z0, x1, z1, w) => { const L = Math.hypot(x1 - x0, z1 - z0), n = Math.max(1, Math.ceil(L / 1.5)), nx = -(z1 - z0) / L * w / 2, nz = (x1 - x0) / L * w / 2, P = [], I = [];
       for (let i = 0; i <= n; i++) { const x = x0 + (x1 - x0) * i / n, z = z0 + (z1 - z0) * i / n; for (const s of [-1, 1]) P.push(x + nx * s, world.height(x + nx * s, z + nz * s) + 0.04, z + nz * s); if (i) { const k = (i - 1) * 2; I.push(k, k + 2, k + 1, k + 1, k + 2, k + 3); } }
       const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); geo.setIndex(I); geo.computeVertexNormals(); if (geo.attributes.normal.getY(0) < 0) { geo.setIndex(I.map((v, j) => I[j - j % 3 + (2 - j % 3)])); geo.computeVertexNormals(); }
@@ -49,7 +49,7 @@ export class Airfield {
       const p = new Plane(spec); p.place(world, s.x, s.z, -Math.PI / 2); p.input.brake = 1; for (let k = 0; k < 240; k++) p.step(1 / 240, world);
       const v = new PlaneVisual(gfx, spec, { lights: false, reg: L && L.reg, look: L || undefined });
       const pos = new THREE.Vector3(p.pos.x, p.pos.y, p.pos.z), q = new THREE.Quaternion(p.q.x, p.q.y, p.q.z, p.q.w);
-      v.pose(pos, q, { g: p.gear.map(w => ({ x: w.x })) }, 0);
+      v.pose(pos, q, { g: p.gear.map(w => ({ x: w.x })) }, 0); v.bake();
       // chocks at the main wheels
       for (const w of p.gear) if (!w.steer) { _v.set(w.at[0] ?? w.at.x, 0, w.at.z ?? w.at[2]).applyQuaternion(q).add(pos); for (const d of [-0.3, 0.3]) box(paint, 0.12, 0.12, 0.25, _v.x + d, world.height(_v.x, _v.z), _v.z); }
       // the plane is something to hit: the wing and the fuselage as boxes (low, so a plane can fly over them)
@@ -116,7 +116,8 @@ export class Airfield {
       for (const c of p.cols) { const i = cols.indexOf(c); if (out && i >= 0) cols.splice(i, 1); else if (!out && i < 0) cols.push(c); }
     }
   }
-  update(dt, cam) {
+  // cam: the camera's position; eye: where the PAPI is seen from (the pilot's eye while flying, else the camera)
+  update(dt, cam, eye = cam) {
     this.t += dt; const t = this.t, A = this.A, night = U.uNight.value, far = Math.hypot(cam.x - A.aim.x, cam.z - A.aim.z);
     if (far > 16000) { this.glow.pts.visible = false; return; }
     this.glow.pts.visible = true;
@@ -128,7 +129,7 @@ export class Airfield {
       const l = L[i]; let I = on * 3.5, c = l.c, size = l.size;
       if (l.kind === 'rabbit') { const k = 1 - (l.d - 30) / 270, f = Math.abs(ft - k * 0.9) < 0.04 ? 1 : 0; I = on * f * 14; size = f ? 1.4 : 0; }
       else if (l.kind === 'papi') {
-        const P = this.papi.find(p => p.i === i), dx = cam.x - P.x, dz = cam.z - P.z, ahead = -(dx * R.ux + dz * R.uz), el = Math.atan2(cam.y - P.y, Math.max(1, ahead));
+        const P = this.papi.find(p => p.i === i), dx = eye.x - P.x, dz = eye.z - P.z, ahead = -(dx * R.ux + dz * R.uz), el = Math.atan2(eye.y - P.y, Math.max(1, ahead));
         const w = THREE.MathUtils.smoothstep(el, P.a - 0.06 * D2R, P.a + 0.06 * D2R); c = [1, 0.15 + 0.85 * w, 0.1 + 0.85 * w];
         I = ahead > 30 ? 2.5 + 5 * night : 0; size = I ? 1.1 : 0;
       }

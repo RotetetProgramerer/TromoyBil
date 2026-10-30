@@ -25,7 +25,7 @@ export const FLIGHTS = [
     rings: [[10627, 10050, 85], [9500, 10350, 70], [8900, 10450, 70], [8250, 10300, 70], [7650, 9850, 70], [7250, 9200, 70], [7150, 8450, 75],
       [7350, 7750, 75], [7850, 7150, 75], [8550, 6850, 75], [9300, 6650, 75], [10050, 5950, 85], [10627, 6450, 100], [10627, 7200, 61]] },
   { id: 'oyhopp', name: 'Øyhopp østover', diff: 2, r: 34, pace: { make: 94, falk: 127 },
-    desc: 'Sightseeing: over sjøen til Kaimanøya med tempelet og Apeberget, nordover til Froland, vestover til oasen på Bykkevika og rett inn på finalen hjem.',
+    desc: 'Utsiktstur: over sjøen til Kaimanøya med tempelet og Apeberget, nordover til Froland, vestover til oasen på Bykkevika og rett inn på finalen hjem.',
     rings: [[10627, 10350, 135], [13000, 10600, 300], [16500, 10000, 300], [18264, 9300, 220], [19300, 8000, 230], [18800, 5700, 260], [17200, 4300, 220], [15600, 2700, 260],
       [12700, 1100, 300], [10750, 850, 200], [10650, 3600, 250], [10627, 6000, 124], [10627, 7020, 70]] },
   { id: 'tromoya', name: 'Til Tromøya og hjem', diff: 3, r: 34, pace: { make: 92, falk: 121 },
@@ -116,7 +116,7 @@ export function crashText(reason) {
   if (/belly/.test(r)) return 'Buklanding';
   if (/tail/.test(r)) return 'Halen slo i bakken';
   if (/cabin/.test(r)) return 'Flyet gikk rundt';
-  if (/overspeed/.test(r)) return 'For høy fart: flyet brakk';
+  if (/overspeed/.test(r)) return 'For høy fart: flyet brakk sammen';
   if (/over-g/.test(r)) return 'For mange g: vingene brakk';
   if (/hit house/.test(r)) return 'Krasjet i et hus';
   if (/hit (post|rail)/.test(r)) return 'Krasjet i en stolpe';

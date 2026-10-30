@@ -198,7 +198,8 @@ export class Game {
     const a = this.base.ask; this.car.place(this.world, a.x, a.z, TROMOYA.base.h + Math.PI);
     this.afterIslandChange(); this.ui.hide(); this.mode = 'drive'; this.ui.toast('Tauet til verkstedet · −20 ⚙');
   }
-  ferryDestinations() { const here = this.island(); return this.quays.filter(q => q.isl !== here).map(q => ({ q, name: q.isl.name, sub: q.name })); }
+  // the ferry carries the car: the quays on every island but the car's (not where the boat or the plane is, during an activity)
+  ferryDestinations() { const c = this.car.pos, here = this.world.islandAt(c.x, c.z) || this.world.islands[0]; return this.quays.filter(q => q.isl !== here).map(q => ({ q, name: q.isl.name, sub: q.name })); }
   takeFerry(d) {
     if (this.prof.nuts < 5) { this.ui.toast('Du trenger 5 muttere til ferja', true); return; }
     if (this.act) this.act.stop();      // from the map while sailing or flying: back in the car first

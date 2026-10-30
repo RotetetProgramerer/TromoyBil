@@ -2,10 +2,11 @@
 // (1500 ⚙) and fly over the archipelago, freely or through the rings of a flight (sim/data/flights.js) that ends with a landing.
 // The physics is sim/physics/plane.js at 240 Hz (Lett is its assist), the models sim/render/planevis.js, the airport's extras
 // sim/render/airfield.js, the sound sim/audio/planesound.js.
-// Keys: ↓/S stick back (nose up), ↑/W forward, ←/→ or A/D roll, Q/E (or Z/X) rudder, Shift/Ctrl, PgUp/PgDn or +/− throttle (a lever:
-// it stays where it is set), F flaps down a notch, V up, B or space brakes, T/G trim (Ekte), L landing light, C camera, R back to
-// the threshold (or the last ring), Enter stopped on the apron: the flying club. Gamepad: left stick pitch and roll, right stick
-// rudder (x) and throttle (y), the triggers throttle up and down, A brakes, RB/LB flaps. Touch: a stick, a throttle lever, buttons.
+// Keys: ↓/S stick back (nose up), ↑/W forward, ←/→ or A/D roll, Q/E (or Z/X) rudder, Y/H, PgUp/PgDn or +/− throttle (a lever: it
+// stays where it is set; not Shift/Ctrl: Chrome keeps Ctrl+W, Ctrl+T … for itself, and Shift tapped five times is Windows' Sticky
+// Keys), F flaps down a notch, V up, B or space brakes, T/G trim (Ekte), L landing light, C camera, R back to the threshold (or the
+// last ring), Enter stopped on the apron: the flying club. Gamepad: left stick pitch and roll, right stick rudder (x) and throttle
+// (y), the triggers throttle up and down, A brakes, RB/LB flaps. Touch: a stick, a throttle lever, buttons.
 import * as THREE from 'three';
 import { Activity } from './activity.js';
 import { Plane } from '../physics/plane.js';
@@ -13,7 +14,7 @@ import { V3 } from '../physics/math.js';
 import { PLANES, planeById } from '../data/planes.js';
 import { FLIGHTS, PRICE, airportOf, prepFlight, ringFrame, ringCrossed, landed, onApron, onRunway, windVel, crashText, planeWorld } from '../data/flights.js';
 import { U } from '../render/gfx.js';
-import { PlaneVisual, Rings, LOOK } from '../render/planevis.js';
+import { PlaneVisual, Rings, LOOK, speedArcs } from '../render/planevis.js';
 import { Airfield } from '../render/airfield.js';
 import { fmtTime } from '../courses.js';
 import { PlaneSound } from '../audio/planesound.js';
@@ -23,7 +24,7 @@ const CAMS = ['Følgekamera', 'Cockpit', 'Vingekamera', 'Tårnkamera'], DIFFCOL 
 const CRUISE = { make: 50, falk: 68 };          // m/s when put back in the air at a ring
 const $ = id => document.getElementById(id), fmtN = n => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' '), fmtD = (v, d = 1) => v.toFixed(d).replace('.', ',');
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v, wrap = a => Math.atan2(Math.sin(a), Math.cos(a));
-const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _u = new THREE.Vector3(), _o = new THREE.Vector3(), _d = new THREE.Vector3(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _e = new THREE.Euler(), _m = new THREE.Matrix4();
+const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _u = new THREE.Vector3(), _o = new THREE.Vector3(), _d = new THREE.Vector3(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _e = new THREE.Euler(), _m = new THREE.Matrix4(), _p = new THREE.Vector3();
 
 const CSS = `
 #fHud{position:absolute;inset:0;pointer-events:none}
@@ -63,7 +64,7 @@ const HUD = `
 <div id="fCrash" hidden></div>
 <div class="fdash"><canvas id="fInst" width="420" height="230" aria-hidden="true"></canvas>
   <div class="lamps"><i id="fLStall">STALL</i><i id="fLBrake">BREMS</i><i id="fLFlap">KLAFF</i><i id="fLLys">LYS</i><i id="fLAuto">LETT</i></div></div>
-<div id="fHint">↓ / S nesa opp · ↑ / W nesa ned · ← → / A D krengning · Q E sideror · Shift / Ctrl gass · F / V klaffer · B brems · C kamera · R tilbake</div>
+<div id="fHint">↓ / S nesa opp · ↑ / W nesa ned · ← → / A D krengning · Q E sideror · Y / H gass · F / V klaffer · B brems · C kamera · R tilbake</div>
 <div id="fTouch">
   <div id="fStick" aria-label="Styrespak"><i></i></div>
   <div id="fThr" aria-label="Gasshåndtak"><b>GASS</b><i></i></div>
@@ -122,11 +123,12 @@ export default class PlaneActivity extends Activity {
     stick.addEventListener('pointerup', sOff); stick.addEventListener('pointercancel', sOff); stick.addEventListener('lostpointercapture', sOff);
     // the throttle lever: where the finger is, it stays when let go
     const thr = $('fThr'), tk = e => { const r = thr.getBoundingClientRect(); this.lever = clamp(1 - (e.clientY - r.top - 15) / (r.height - 30), 0, 1); };
+    this.thrKnob = thr.querySelector('i'); addEventListener('resize', () => { this.thrH = 0; this.leverShown = null; });
     thr.addEventListener('pointerdown', e => { e.preventDefault(); try { thr.setPointerCapture(e.pointerId); } catch (_) { } this.touch.thrOn = true; tk(e); });
     thr.addEventListener('pointermove', e => { if (this.touch.thrOn) tk(e); });
     for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) thr.addEventListener(ev, () => { this.touch.thrOn = false; });
-    // Ctrl is the throttle: keep the browser's own Ctrl shortcuts (save, find, bookmark …) and PgUp/PgDn scrolling out of the way
-    addEventListener('keydown', e => { if (this.active && (e.ctrlKey && /^(key[a-z]|arrow|digit|equal|minus)/i.test(e.code) || /^page(up|down)$/i.test(e.key))) e.preventDefault(); });
+    // PgUp/PgDn are throttle keys: they do not scroll the page while flying
+    addEventListener('keydown', e => { if (this.active && /^page(up|down)$/i.test(e.key)) e.preventDefault(); });
     $('prAgain').onclick = () => { const f = this.lastFlight; this.game.ui.hide(); this.game.mode = 'act'; if (f) this.startFlight(f); };
     $('prDone').onclick = () => { this.game.ui.hide(); this.game.mode = 'act'; };
   }
@@ -164,8 +166,9 @@ export default class PlaneActivity extends Activity {
     const g = this.game; g.ui.hide();
     if (!this.active) return this.start(Object.assign({ plane: this.planeId }, o));
     g.mode = 'act';
-    if (this.plane.spec.id !== this.planeId) this.setPlane(this.planeId);
-    if (o.flight) this.startFlight(o.flight); else { if (this.flight) this.stopFlight(); this.toThreshold(); }
+    // another plane stands ready on the runway; the same one carries on from where it is (the apron, where the menu opens)
+    const other = this.plane.spec.id !== this.planeId; if (other) this.setPlane(this.planeId);
+    if (o.flight) this.startFlight(o.flight); else { if (this.flight) this.stopFlight(); if (other) this.toThreshold(); }
   }
   // ---------------------------------------------------------------- start and stop
   start(opts = {}) {
@@ -313,7 +316,7 @@ export default class PlaneActivity extends Activity {
     S.e = ease(S.e, (has('arrowdown', 's') ? 1 : 0) - (has('arrowup', 'w') ? 1 : 0), real ? 1.6 : 2.5, 4);
     S.a = ease(S.a, (has('arrowright', 'd') ? 1 : 0) - (has('arrowleft', 'a') ? 1 : 0), real ? 2.2 : 3, 5);
     S.r = ease(S.r, (has('e', 'x') ? 1 : 0) - (has('q', 'z') ? 1 : 0), 3, 5);
-    let ele = S.e, ail = S.a, rud = S.r, thrRate = (has('shift', 'pageup', '+', '=') ? 1 : 0) - (has('control', 'pagedown', '-') ? 1 : 0), brake = has('b', ' ') || this.tb.brake ? 1 : 0;
+    let ele = S.e, ail = S.a, rud = S.r, thrRate = (has('y', 'pageup', '+', '=') ? 1 : 0) - (has('h', 'pagedown', '-') ? 1 : 0), brake = has('b', ' ') || this.tb.brake ? 1 : 0;
     // gamepad
     const gp = navigator.getGamepads ? [...navigator.getGamepads()].find(q => q && q.connected) : null, P = this.pad;
     if (gp && !this.game.input.wheel) {
@@ -337,8 +340,8 @@ export default class PlaneActivity extends Activity {
     I.brake = brake; I.brakeL = I.brakeR = null;
     if (!brake && p.state.onGround && gs < 7 && Math.abs(rud) > 0.6) { I.brakeL = rud < 0 ? 0.35 * Math.abs(rud) : 0; I.brakeR = rud > 0 ? 0.35 * Math.abs(rud) : 0; }
     if (real) I.trim = clamp(I.trim + ((has('t') ? 1 : 0) - (has('g') ? 1 : 0)) * dt * 0.35, -1, 1);
-    // touch thumb on the lever: show where it is
-    const th = $('fThr').querySelector('i'); th.style.bottom = (this.lever * (($('fThr').clientHeight || 160) - 34)) + 'px';
+    // the touch lever shows where the throttle is: written only when it moves, its height measured again after a resize
+    if (this.lever !== this.leverShown && document.body.classList.contains('is-touch')) { this.leverShown = this.lever; this.thrH ||= $('fThr').clientHeight || 160; this.thrKnob.style.bottom = (this.lever * (this.thrH - 34)) + 'px'; }
   }
   // ---------------------------------------------------------------- every frame
   update(dt, inp) {
@@ -357,7 +360,7 @@ export default class PlaneActivity extends Activity {
     if (!isFinite(p.pos.x) || !isFinite(p.q.w)) { this.reset(); return; }
     // a crash: say why, then back to the threshold (or the last ring) after a moment
     if (p.crashed) {
-      if (!this.crashT) { this.crashT = 3; const el = $('fCrash'), off = st.agl < 3 && /over-g|collapsed$/.test(p.crashReason || '') && !onRunway(this.A, p.pos.x, p.pos.z); el.innerHTML = (off ? 'Kjørte av rullebanen' : crashText(p.crashReason)) + `<small>${this.flight && this.flight.gi > 0 ? 'Tilbake ved forrige ring om litt (+10 s)' : 'Tilbake på rullebanen om litt'}</small>`; el.hidden = false; this.shake = 0.6; }
+      if (!this.crashT) { this.crashT = 3; const el = $('fCrash'), off = st.agl < 3 && /over-g|collapsed$/.test(p.crashReason || '') && !onRunway(this.A, p.pos.x, p.pos.z); el.innerHTML = (off ? 'Havnet utenfor rullebanen' : crashText(p.crashReason)) + `<small>${this.flight && this.flight.gi > 0 ? 'Tilbake ved forrige ring om litt (+10 s)' : 'Tilbake på rullebanen om litt'}</small>`; el.hidden = false; this.shake = 0.6; }
       this.crashT -= dt;
       if (this.crashT <= 0) { this.crashT = 0; $('fCrash').hidden = true; this.reset(); }
     }
@@ -388,8 +391,9 @@ export default class PlaneActivity extends Activity {
   }
   frame(dt) {
     if (!this.field) return;
-    const cam = this.game.gfx.camera;
-    this.field.update(dt, cam.position);
+    // the PAPI shows the glide path from the pilot's seat, not from the chase camera behind and above the plane
+    const cam = this.game.gfx.camera, v = this.active && this.vis;
+    this.field.update(dt, cam.position, v ? _p.copy(v.eye).applyMatrix4(v.root.matrixWorld) : cam.position);
     if (this.rings) this.rings.update(dt);
     if (this.hintT > 0) { this.hintT -= dt; if (this.hintT <= 0) $('fHint').classList.add('off'); }
   }
@@ -505,8 +509,8 @@ export default class PlaneActivity extends Activity {
       x.fillStyle = '#f2e8d0'; x.font = '700 20px "Barlow Condensed"'; x.fillText(label, tx + w / 2, mid + 1);
       x.fillStyle = 'rgba(242,232,208,.65)'; x.font = '600 12px "Barlow Condensed"'; x.fillText(sub, tx + w / 2, 12);
     };
-    const vne = spec.limits.vne, kias = Math.max(0, st.kias);
-    tape(16, 70, kias, 1.6, 10, Math.round(kias), [[spec.id === 'make' ? 40 : 44, 85, 'rgba(242,242,242,.9)'], [spec.id === 'make' ? 48 : 50, vne * 0.79, '#3bb34a'], [vne * 0.79, vne, '#e8c33a'], [vne, vne + 40, '#d9432f']], 'KNOP');
+    const S = speedArcs(spec), kias = Math.max(0, st.kias);
+    tape(16, 70, kias, 1.6, 10, Math.round(kias), [[...S.white, 'rgba(242,242,242,.9)'], [...S.green, '#3bb34a'], [...S.yellow, '#e8c33a'], [S.vne, S.vne + 40, '#d9432f']], 'KNOP');
     tape(334, 70, st.alt, 0.75, 20, Math.round(st.alt), [], 'METER');
     x.fillStyle = 'rgba(242,232,208,.75)'; x.font = '600 12px "Barlow Condensed"'; x.fillText(fmtN(st.alt * 3.2808) + ' ft', 369, 182);
     // climb: a bar beside the altitude, ±10 m/s

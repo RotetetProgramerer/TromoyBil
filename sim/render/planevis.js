@@ -320,7 +320,7 @@ export function buildPlane(gfx, spec, opts = {}) {
     const tex = new THREE.CanvasTexture(canvas); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
     const pm = prep(new THREE.MeshStandardMaterial({ map: tex, emissiveMap: tex, emissive: '#ffffff', emissiveIntensity: 0.35, roughness: 0.6 }));
     const face = new THREE.Mesh(new THREE.PlaneGeometry(cw, ch), pm); face.position.set(0, (pn.y0 + pn.y1) / 2, pn.z); face.rotation.y = Math.PI; body.add(face);
-    out.panel = { canvas, ctx: canvas.getContext('2d'), tex, w: canvas.width, h: canvas.height, t: 0 };
+    out.panel = { canvas, ctx: canvas.getContext('2d'), tex, mat: pm, face, w: canvas.width, h: canvas.height, t: 0 };
     drawPanel(out.panel, null, spec);
     P.box(M.dark, cw, ch + 0.02, 0.08, 0, (pn.y0 + pn.y1) / 2, pn.z + 0.045).box(M.dark, cw * 0.98, 0.04, 0.22, 0, pn.y1 + 0.01, pn.z - 0.06);
     P.box(M.floor, HW(0) * 1.8, 0.03, 2.0, 0, L.high ? -0.55 : -0.24, pn.z - 1.0).add(M.dark, cap(ring(pn.z + 0.05).map(([x, y, z]) => [x * 0.97, y * 0.97, z]), false));     // floor, firewall
@@ -353,6 +353,7 @@ export function buildPlane(gfx, spec, opts = {}) {
       const g = grid(R, false, null, sd < 0), uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) { const u = uv.getY(i), v = uv.getX(i); uv.setXY(i, sd > 0 ? u : 1 - u, 1 - v); }
       const m = new THREE.Mesh(g, dm); body.add(m);
     }
+    out.regMat = dm;
   }
   P.build(body);
   body.traverse(o => { if (o.isMesh && o.material && o.material.transparent) o.castShadow = false; });
@@ -362,6 +363,8 @@ export function buildPlane(gfx, spec, opts = {}) {
 function lightMat(c) { return prep(new THREE.MeshStandardMaterial({ color: new THREE.Color(c).multiplyScalar(0.35), emissive: c, emissiveIntensity: 0, roughness: 0.3 })); }
 
 // ------------------------------------------------------------------ the instrument panel (a canvas on the panel in the model)
+// the airspeed arcs (kt) of a plane: white with flaps, green normal, yellow in smooth air only, up to Vne
+export const speedArcs = spec => { const vne = spec.limits.vne, m = spec.id === 'make'; return { white: [m ? 40 : 44, 85], green: [m ? 48 : 50, vne * 0.79], yellow: [vne * 0.79, vne], vne }; };
 // the six classic instruments (airspeed, attitude, altimeter / turn coordinator, heading, vertical speed), the rev counter and the flaps
 export function drawPanel(pn, st, spec) {
   const x = pn.ctx, W = pn.w, H = pn.h, s = st || { kias: 0, pitch: 0, bank: 0, alt: 0, heading: 0, fpm: 0, rpm: 0, flaps: 0, beta: 0, stallWarn: false };
@@ -370,25 +373,25 @@ export function drawPanel(pn, st, spec) {
   const dial = (cx, cy) => { x.fillStyle = '#0d0d0e'; x.beginPath(); x.arc(cx, cy, r, 0, 7); x.fill(); x.strokeStyle = '#555'; x.lineWidth = 2; x.stroke(); };
   const needle = (cx, cy, a, l, w = 2.5, c = '#f2f0e8') => { x.strokeStyle = c; x.lineWidth = w; x.beginPath(); x.moveTo(cx, cy); x.lineTo(cx + Math.sin(a) * l, cy - Math.cos(a) * l); x.stroke(); };
   const ticks = (cx, cy, n, a0, a1) => { x.strokeStyle = '#ddd'; x.lineWidth = 1.2; for (let i = 0; i <= n; i++) { const a = a0 + (a1 - a0) * i / n; x.beginPath(); x.moveTo(cx + Math.sin(a) * r * 0.78, cy - Math.cos(a) * r * 0.78); x.lineTo(cx + Math.sin(a) * r * 0.92, cy - Math.cos(a) * r * 0.92); x.stroke(); } };
-  // airspeed: 0–200 kt round the dial, the white, green and yellow arcs
-  { const cx = x0, cy = y0, A = v => (v / 200) * Math.PI * 1.8; dial(cx, cy);
-    for (const [a, b, c] of [[40, 85, '#e8e8e8'], [50, 129, '#3bb34a'], [129, 163, '#e8c33a']]) { x.strokeStyle = c; x.lineWidth = 3; x.beginPath(); x.arc(cx, cy, r * 0.86, A(a) - Math.PI / 2, A(b) - Math.PI / 2); x.stroke(); }
-    ticks(cx, cy, 20, 0, Math.PI * 1.8); needle(cx, cy, A(cl(s.kias, 0, 200)), r * 0.8); }
+  // airspeed: 0 to about 1.1 Vne round the dial (a tick every 10 kt), the plane's white, green and yellow arcs and the red line at Vne
+  { const cx = x0, cy = y0, S = speedArcs(spec), top = Math.ceil(S.vne * 1.1 / 20) * 20, A = v => (v / top) * Math.PI * 1.8; dial(cx, cy);
+    for (const [[a, b], c] of [[S.white, '#e8e8e8'], [S.green, '#3bb34a'], [S.yellow, '#e8c33a'], [[S.vne, S.vne + 3], '#d9432f']]) { x.strokeStyle = c; x.lineWidth = 3; x.beginPath(); x.arc(cx, cy, r * 0.86, A(a) - Math.PI / 2, A(b) - Math.PI / 2); x.stroke(); }
+    ticks(cx, cy, top / 10, 0, Math.PI * 1.8); needle(cx, cy, A(cl(s.kias, 0, top)), r * 0.8); }
   // attitude: sky and ground behind a fixed little aeroplane
   { const cx = x0 + g, cy = y0; x.save(); x.beginPath(); x.arc(cx, cy, r, 0, 7); x.clip(); x.translate(cx, cy); x.rotate(-s.bank * D2R); const p = cl(s.pitch, -30, 30) * r / 30;
     x.fillStyle = '#3b7fc4'; x.fillRect(-r * 2, -r * 2 + p, r * 4, r * 2); x.fillStyle = '#8a5a2b'; x.fillRect(-r * 2, p, r * 4, r * 2); x.strokeStyle = '#fff'; x.lineWidth = 2; x.beginPath(); x.moveTo(-r * 2, p); x.lineTo(r * 2, p); x.stroke();
     x.lineWidth = 1; for (const k of [-20, -10, 10, 20]) { const yy = p - k * r / 30; x.beginPath(); x.moveTo(-r * 0.25, yy); x.lineTo(r * 0.25, yy); x.stroke(); } x.restore();
     x.strokeStyle = '#f2c230'; x.lineWidth = 3; x.beginPath(); x.moveTo(cx - r * 0.55, cy); x.lineTo(cx - r * 0.15, cy); x.lineTo(cx, cy + r * 0.1); x.lineTo(cx + r * 0.15, cy); x.lineTo(cx + r * 0.55, cy); x.stroke(); x.strokeStyle = '#555'; x.lineWidth = 2; x.beginPath(); x.arc(cx, cy, r, 0, 7); x.stroke(); }
   // altimeter (feet: the long hand hundreds, the short thousands)
-  { const cx = x0 + g * 2, cy = y0, ft = s.alt * 3.2808; dial(cx, cy); ticks(cx, cy, 10, 0, Math.PI * 2 * 0.9); needle(cx, cy, (ft % 1000) / 1000 * Math.PI * 2, r * 0.82); needle(cx, cy, (ft % 10000) / 10000 * Math.PI * 2, r * 0.5, 4); }
+  { const cx = x0 + g * 2, cy = y0, ft = s.alt * 3.2808; dial(cx, cy); ticks(cx, cy, 9, 0, Math.PI * 1.8); needle(cx, cy, (ft % 1000) / 1000 * Math.PI * 2, r * 0.82); needle(cx, cy, (ft % 10000) / 10000 * Math.PI * 2, r * 0.5, 4); }
   // turn coordinator: the little aeroplane banks with the turn rate, the ball with the slip
   { const cx = x0, cy = y1; dial(cx, cy); x.save(); x.translate(cx, cy); x.rotate(cl(-s.bank * 0.6, -35, 35) * D2R); x.strokeStyle = '#fff'; x.lineWidth = 3; x.beginPath(); x.moveTo(-r * 0.6, 0); x.lineTo(r * 0.6, 0); x.moveTo(0, 0); x.lineTo(0, -r * 0.18); x.stroke(); x.restore();
     x.fillStyle = '#ddd'; x.beginPath(); x.arc(cx + cl(-s.beta, -12, 12) / 12 * r * 0.4, cy + r * 0.5, r * 0.1, 0, 7); x.fill(); }
   // heading: a compass card that turns
   { const cx = x0 + g, cy = y1; dial(cx, cy); x.save(); x.translate(cx, cy); x.rotate(-s.heading * D2R); x.fillStyle = '#fff'; x.font = `700 ${r * 0.32}px Arial`; x.textAlign = 'center'; x.textBaseline = 'middle';
     ['N', 'Ø', 'S', 'V'].forEach((l, i) => { x.save(); x.rotate(i * Math.PI / 2); x.fillText(l, 0, -r * 0.62); x.restore(); }); x.restore(); needle(cx, cy, 0, r * 0.45, 3, '#f2c230'); }
-  // vertical speed: ±2000 ft/min
-  { const cx = x0 + g * 2, cy = y1; dial(cx, cy); ticks(cx, cy, 8, -Math.PI * 0.85 - Math.PI / 2 + Math.PI, Math.PI * 0.85 - Math.PI / 2 + Math.PI); needle(cx, cy, -Math.PI / 2 + cl(s.fpm, -2000, 2000) / 2000 * Math.PI * 0.85, r * 0.8); }
+  // vertical speed: ±2000 ft/min, 0 at nine o'clock (a tick every 500)
+  { const cx = x0 + g * 2, cy = y1; dial(cx, cy); ticks(cx, cy, 8, -Math.PI / 2 - Math.PI * 0.85, -Math.PI / 2 + Math.PI * 0.85); needle(cx, cy, -Math.PI / 2 + cl(s.fpm, -2000, 2000) / 2000 * Math.PI * 0.85, r * 0.8); }
   // rev counter and flaps, a radio stack and the stall lamp on the right
   { const cx = x0 + g * 3.15, cy = y0, red = spec ? spec.engine.rpm : 2700, A = v => -Math.PI * 0.75 + v / 3500 * Math.PI * 1.5; dial(cx, cy);
     x.strokeStyle = '#3bb34a'; x.lineWidth = 3; x.beginPath(); x.arc(cx, cy, r * 0.86, A(2100) - Math.PI / 2, A(red) - Math.PI / 2); x.stroke(); x.strokeStyle = '#d9432f'; x.beginPath(); x.arc(cx, cy, r * 0.86, A(red) - Math.PI / 2, A(red + 60) - Math.PI / 2); x.stroke();
@@ -455,10 +458,29 @@ export class PlaneVisual {
     this.apply({ da: 0, de: d.e || 0, dr: 0, flap: d.f || 0, trimDeg: 0 }, { angle: this.spin, rpm: d.r || 0 }, d.g || [], { nav: !!(l & 1), beacon: !!(l & 2), strobe: !!(l & 4), landing: !!(l & 8) }, dt);
   }
   panelDraw(st) { drawPanel(this.panel, st, this.spec); }
+  // parked for good (sim/render/airfield.js, after pose): without the cockpit's insides, the pilot and the propeller disc, and the
+  // rest merged into one mesh per material, as nothing moves any more (some 60 draw calls become about 20); the decals stay apart
+  bake() {
+    const root = this.root, by = new Map(), list = [];
+    for (const o of [this.pilot, this.panel.face, this.disc, ...this.yokes]) { o.removeFromParent(); o.traverse(c => c.isMesh && c.geometry.dispose()); }
+    root.updateMatrixWorld(true); const inv = new THREE.Matrix4().copy(root.matrixWorld).invert(), rel = new THREE.Matrix4();
+    root.traverse(o => { if (o.isMesh && ![].concat(o.material).some(m => m.map)) list.push(o); });
+    for (const o of list) {
+      const g = o.geometry.clone().applyMatrix4(rel.multiplyMatrices(inv, o.matrixWorld)), f = g.index ? g.toNonIndexed() : g, mats = [].concat(o.material);
+      for (const { start, count, materialIndex } of f.groups.length ? f.groups : [{ start: 0, count: Infinity, materialIndex: 0 }]) {
+        const m = mats[materialIndex]; if (!m || !m.visible) continue;
+        const q = new THREE.BufferGeometry(); for (const k of ['position', 'normal']) { const a = f.attributes[k]; q.setAttribute(k, new THREE.BufferAttribute(a.array.slice(start * 3, Math.min(a.count, start + count) * 3), 3)); }
+        let e = by.get(m); if (!e) by.set(m, e = { L: [], cast: false }); e.L.push(q); e.cast ||= o.castShadow;
+      }
+      o.removeFromParent(); o.geometry.dispose(); g.dispose(); f.dispose();
+    }
+    for (const [m, e] of by) { const mesh = new THREE.Mesh(mergeGeometries(e.L), m); mesh.castShadow = e.cast; mesh.receiveShadow = !m.transparent; if (m.transparent) mesh.renderOrder = 3; root.add(mesh); for (const q of e.L) q.dispose(); }
+  }
   dispose() {
     this.root.parent && this.root.parent.remove(this.root); if (this.glow) this.glow.dispose();
     this.root.traverse(o => { if (o.isMesh) { o.geometry.dispose(); } });
-    this.panel.tex.dispose(); this.disc.material.dispose(); this.mats.blade.dispose(); this.mats.bladeTip.dispose();
+    this.panel.tex.dispose(); this.panel.mat.dispose(); this.disc.material.map.dispose(); this.disc.material.dispose(); this.regMat.map.dispose(); this.regMat.dispose();
+    this.mats.blade.dispose(); this.mats.bladeTip.dispose();
     for (const m of [this.navL, this.navR, this.tailMesh, this.beaconMesh, this.landMesh]) m.material.dispose();
   }
 }
@@ -526,5 +548,5 @@ export class Rings {
     }
     this.glow.flush();
   }
-  dispose() { this.gfx.scene.remove(this.group); this.group.traverse(o => { if (o.isMesh) o.geometry.dispose(); }); this.gfx.overlay.remove(this.veil); this.glow.dispose(); for (const m of Object.values(this.mats)) m.dispose(); }
+  dispose() { this.gfx.scene.remove(this.group); this.group.traverse(o => { if (o.isMesh) o.geometry.dispose(); }); this.gfx.overlay.remove(this.veil); this.veil.geometry.dispose(); this.veil.material.map.dispose(); this.veil.material.dispose(); this.glow.dispose(); for (const m of Object.values(this.mats)) m.dispose(); }
 }

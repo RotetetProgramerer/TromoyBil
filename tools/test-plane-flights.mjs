@@ -7,13 +7,16 @@
 //    (throttle, elevator, aileron, rudder, flaps, brakes): takes off from the threshold, through every ring with the same ring check
 //    as the game, then the approach on the glide path, the flare, the touchdown and the roll-out until the game counts it as
 //    landed. Prints the time, the stars it would get, missed rings, the touchdown and the lowest height above the ground.
+// 3) Taxiing: from the threshold down the runway, along the taxiway onto the apron and stopped there (where the game opens the
+//    flying club), then round and back along the taxiway onto the runway, steering with the rudder and the brakes. No crash.
+//    node tools/test-plane-flights.mjs taxi   only this
 import { World } from '../sim/world/world.js';
 import { WORLD } from '../sim/data/world.js';
 import { addStructures } from '../sim/world/structures.js';
 import { Plane } from '../sim/physics/plane.js';
 import { V3 } from '../sim/physics/math.js';
 import { planeById } from '../sim/data/planes.js';
-import { FLIGHTS, airportOf, prepFlight, ringFrame, ringCrossed, landed, windVel, glideY, planeWorld } from '../sim/data/flights.js';
+import { FLIGHTS, airportOf, prepFlight, ringFrame, ringCrossed, landed, onApron, onRunway, windVel, glideY, planeWorld } from '../sim/data/flights.js';
 import { Autopilot } from './plane-autopilot.mjs';
 const DT = 1 / 240, only = process.argv[2] && process.argv[2] !== 'all' ? process.argv[2] : null, onlyPlane = process.argv[3];
 const D2R = Math.PI / 180, cl = (v, a = -1, b = 1) => v < a ? a : v > b ? b : v, wrap = a => Math.atan2(Math.sin(a), Math.cos(a));
@@ -71,15 +74,47 @@ function fly(f, spec, assist = false, limit = 1800) {
   return { done: landed(A, p), t, gi, missed, crash: p.crashReason, td: ap.td, minAgl, minAt, maxBank, splits, at: [p.pos.x, p.pos.z], phase: ap.phase };
 }
 
+// ---------------------------------------------------------------- taxiing, in Trinnvik's coordinates (the taxiway runs along z = 300)
+function taxi(spec) {
+  const p = new Plane(spec, { assist: true }), I = p.input, at = (x, z) => [x + A.ox, z + A.oz];
+  p.place(PW, A.start.x, A.start.z, A.start.h); p.omega = (spec.engine.idle || 650) / 9.549; I.brake = 1;
+  for (let i = 0; i < 240; i++) p.step(DT, PW);
+  // through the points at up to v m/s (3 m/s into a turn), the nose wheel steered by the rudder, and stopped at the last one
+  const go = (pts, v) => {
+    for (let i = 0, t = 0; t < 240 && !p.crashed; t += DT) {
+      const P = p.pos, gs = Math.hypot(p.vel.x, p.vel.z);
+      while (i < pts.length - 1 && Math.hypot(pts[i][0] - P.x, pts[i][1] - P.z) < 10) i++;
+      const [x, z] = pts[i], d = Math.hypot(x - P.x, z - P.z), last = i === pts.length - 1, he = wrap(Math.atan2(x - P.x, -(z - P.z)) - p.state.heading * D2R);
+      const vT = last ? Math.min(v, 0.5 * (d - 2)) : Math.abs(he) > 0.25 ? 3 : v;
+      I.rudder = cl(2.5 * he + 0.6 * p.w.dot(p.up)); I.throttle = cl(0.1 + 0.15 * (vT - gs), 0, 0.6); I.brake = gs > vT + 1 || last && d < 3 ? 0.7 : 0;
+      I.brakeL = I.brakeR = null; if (!I.brake && gs < 7 && Math.abs(I.rudder) > 0.6) { I.brakeL = I.rudder < 0 ? 0.35 * -I.rudder : 0; I.brakeR = I.rudder > 0 ? 0.35 * I.rudder : 0; }
+      p.step(DT, PW);
+      if (last && d < 4 && gs < 0.05) return true;
+    }
+    return false;
+  };
+  const out = go([at(1727, 286), at(1704, 300), at(1460, 300)], 6), apron = out && p.state.onGround && onApron(A, p.pos.x, p.pos.z);
+  const back = apron && go([at(1440, 300), at(1420, 315), at(1425, 335), at(1445, 340), at(1465, 325), at(1485, 305), at(1510, 300), at(1700, 300), at(1722, 314), at(1727, 345)], 6);
+  return { apron, back: back && onRunway(A, p.pos.x, p.pos.z), crash: p.crashReason, at: [p.pos.x - A.ox, p.pos.z - A.oz] };
+}
+if (!only || only === 'taxi') {
+  console.log('Taksing: fra terskelen langs taksebanen til oppstillingsplassen og stopp der, så tilbake til rullebanen');
+  for (const spec of ['make', 'falk'].filter(id => !onlyPlane || id === onlyPlane).map(planeById)) {
+    const r = taxi(spec), ok = r.apron && r.back;
+    console.log(' ', spec.id.padEnd(5), 'til oppstillingsplassen', r.apron ? 'ok' : 'NEI', '  tilbake på rullebanen', r.back ? 'ok' : 'NEI', ok ? '' : `\n    ${r.crash ? 'KRASJ: ' + r.crash : 'stoppet'} ved ${r.at.map(v => v.toFixed(0)).join(',')} (Trinnvik)`);
+    if (!ok) fails++;
+  }
+  console.log();
+}
 const list = FLIGHTS.filter(f => !only || f.id === only).map(f => prepFlight(f, A));
-console.log('Klaring under rutene (minst 60 m over bakken, trærne og husene under hver etappe og hver ring)');
+if (list.length) console.log('Klaring under rutene (minst 60 m over bakken, trærne og husene under hver etappe og hver ring)');
 for (const f of list) {
   const c = clearance(f);
   console.log(' ', f.id.padEnd(9), String(f.len).padStart(6), 'm', String(f.G.length).padStart(3), 'ringer', '  laveste klaring', c.worst.toFixed(0).padStart(4), 'm (' + c.at + ')', '  stigning', (c.grad * 100).toFixed(1) + ' %', '  glidebane', c.appr.toFixed(0) + ' m over', c.bad.length ? '\n    FEIL: ' + c.bad.slice(0, 5).join('\n    FEIL: ') : '  ok');
   if (c.bad.length) fails++;
   if (process.env.GEOM) { const P = [{ x: A.start.x, z: A.start.z, y: 5 }, ...f.G, { x: A.aim.x, z: A.aim.z, y: 5 }]; console.log('    ' + f.G.map((g, i) => { const a = P[i], b = P[i + 2], h1 = Math.atan2(g.x - a.x, g.z - a.z), h2 = Math.atan2(b.x - g.x, b.z - g.z); return `${i + 1}: ${Math.round(Math.abs(wrap(h2 - h1)) / D2R)}° ${Math.round(Math.hypot(b.x - g.x, b.z - g.z))} m`; }).join(' | ')); }
 }
-for (const assist of [false, true]) {
+for (const assist of list.length ? [false, true] : []) {
   console.log(`\nAutopilot (${assist ? 'Lett: bare stikke og gass, som en spiller' : 'Ekte'}, vind ${JSON.stringify(windVel())} m/s) gjennom alle ringene til landing og stopp på rullebanen`);
   console.log('  flyging    fly    tid       ★★★      ★★   stjerner  bom  laveste over bakken  maks krengning  landing: knop  synk m/s  fra terskel m');
   for (const f of list) for (const spec of ['make', 'falk'].filter(id => !onlyPlane || id === onlyPlane).map(planeById)) {
@@ -91,5 +126,5 @@ for (const assist of [false, true]) {
     if (!r.done || r.missed) fails++;
   }
 }
-console.log(fails ? `\n${fails} FEIL` : '\nAlle flygingene er trygge og kan flys ferdig med landing.');
+console.log(fails ? `\n${fails} FEIL` : list.length ? '\nAlle flygingene er trygge og kan flys ferdig med landing.' : 'Taksingen går.');
 process.exit(fails ? 1 : 0);

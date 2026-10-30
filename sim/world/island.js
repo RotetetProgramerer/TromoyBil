@@ -49,13 +49,15 @@ export class Island {
     return h;
   }
   // the ground height including road beds: the road is smooth, the shoulder is level, a ditch where the road is cut into the slope,
-  // and a fill sloping down where it runs on an embankment. bare: the ground only, without decks and (where sim/render/special.js draws the piers) bridges, for the terrain mesh
+  // and a fill sloping down where it runs on an embankment. The paving wider than 16 m (an airport's runway, taxiway and apron) is
+  // level, so a plane taxis from one onto the other without a step. bare: the ground only, without decks and (where
+  // sim/render/special.js draws the piers) bridges, for the terrain mesh
   height(x, z, bare = false) {
     let h = this.terrain(x, z);
     const q = this.roads.query(x - this.ox, z - this.oz);
     if (q) {
       if (q.bridge) { if (bare && this.feat.special) return h; if (q.d <= q.hw + 0.35) return Math.max(q.y, h); return this.deck(x, z, h); }     // the deck is a little wider than the lanes
-      const core = q.hw + 0.5, crown = (q.s === 0 ? 0.02 : 0.035) * Math.min(q.d, q.hw);
+      const core = q.hw + 0.5, crown = q.hw > 8 ? 0 : (q.s === 0 ? 0.02 : 0.035) * Math.min(q.d, q.hw);
       if (q.d <= core) h = q.y - crown * Math.min(1, q.d / q.hw) - (q.d > q.hw ? 0.03 : 0);
       else {
         const E = Math.min(14, Math.max(1.6, Math.abs(h - q.y) * 1.6)), t = (q.d - core) / E;
