@@ -95,8 +95,9 @@ const FRAG_MAIN = `
   vec3 terrN = normalize(vWNrm + vec3(tn.x, 0.0, tn.y) * (1.0 - far * 0.7) * 0.9);
 `;
 
-// the colour of bare rock on the made-up islands (biome in sim/data/world.js): dark basalt on the volcano, warm granite on the savanna
-const ROCK_TINT = { volcano: [0.36, 0.34, 0.33], savanna: [0.95, 0.78, 0.66], jungle: [0.72, 0.74, 0.66], subtropical: [0.88, 0.84, 0.76] };
+// the colour of bare rock on the made-up islands (biome in sim/data/world.js): dark basalt on the volcano, warm granite on the savanna,
+// greyish-pink gneiss on the Norwegian ones
+const ROCK_TINT = { volcano: [0.36, 0.34, 0.33], savanna: [0.95, 0.78, 0.66], jungle: [0.72, 0.74, 0.66], subtropical: [0.88, 0.84, 0.76], nordic: [0.8, 0.76, 0.75] };
 export function terrainMaterial(gfx, isl, arrays) {
   const mat = new THREE.MeshStandardMaterial({ roughness: 1, metalness: 0 });
   const uni = { tCov: { value: isl ? coverTexture(isl) : blankCover() }, tMap: { value: mapTexture() }, tA: { value: arrays.A }, tN: { value: arrays.N },
