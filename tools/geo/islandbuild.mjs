@@ -231,7 +231,7 @@ export class IslandBuild {
     });
   }
   // a lake: a polygon [[x,z],…], its level (default: under the lowest shore), the bottom dug below it, the shore lifted just above it.
-  // o.ice: frozen (flat ice to drive on, no water); o.bog: a boggy rim
+  // o.ice: frozen (flat ice to drive on, no water); o.bog: a boggy rim; o.steep: the steepest shore (rise per metre)
   lake(o) {
     const p = o.poly; let x0 = 1e9, z0 = 1e9, x1 = -1e9, z1 = -1e9;
     for (const [x, z] of p) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); }
@@ -245,7 +245,10 @@ export class IslandBuild {
         if (o.ice) { this.H[k] = lvl; this.CV[k] = C.ICE; this.KEEP[k] = 1; return; }
         const b = o.shallow ? lvl - 0.08 - dep * smooth(0, o.r ?? 8, d) : lvl - 0.35 - dep * smooth(0, o.r ?? 50, d) - 0.4 * Math.abs(this.noise(x / 17, z / 17)); if (b < this.H[k]) this.H[k] = b;
         this.W[k] = Math.max(this.W[k], lvl); this.CV[k] = C.LAKE;
-      } else if (d < M) { const want = lvl + 0.3 + d * (o.bank ?? 0.06); if (this.H[k] < want) this.H[k] = lerp(want, this.H[k], smooth(0, M, d)); if (o.bog && d < 12) this.CV[k] = C.BOG; }
+      } else if (d < M) {
+        const want = lvl + 0.3 + d * (o.bank ?? 0.06); if (this.H[k] < want) this.H[k] = lerp(want, this.H[k], smooth(0, M, d)); if (o.bog && d < 12) this.CV[k] = C.BOG;
+        const cap = lvl + 0.5 + d * (o.steep ?? 0.6); if (this.H[k] > cap && !this.KEEP[k]) this.H[k] = cap;          // no quarry walls round the water: the shore slopes up
+      }
     });
     const e = { n: o.name || null, y: R2(lvl), p: p.flatMap(q => [R1(q[0]), R1(q[1])]) };
     (o.ice ? this.special.ice : this.lakes).push(e);
