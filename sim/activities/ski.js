@@ -16,7 +16,7 @@ import { fmtTime } from '../courses.js';
 import { SkiSound } from '../audio/skisound.js';
 
 const DT = 1 / 240, MAXSTEP = 48, CAMS = ['Følgekamera', 'Hjelmkamera', 'Langt bak'], LIFTCAMS = ['Bak stolen', 'Fra stolen', 'Utsikt over dalen'];
-const PARK = { x: 0, z: 731, r: 45 }, CAR = { x: 10, z: 744, h: Math.PI };           // the ski centre's parking (island coordinates)
+const PARK = { x: 0, z: 731, r: 45 }, CAR = { x: 10, z: 744, h: Math.PI };           // the ski centre's parking (island coordinates; moved with its sign)
 const $ = id => document.getElementById(id), fmtN = n => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v, wrap = a => Math.atan2(Math.sin(a), Math.cos(a));
 const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _c = {};
@@ -36,6 +36,8 @@ body:not([data-act=ski]) #kHud{display:none}
 body.is-touch #kTouch{display:block}
 body.is-touch #kHint{display:none}
 body.is-touch #kHud .kdash{transform:scale(.8);transform-origin:bottom right}
+body.is-touch #kHud.lift #kTouch{display:none}
+body.is-touch[data-act=ski] #hud:has(#kHud:not(.lift)) .offer{bottom:112px}
 #kTouch .tpad.r{right:196px;bottom:18px;align-items:flex-end}
 #kTouch .tb.sm{width:62px;height:62px;font-size:15px}
 @media (max-width:760px){#kMini{width:120px;height:120px}#kHint{font-size:13px;max-width:calc(100% - 250px)}}
@@ -73,6 +75,9 @@ export default class SkiActivity extends Activity {
     const g = this.game; this.isl = g.world.islands.find(i => i.id === 'gautefall');
     if (!this.isl || !this.isl.feat.special || !(this.isl.feat.special.pistes || []).length) return;
     this.area = new SkiArea(g.world, this.isl);
+    // the parking is by the «GAUTEFALL skisenter · parkering» sign (the numbers above are for the sign at −20, 731)
+    const sg = (this.isl.feat.special.signs || []).find(s => /parkering/.test(s.sub || '')), dx = sg ? sg.x + 20 : 0, dz = sg ? sg.z - 731 : 0;
+    this.park = { x: PARK.x + dx, z: PARK.z + dz, r: PARK.r }; this.carAt = { x: CAR.x + dx, z: CAR.z + dz, h: CAR.h };
     this.resort = new SkiResort(g.gfx, g.world, this.area, g.special); this.resort.best = g.best;
     // the headlamp for skiing in the dark (always in the scene, so turning it on recompiles nothing)
     this.lamp = new THREE.SpotLight(0xfff4e0, 0, 45, 0.5, 0.6, 1.3); this.lamp.castShadow = false; g.gfx.scene.add(this.lamp, this.lamp.target);
@@ -83,7 +88,7 @@ export default class SkiActivity extends Activity {
   // ---------------------------------------------------------------- DOM
   dom() {
     const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
-    const hud = document.createElement('div'); hud.id = 'kHud'; hud.innerHTML = HUD; $('hud').appendChild(hud);
+    const hud = this.hudEl = document.createElement('div'); hud.id = 'kHud'; hud.innerHTML = HUD; $('hud').appendChild(hud);
     for (const [id, html] of [['skiTop', TOP], ['skiResult', RESULT]]) { const s = document.createElement('section'); s.className = 'overlay'; s.id = id; s.hidden = true; s.innerHTML = html; document.body.insertBefore(s, $('loading')); }
     const f = document.createElement('div'); f.id = 'kFade'; document.body.appendChild(f);
     this.ictx = $('kInst').getContext('2d'); this.mctx = $('kMini').getContext('2d');
@@ -103,16 +108,16 @@ export default class SkiActivity extends Activity {
   // ---------------------------------------------------------------- the ski centre
   offers(car) {
     if (!this.area) return null; const isl = this.isl;
-    if (Math.hypot(car.pos.x - isl.ox - PARK.x, car.pos.z - isl.oz - PARK.z) < PARK.r) return { kind: 'Skisenter', name: 'Stå på ski', info: 'stolheis og fire nedfarter', go: () => this.start({}) };
+    const P = this.park; if (Math.hypot(car.pos.x - isl.ox - P.x, car.pos.z - isl.oz - P.z) < P.r) return { kind: 'Skisenter', name: 'Stå på ski', info: 'stolheis og fire nedfarter', go: () => this.start({}) };
     return null;
   }
   start(opts = {}) {
     const g = this.game; if (!this.area) return;
     g.startActivity(this);
     // the car waits at the parking (moved there if the game started on skis somewhere else)
-    const car = g.car, isl = this.isl, px = isl.ox + CAR.x, pz = isl.oz + CAR.z, from = g.island();
+    const car = g.car, isl = this.isl, px = isl.ox + this.carAt.x, pz = isl.oz + this.carAt.z, from = g.island();
     if (Math.hypot(car.pos.x - px, car.pos.z - pz) > 80) {
-      const I = car.input; I.brake = 0; car.place(g.world, px, pz, CAR.h); for (let i = 0; i < 300; i++) car.step(1 / 400, g.world); car.vel.set(0, 0, 0); I.brake = 1;
+      const I = car.input; I.brake = 0; car.place(g.world, px, pz, this.carAt.h); for (let i = 0; i < 300; i++) car.step(1 / 400, g.world); car.vel.set(0, 0, 0); I.brake = 1;
       if (from !== isl) { g.dockFerry(isl); g.afterIslandChange(); }
     }
     car.engineOff = true;
@@ -134,7 +139,7 @@ export default class SkiActivity extends Activity {
     if (this.vis) this.vis.root.visible = false; this.spray && this.spray.clear(); this.ghost = null; this.showGhost(); this.arrow && this.arrow.hide(); this.resort.showGate(null); this.resort.skip = -1; this.resort.live(null); this.lamp.intensity = 0;
     g.car.engineOff = false; g.cam.mode = this.camSave || 0;
     if (this.pauseSave) { $('pReset').textContent = this.pauseSave.reset; $('pAbort').textContent = this.pauseSave.abort; $('pAbort').onclick = this.pauseSave.abortClick; $('pAbort').hidden = true; }
-    $('offer').hidden = true; this.nearShown = ''; this.pose = null; $('kRun').hidden = true; $('kLift').hidden = true;
+    $('offer').hidden = true; this.nearShown = ''; this.pose = null; this.hudEl.classList.remove('lift'); $('kRun').hidden = true; $('kLift').hidden = true;
     g.endActivity();
   }
   // a short fade to black: cb runs while it is dark
@@ -147,6 +152,7 @@ export default class SkiActivity extends Activity {
       // the chair just leaving the bottom station
       for (let i = 0; i < C.n; i++) { const s = this.resort.chairS(i); if (s < best) { best = s; this.chair = i; } }
       this.phase = 'lift'; this.run = null; this.k = null; this.ghost = null; this.showGhost(); this.resort.skip = this.chair; this.resort.live(null); this.resort.showGate(null); this.lastTower = -1; this.snap = true; this.tracks.clear();
+      for (const id of ['kLKant', 'kLSkli', 'kLPlog', 'kLLuft']) $(id).className = '';
       $('kRun').hidden = true; $('kLift').hidden = false; this.hint('Stolheisen tar deg til toppen · Enter eller mellomrom hopper over turen · C kamera', 8);
     };
     if (now) go(); else this.fade(go);
@@ -247,12 +253,20 @@ export default class SkiActivity extends Activity {
     }
     return false;
   }
+  // the game's offer box (its button sends Enter): the lift at the bottom, the menu at the top, the result; on a touch screen the skip on the chair
+  offerBox(near) {
+    if (near === this.nearShown) return; this.nearShown = near; $('offer').hidden = !near;
+    const O = { lift: ['Stolheisen', 'Ta heisen opp', 'til toppen'], top: ['Toppen', 'Velg nedfart', 'eller fri kjøring'], done: ['I mål', 'Se resultatet', 'og kjør igjen'], ride: ['Stolheisen', 'Hopp over turen', 'rett til toppen'] }[near];
+    if (O) { $('oKind').textContent = O[0]; $('oName').textContent = O[1]; $('oInfo').textContent = O[2]; }
+  }
   atLift() { const L = this.area.lift, s = this.skier; return Math.hypot(s.pos.x - L.a[0], s.pos.z - L.a[2]) < 40 && s.speed < 3; }
   showResult() { const g = this.game; if (g.ui.open === 'skiResult' || this.fadeQ || this.phase !== 'done') return; g.mode = 'pause'; g.ui.show('skiResult'); }
   // ---------------------------------------------------------------- every frame
   update(dt, inp) {
     const g = this.game, s = this.skier, T = this.touch;
-    if (this.phase === 'lift') return this.updateLift(dt);
+    // on the chair: space, the gamepad's A or the touch jump button skips the ride
+    if (this.phase === 'lift') { const j = !!(inp.handbrake || T.jump); if (j && !this.lastJump && !this.fadeQ) this.toTop(); this.lastJump = j; return this.updateLift(dt); }
+    this.hudEl.classList.remove('lift');
     // the controls: keyboard (steering eased in by Input), gamepad stick and triggers, the touch pads
     const ts = (T.left ? 1 : 0) - (T.right ? 1 : 0); if (ts) this.tSteer = clamp((this.tSteer || 0) + clamp(ts - (this.tSteer || 0), -dt * 3, dt * 3), -1, 1); else this.tSteer = 0;
     const jumpNow = !!(inp.handbrake || T.jump), jump = jumpNow && !this.lastJump; this.lastJump = jumpNow;
@@ -296,8 +310,7 @@ export default class SkiActivity extends Activity {
     this.where = this.k ? this.k.name + (this.phase === 'done' ? ' · i mål' : '') : this.phase === 'free' ? 'Fri kjøring' + (s.surf === 'deep' ? ' · løssnø' : s.surf === 'groomed' ? ' · preparert løype' : '') : 'Toppen';
     this.hud(dt);
     // at the bottom in free skiing (or after a run): the lift
-    const off = $('offer'), near = this.fadeQ ? '' : (this.phase === 'free' || this.phase === 'done') && this.atLift() ? 'lift' : this.phase === 'top' ? 'top' : this.phase === 'done' && this.resultShown ? 'done' : '';
-    if (near !== this.nearShown) { this.nearShown = near; off.hidden = !near; const O = { lift: ['Stolheisen', 'Ta heisen opp', 'til toppen'], top: ['Toppen', 'Velg nedfart', 'eller fri kjøring'], done: ['I mål', 'Se resultatet', 'og kjør igjen'] }[near]; if (O) { $('oKind').textContent = O[0]; $('oName').textContent = O[1]; $('oInfo').textContent = O[2]; } }
+    this.offerBox(this.fadeQ || g.mode !== 'act' ? '' : (this.phase === 'free' || this.phase === 'done') && this.atLift() ? 'lift' : this.phase === 'top' ? 'top' : this.phase === 'done' && this.resultShown ? 'done' : '');
     this.sounds(dt);
   }
   event(e) {
@@ -338,11 +351,11 @@ export default class SkiActivity extends Activity {
   }
   updateLift(dt) {
     const L = this.area.lift, S = this.resort.chairS(this.chair, dt), c = L.chairAt(S, _c);
-    this.vis.seat(c, 0.32); this.vis.root.visible = true;
+    this.vis.seat(c, 0.32); this.vis.root.visible = true; this.hudEl.classList.add('lift');      // (no steering pads on the chair)
     for (let i = 0; i < L.towersS.length; i++) if (S >= L.towersS[i] && S < L.towersS[i] + 4 && this.lastTower !== i) { this.lastTower = i; this.sound && this.sound.clank(); }
     if (S >= L.upLen - 1.5 && S < L.upLen + 20 && !this.fadeQ) this.toTop();
     this.pose.pos.set(c.x, c.y - 2.3, c.z); this.pose.fw.set(Math.sin(c.yaw), 0, Math.cos(c.yaw)); this.pose.kmh = L.speed * 3.6; this.where = 'Gautefallheisen';
-    this.liftCamera(dt, c);
+    this.liftCamera(dt, c); this.offerBox(document.body.classList.contains('is-touch') && !this.fadeQ ? 'ride' : '');
     this.hudT = (this.hudT || 0) - dt; if (this.hudT <= 0) { this.hudT = 0.2; $('kLiftT').textContent = fmtTime(Math.max(0, (L.upLen - S) / L.speed)).replace(/,\d$/, ''); $('kLiftH').textContent = Math.round(c.y - 2.4) + ' moh.'; this.drawInst(L.speed); this.drawMini(); }
     this.sounds(dt);
   }
@@ -357,6 +370,7 @@ export default class SkiActivity extends Activity {
     // the fade to black and back
     const F = this.fadeQ; if (F) { F.t += dt; if (F.t > 0.42 && !F.done) { F.done = true; F.cb(); } if (F.t > 0.6) $('kFade').classList.remove('on'); if (F.t > 1) this.fadeQ = null; }
     const s = this.active && this.skier, ph = this.phase;
+    if (this.resort.riding !== (this.active && ph === 'lift')) { this.resort.riding = this.active && ph === 'lift'; this.resort.floodT = 0; }
     this.resort.update(dt, cam.position, s && this.k && (ph === 'run' || ph === 'done') ? { k: this.k, x: s.pos.x, z: s.pos.z } : null);
     if (this.active && s) {
       // the arrow to the next gate when it is far or was missed
@@ -369,6 +383,8 @@ export default class SkiActivity extends Activity {
       if (ph === 'top' && g.mode === 'pause') { const a = performance.now() * 0.00012, p = s.pos; cam.position.set(p.x + Math.sin(a) * 5, p.y + 2.2, p.z + Math.cos(a) * 5); cam.up.set(0, 1, 0); cam.lookAt(p.x, p.y + 0.9, p.z); cam.fov = 50; cam.updateProjectionMatrix();
         this.vis.sync(s, dt, { area: this.area, going: false }); }
     }
+    // paused (the menu at the top, the pause menu): the wind and the snow go quiet
+    if (this.active && this.sound && g.mode !== 'act') this.sound.update(dt, { mode: 'off' });
     if (this.hintT > 0) { this.hintT -= dt; if (this.hintT <= 0) $('kHint').classList.add('off'); }
     if (this.splitT > 0) { this.splitT -= dt; if (this.splitT <= 0) $('kSplit').textContent = ''; }
   }

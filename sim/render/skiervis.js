@@ -315,7 +315,7 @@ export class SkiTracks {
     this.T += dt;
     if (s && !s.air && s.crashT === 0 && s.speed > 0.6) {
       const dx = Math.sin(s.head), dz = Math.cos(s.head), deep = s.surf === 'deep', w = deep ? 0.12 : Math.abs(s.hock) > 0.3 ? 0.3 : s.skid > 1 ? Math.min(0.25, 0.05 + s.skid * 0.06) : 0.045, a = deep ? 0.9 : s.skid > 1 ? 0.55 : 0.8, off = 0.11 + 0.1 * s.plow;
-      for (let i = 0; i < 2; i++) { const sd = i ? -1 : 1, yaw = s.head + sd * -0.3 * s.plow; this.lay(i, s.pos.x + dz * sd * off + Math.sin(yaw) * 0.0, s.pos.z - dx * sd * off, w, a); }
+      for (let i = 0; i < 2; i++) { const sd = i ? -1 : 1; this.lay(i, s.pos.x + dz * sd * off, s.pos.z - dx * sd * off, w, a); }
     } else this.last = [null, null];
     // fade over about a minute
     this.fadeT = (this.fadeT || 0) - dt; if (this.fadeT > 0) return; this.fadeT = 0.5;

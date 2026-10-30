@@ -37,14 +37,18 @@ export class SkiResort {
     this.floodLens = prep(new THREE.MeshStandardMaterial({ color: '#dddad0', emissive: '#fff1d0', emissiveIntensity: 0, roughness: 0.3 }));
     const mk = (g, m) => { const im = new THREE.InstancedMesh(g, m, L.length); im.castShadow = true; im.frustumCulled = false; L.forEach((o, i) => { _q.setFromAxisAngle(_s.set(0, 1, 0), o.ang); _m.compose(_p.set(o.x, o.y - 0.2, o.z), _q, _s.set(1, 1, 1)); im.setMatrixAt(i, _m); }); this.group.add(im); return im; };
     mk(pole, metal); mk(head, this.floodLens);
+    // lamps under the cross arms of the lift towers, shining down the line (the chairs ride through their light at night)
+    const Lf = this.area.lift, isl = this.area.isl; this.towerLamps = Lf && isl ? Lf.def.towers.map(t => ({ x: t.x + isl.ox, z: t.z + isl.oz, y: t.y, ang: Lf.ang + Math.PI, h: t.h - 0.35, reach: 7, cone: 1.05 })) : [];
+    if (this.towerLamps.length) { const g = new THREE.BoxGeometry(0.8, 0.3, 0.3); g.translate(0, 0, 0.4); const im = new THREE.InstancedMesh(g, this.floodLens, this.towerLamps.length); im.frustumCulled = false;
+      this.towerLamps.forEach((o, i) => { _q.setFromAxisAngle(_s.set(0, 1, 0), o.ang); _m.compose(_p.set(o.x, o.y + o.h, o.z), _q, _s.set(1, 1, 1)); im.setMatrixAt(i, _m); }); this.group.add(im); }
     this.spots = Array.from({ length: { lav: 0, middels: 2 }[this.gfx.qName] ?? 3 }, () => { const s = new THREE.SpotLight(0xfff0d8, 0, 85, 0.8, 0.55, 1.15); s.castShadow = false; this.gfx.scene.add(s, s.target); return s; });
   }
   updFloods(dt, cam, player) {
     const on = THREE.MathUtils.smoothstep(U.uNight.value, 0.3, 0.6); this.floodLens.emissiveIntensity = on * 12;
     if ((this.floodT = (this.floodT || 0) - dt) > 0) return; this.floodT = 0.3;
-    const p = player || cam, near = on > 0 ? this.lamps.map(o => [o, (o.x - p.x) ** 2 + (o.z - p.z) ** 2]).sort((a, b) => a[1] - b[1]).slice(0, this.spots.length) : [];
+    const p = player || cam, near = on > 0 ? (this.riding ? this.towerLamps : this.lamps).map(o => [o, (o.x - p.x) ** 2 + (o.z - p.z) ** 2]).sort((a, b) => a[1] - b[1]).slice(0, this.spots.length) : [];
     this.spots.forEach((s, i) => { const e = near[i]; if (!e || e[1] > 250 * 250) { s.intensity = 0; return; } const o = e[0];
-      s.position.set(o.x + Math.sin(o.ang) * 0.5, o.y + 11, o.z + Math.cos(o.ang) * 0.5); s.target.position.set(o.x + Math.sin(o.ang) * 22, o.y - 2, o.z + Math.cos(o.ang) * 22); s.target.updateMatrixWorld(); s.intensity = on * 110; });
+      const h = o.h ?? 11, d = o.reach ?? 22; s.position.set(o.x + Math.sin(o.ang) * 0.5, o.y + h, o.z + Math.cos(o.ang) * 0.5); s.target.position.set(o.x + Math.sin(o.ang) * d, o.y - (o.reach ? 0 : 2), o.z + Math.cos(o.ang) * d); s.target.updateMatrixWorld(); s.angle = o.cone ?? 0.8; s.intensity = on * 110; });
   }
   // the groomed snow: a 2 m grid over every piste at the height the skis ride on (the island's ground smoothed, plus the packed
   // layer), with the groomer's corduroy in passes down the hill and the seams between them; it fades out at the edges
