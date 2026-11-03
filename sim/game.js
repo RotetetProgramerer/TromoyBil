@@ -91,10 +91,32 @@ export class Game {
     else if (isl.feat.pois) for (const [k, p] of Object.entries(isl.feat.pois)) if (p && p.x != null && k !== 'spawn') out.push({ x: p.x + isl.ox, z: p.z + isl.oz, name: { ferry: 'Ferje', base: 'Verksted', marina: 'Marina', airport: 'Flyplass' }[k] || k });
     return out;
   }
-  placeName() {
-    const isl = this.island(), p = this.focus().pos; let best = null;
-    for (const l of isl.feat.labels || []) { if (!['island', 'beach', 'bay', 'peak', 'hill', 'recreation_ground', 'grave_yard', 'water', 'town', 'park', 'pitch', 'strait'].includes(l.t)) continue; const d = Math.hypot(l.x + (isl.id === 'tromoya' ? 0 : isl.ox) - p.x, l.z + (isl.id === 'tromoya' ? 0 : isl.oz) - p.z); if (d < 900 && (!best || d < best.d) && l.t !== 'island') best = { d, n: l.n }; }
+  placeName() { const p = this.focus().pos; return this.placeNameAt(p.x, p.z); }
+  placeNameAt(x, z) {
+    const isl = this.world.islandAt(x, z) || this.world.islands[0]; let best = null;
+    for (const l of isl.feat.labels || []) { if (!['island', 'beach', 'bay', 'peak', 'hill', 'recreation_ground', 'grave_yard', 'water', 'town', 'park', 'pitch', 'strait'].includes(l.t)) continue; const d = Math.hypot(l.x + (isl.id === 'tromoya' ? 0 : isl.ox) - x, l.z + (isl.id === 'tromoya' ? 0 : isl.oz) - z); if (d < 900 && (!best || d < best.d) && l.t !== 'island') best = { d, n: l.n }; }
     return best ? best.n + ', ' + isl.name : isl.name;
+  }
+  // where the car lands when the player picks a spot on the map: the nearest road within 400 m (never one that is mostly bridge),
+  // else the spot itself if it is dry land and not inside a house; null out at sea
+  landingSpot(x, z) {
+    const isl = this.world.islands.find(i => !i.def.backdrop && i.inside(x, z, 30)); if (!isl) return null;
+    let best = null;
+    for (const r of isl.roads.roads) { if (r.b && r.b.length > r.p.length / 6) continue; const p = r.p; for (let i = 0; i < p.length - 3; i += 3) { const d = Math.hypot(p[i] + isl.ox - x, p[i + 1] + isl.oz - z); if (d < 400 && (!best || d < best.d)) best = { d, x: p[i] + isl.ox, z: p[i + 1] + isl.oz, h: Math.atan2(p[i + 3] - p[i], p[i + 4] - p[i + 1]) }; } }
+    if (best) return { x: best.x, z: best.z, h: best.h, isl, road: true };
+    if (isl.terrain(x, z) > isl.water(x, z) + 0.5 && !isl.inBuilding(x - isl.ox, z - isl.oz, 1)) return { x, z, h: Math.atan2(this.car.fw.x, this.car.fw.z), isl, road: false };
+    return null;
+  }
+  placeAt(s) {
+    if (!s) { this.ui.toast('Der er det bare sjø', true); return; }
+    if (this.act) this.act.stop();
+    this.courses.stop(); this.ui.course(null);
+    const from = this.island();
+    this.car.place(this.world, s.x, s.z, s.h); for (let i = 0; i < 120; i++) this.car.step(DT, this.world);
+    if (s.isl !== from) this.dockFerry(s.isl);
+    this.afterIslandChange(); this.flipT = 0;
+    this.store.set('pos', { x: this.car.pos.x, z: this.car.pos.z, h: s.h });
+    this.play(); this.ui.toast('Bilen står ved ' + this.placeNameAt(s.x, s.z));
   }
   spawnPoint() {
     const want = { x: +(this.params.get('x') ?? TROMOYA.spawn.x), z: +(this.params.get('z') ?? TROMOYA.spawn.z) };

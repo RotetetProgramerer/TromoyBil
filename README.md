@@ -16,6 +16,7 @@ Det opprinnelige RC-spillet i skala 1:24 ligger fortsatt i [`klassisk.html`](kla
 - **Løyper** langs de ekte veiene på Tromøya og på øyene, med tid, mellomtider, stjerner og muttere.
 - **Verkstedet** på Tromøya: kjøp biler, motor, fjæring, girkasse, dekk og lakk.
 - **Ferja** mellom kaiene, **båt** fra marinaen, **fly** fra flyplassen på Trinnvik og **ski** i Gautefall.
+- **Kartet** (M): trykk på et sted på øya eller i skjærgården, så «Sett bilen der», og bilen står på nærmeste vei der.
 - **Kjør sammen** med venner (opptil fire, rett mellom nettleserne).
 - Dag, kveld og natt (gatelys og frontlys), sol, skyer, regn, tåke og snø.
 
