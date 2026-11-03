@@ -175,11 +175,12 @@ export class Gfx {
     const dt = new THREE.DepthTexture(W, H); dt.type = THREE.FloatType;
     this.rtScene = mk({ depthTexture: dt, samples: this.q.msaa });
     // copies of the opaque scene's colour and depth: the water reads them while it is drawn into rtScene with a real depth test.
-    // Half size: the refraction is blurred by the waves anyway, and the depth copy keeps the farthest of each 2 × 2 block, so the
-    // readers (which sample by screen position) never see a nearer neighbour and discard or fade where they should not
+    // Half size: the refraction is blurred by the waves anyway, and the depth copy keeps the farthest (x) and the nearest (y) of
+    // each 2 × 2 block: the readers (which sample by screen position) take the farthest where the nearest is in front of the
+    // water (a silhouette: no false discard or fade), else the nearest (a duck just under the surface stays see-through)
     const W2 = Math.ceil(W / 2), H2 = Math.ceil(H / 2);
     this.rtColor = new THREE.WebGLRenderTarget(W2, H2, { type: THREE.HalfFloatType, colorSpace: THREE.LinearSRGBColorSpace, depthBuffer: false });
-    this.rtDepth = new THREE.WebGLRenderTarget(W2, H2, { type: THREE.FloatType, format: THREE.RedFormat, depthBuffer: false, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
+    this.rtDepth = new THREE.WebGLRenderTarget(W2, H2, { type: THREE.FloatType, format: THREE.RGFormat, depthBuffer: false, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
     this.rtLdr = new THREE.WebGLRenderTarget(W, H, { depthBuffer: false });
     this.copyRes = new THREE.Vector2(W2 * 2, H2 * 2);      // what the readers divide gl_FragCoord by: exact even when W or H is odd
     if (!this.copy) {
@@ -187,8 +188,8 @@ export class Gfx {
       this.depthCopy = new ShaderPass({ uniforms: { tDepth: { value: null } }, vertexShader: 'void main(){ gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
         fragmentShader: `uniform highp sampler2D tDepth;
 void main(){ ivec2 c = ivec2(gl_FragCoord.xy) * 2, m = textureSize(tDepth, 0) - 1;
-  float d = max(max(texelFetch(tDepth, min(c, m), 0).x, texelFetch(tDepth, min(c + ivec2(1, 0), m), 0).x), max(texelFetch(tDepth, min(c + ivec2(0, 1), m), 0).x, texelFetch(tDepth, min(c + ivec2(1, 1), m), 0).x));
-  gl_FragColor = vec4(d, 0.0, 0.0, 1.0); }` });
+  float a = texelFetch(tDepth, min(c, m), 0).x, b = texelFetch(tDepth, min(c + ivec2(1, 0), m), 0).x, d = texelFetch(tDepth, min(c + ivec2(0, 1), m), 0).x, e = texelFetch(tDepth, min(c + ivec2(1, 1), m), 0).x;
+  gl_FragColor = vec4(max(max(a, b), max(d, e)), min(min(a, b), min(d, e)), 0.0, 1.0); }` });
       this.output = new OutputPass();
       this.fxaa = new ShaderPass(FXAAShader);
     }

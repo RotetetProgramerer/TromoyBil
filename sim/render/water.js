@@ -47,20 +47,22 @@ vec3 surfN(vec2 p, float px){
 }
 void main(){
   vec2 suv = gl_FragCoord.xy / uRes;                       // (uRes is twice the half-size copies, so this lands on the right texel)
-  float sceneZ = -perspectiveDepthToViewZ(texture2D(tDepth, suv).x, uNear, uFar);
+  // the depth copy is half size and holds the farthest (x) and the nearest (y) of each 2 × 2 block (see gfx.resize)
+  vec2 dz = texture2D(tDepth, suv).xy;
+  float zFar = -perspectiveDepthToViewZ(dz.x, uNear, uFar), zNear = -perspectiveDepthToViewZ(dz.y, uNear, uFar);
   vec3 toCam = cameraPosition - vW; float dist = length(toCam); vec3 V = toCam / dist;
-  float waterZ = dist * dot(-V, normalize(vec3(viewMatrix[0][2], viewMatrix[1][2], viewMatrix[2][2])) * -1.0);
   // view-space depth of this water fragment
-  vec4 vp = viewMatrix * vec4(vW, 1.0); waterZ = -vp.z;
-  if (sceneZ < waterZ - 0.02) discard;                      // (the depth test already hides water behind solid things)
+  vec4 vp = viewMatrix * vec4(vW, 1.0); float waterZ = -vp.z;
+  if (zFar < waterZ - 0.02) discard;                        // (the depth test already hides water behind solid things)
+  float sceneZ = zNear >= waterZ - 0.02 ? zNear : zFar;      // the nearest thing under the surface, unless that is a silhouette in front
   float thick = max(sceneZ - waterZ, 0.0);                   // how much water the eye looks through
   float px = length(fwidth(vW.xz));
   vec3 N = surfN(vW.xz, px);
   // through the water: the bottom, shifted by the waves, tinted and absorbed with depth
   vec2 off = N.xz * 0.04 * clamp(thick, 0.0, 3.0) / (1.0 + dist * 0.02);
   vec3 under = texture2D(tColor, suv + off).rgb;
-  float sceneZ2 = -perspectiveDepthToViewZ(texture2D(tDepth, suv + off).x, uNear, uFar);
-  if (sceneZ2 < waterZ) under = texture2D(tColor, suv).rgb;
+  float sceneZ2 = -perspectiveDepthToViewZ(texture2D(tDepth, suv + off).y, uNear, uFar);
+  if (sceneZ2 < waterZ) under = texture2D(tColor, suv).rgb;    // (anything in front of the surface there: no refraction)
   float depthAlong = thick * (0.35 + 0.65 * clamp(V.y, 0.0, 1.0));
   vec3 absorb = exp(-depthAlong * vec3(0.75, 0.3, 0.26) * uClear);
   vec3 body = mix(uDeep, uShallow, exp(-depthAlong * 0.25)) * (0.25 + 0.75 * (1.0 - uNight));
