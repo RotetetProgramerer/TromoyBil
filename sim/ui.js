@@ -27,7 +27,7 @@ export class UI {
     $('gDrive').onclick = () => this.g.play();
     document.querySelectorAll('#garage [data-tab]').forEach(b => b.onclick = () => { this.tab = b.dataset.tab; document.querySelectorAll('#garage [data-tab]').forEach(x => x.classList.toggle('on', x === b)); this.garage(); });
     document.querySelectorAll('[data-mtab]').forEach(b => b.onclick = () => { this.mapTab = b.dataset.mtab; document.querySelectorAll('[data-mtab]').forEach(x => x.classList.toggle('on', x === b)); this.drawMap(); });
-    $('pResume').onclick = () => this.g.resume(); $('pReset').onclick = () => { this.g.resume(); if (this.g.act) this.g.act.reset(); else this.g.recover(); }; $('pAbort').onclick = () => { this.g.courses.stop(); this.course(null); this.g.resume(); };
+    $('pResume').onclick = () => this.g.resume(); $('pReset').onclick = () => { this.g.resume(); if (this.g.act) this.g.act.reset(); else this.g.recover(); }; $('pAbort').onclick = () => { this.g.courses.stop(); this.course(null); this.g.resume(); this.toast('Løpet er avbrutt'); };
     $('pMap').onclick = () => this.show('map', 'pause'); $('pGarage').onclick = () => this.show('garage', 'pause'); $('pSettings').onclick = () => this.show('settings', 'pause'); $('pMenu').onclick = () => this.g.toMenu();
     $('rAgain').onclick = () => { this.hide(); this.g.mode = 'drive'; this.g.courses.start(this.lastResult.c); };
     $('rDone').onclick = () => { this.hide(); this.g.mode = 'drive'; };
@@ -55,13 +55,14 @@ export class UI {
   // ---------------------------------------------------------------- overlays
   show(id, from) {
     for (const o of document.querySelectorAll('.overlay')) o.hidden = true;
-    this.from = from || (this.open && this.open !== id ? this.open : this.from); this.open = id; $(id).hidden = false;
+    this.from = from || (this.open && this.open !== id ? this.open : null); this.open = id; $(id).hidden = false;
     if (id === 'pause') $('pGarage').hidden = !!this.g.act;
     if (id === 'map') this.pick = null;
     if (id === 'menu') this.menu(); if (id === 'garage') this.garage(); if (id === 'courses') this.courseList(); if (id === 'map') this.drawMap(); if (id === 'settings') this.settings();
     $('hud').hidden = id === 'menu' || id === 'garage';
   }
-  hide() { for (const o of document.querySelectorAll('.overlay')) o.hidden = true; this.open = null; $('hud').hidden = false; }
+  hide() { for (const o of document.querySelectorAll('.overlay')) o.hidden = true; this.open = null; this.from = null; $('hud').hidden = false; }
+  // back to where the overlay was opened from; opened over the driving (the map, the settings, the garage from the road): back to the car
   back() { const f = this.from; this.from = null; if (f) this.show(f); else if (this.g.mode === 'menu') this.show('menu'); else { this.hide(); this.g.resume(); } }
   toast(t, bad) { const el = $('toast'); el.textContent = t; el.classList.add('on'); el.classList.toggle('bad', !!bad); this.toastT = 2.6; }
   countdown(v) { const el = $('count'); el.hidden = v == null; if (v != null) el.textContent = v; }
@@ -117,10 +118,10 @@ export class UI {
     for (const [id, k] of [['vMaster', 'master'], ['vCar', 'car'], ['vAmb', 'ambient']]) { const el = $(id); el.value = S.vol[k] * 100; $(id + 'O').textContent = Math.round(S.vol[k] * 100) + ' %'; el.oninput = () => { S.vol[k] = el.value / 100; $(id + 'O').textContent = el.value + ' %'; g.set('vol', S.vol); }; }
   }
   // ---------------------------------------------------------------- course HUD and results
-  course(c, a) { $('hCourse').hidden = !c; if (!c) return; $('cName').textContent = c.name; const b = this.g.best[c.key]; $('cBest').textContent = b ? fmtTime(b.t) : '–'; $('cSplit').textContent = ''; $('pAbort').hidden = false; }
+  course(c, a) { $('hCourse').hidden = !c; $('pAbort').hidden = !c; if (!c) { this.countdown(null); return; } $('cName').textContent = c.name; const b = this.g.best[c.key]; $('cBest').textContent = b ? fmtTime(b.t) : '–'; $('cSplit').textContent = ''; }
   split(d) { const el = $('cSplit'); if (d == null) { el.textContent = ''; return; } el.textContent = (d < 0 ? '−' : '+') + fmtTime(Math.abs(d)).replace(/^0:/, ''); el.className = 'split ' + (d < 0 ? 'ahead' : 'behind'); }
   result(r) {
-    this.lastResult = r; this.course(null); $('pAbort').hidden = true;
+    this.lastResult = r; this.course(null); this.g.halt();
     $('rKind').textContent = 'Løype fullført'; $('rName').textContent = r.c.name; $('rStars').textContent = '★'.repeat(r.stars) + '☆'.repeat(3 - r.stars);
     $('rList').innerHTML = [['Tid', fmtTime(r.t)], r.old ? ['Beste før', fmtTime(r.old)] : null, ['Tre stjerner', fmtTime(r.par[0])], ['To stjerner', fmtTime(r.par[1])], ['Muttere', '+' + r.nuts + ' ⚙'], r.rec ? ['', r.first ? 'Første gang!' : 'Ny rekord!'] : null]
       .filter(Boolean).map(([a, b]) => `<li><span>${a}</span><b>${b}</b></li>`).join('');
