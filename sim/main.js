@@ -1,6 +1,7 @@
 // The car simulator: loads the world, builds the renderer and runs the game loop (physics at 400 Hz, drawing at the screen's rate).
 import * as THREE from 'three';
-import { Gfx, textureArray } from './render/gfx.js';
+import { Gfx, QUALITY, textureArray } from './render/gfx.js';
+import { AutoQ } from './render/autoq.js';
 import { Terrain, LAYERS } from './render/terrain.js';
 import { Features, roadMaterial, buildingMaterial } from './render/features.js';
 import { Forest } from './render/trees.js';
@@ -31,7 +32,11 @@ class MeshWorker {
 async function boot() {
   const status = t => { const el = $('loadText'); if (el) el.textContent = t; };
   const params = new URLSearchParams(location.search);
-  const quality = params.get('q') || store.get('quality', matchMedia('(pointer:coarse)').matches ? 'lav' : 'hoy');
+  // the preset: from the address, else the stored one, else Middels (Lav on touch screens); autoq steps it from there unless the
+  // player has picked one (an address with q= counts as picked for this visit, a stored one without the flag as picked earlier)
+  const stored = store.get('quality', null);
+  const quality = params.get('q') || stored || (matchMedia('(pointer:coarse)').matches ? 'lav' : 'middels');
+  const auto = !params.has('q') && store.get('qualityAuto', stored == null) !== false;
   status('Starter grafikken …');
   const gfx = new Gfx($('stage'), quality);
   status('Laster Tromøya …');
@@ -63,11 +68,13 @@ async function boot() {
   for (const e of ['pointerdown', 'keydown', 'touchend']) addEventListener(e, unlock, { capture: true });
   const game = new Game({ gfx, world, worker, terrain, features, forest, water, rain, special, lamps, store, params, arrays, tex, snd });
   await game.init(status);
+  const autoq = new AutoQ(gfx, game, store, { presets: QUALITY, auto });
   $('loading').hidden = true;
   let last = performance.now();
   const frame = now => {
     requestAnimationFrame(frame);
-    const dt = Math.min(0.1, (now - last) / 1000); last = now;
+    const ms = now - last, dt = Math.min(0.1, ms / 1000); last = now;
+    autoq.tick(ms);
     game.update(dt);
     terrain.update(gfx.camera.position);
     features.update(gfx.camera.position);
@@ -79,6 +86,6 @@ async function boot() {
     gfx.render(dt);
   };
   requestAnimationFrame(frame);
-  window.SIM = { gfx, world, worker, terrain, features, forest, water, rain, lamps, special, game, THREE };
+  window.SIM = { gfx, world, worker, terrain, features, forest, water, rain, lamps, special, game, autoq, THREE };
 }
 boot().catch(e => { console.error(e); const el = document.getElementById('loadText'); if (el) el.textContent = 'Noe gikk galt: ' + e.message; });
