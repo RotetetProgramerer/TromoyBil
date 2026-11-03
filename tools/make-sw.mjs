@@ -1,5 +1,5 @@
 // Writes sw.js: the service worker that lets the game run without a network after the first visit.
-//   node tools/make-sw.mjs          (bumps VERSION; run it before every publish)
+//   node tools/make-sw.mjs          (bumps VERSION; the Pages workflow runs it with SW_VERSION=<commit> at every publish)
 // The pages, scripts, styles and three.js are stored at install. The big files (world data, textures, car models) are stored the
 // first time the game fetches them, so the first load is not held up by islands you have not visited yet.
 import { readFileSync, writeFileSync, readdirSync, statSync, existsSync } from 'node:fs';
@@ -12,7 +12,8 @@ const files = ['index.html', 'klassisk.html', 'props.html', 'manifest.json', 'ic
   ...walk('sim', js), ...walk('vendor/three', p => /\.js$/.test(p)), ...walk('css', js), ...walk('js', js), ...walk('data', js)]
   .filter(p => existsSync(join(root, p))).map(p => './' + relative('.', p).replace(/\\/g, '/'));
 const old = readFileSync(join(root, 'sw.js'), 'utf8').match(/VERSION\s*=\s*'v(\d+)'/);
-const VERSION = 'v' + ((old ? +old[1] : 0) + 1);
+// the publish workflow passes the commit hash as SW_VERSION, so every deploy gets a fresh cache; by hand the counter just goes up
+const VERSION = process.env.SW_VERSION ? 'v' + process.env.SW_VERSION : 'v' + ((old ? +old[1] : 0) + 1);
 writeFileSync(join(root, 'sw.js'), `// Service worker: gjør at spillet kan spilles uten nett etter første besøk. Laget av tools/make-sw.mjs (kjør den før hver publisering).
 const VERSION='${VERSION}';
 const CACHE='tromoybil-'+VERSION;

@@ -83,7 +83,7 @@ tools/                  Byggeverktøy og tester (under)
 | `node tools/test-vehicle.mjs [bil]` | Måler bilene: 0–100, toppfart, bremselengde, sidegrep, klatring |
 | `node tools/test-courses.mjs`, `node tools/test-islands.mjs` | Autopilot som kjører løypene |
 | `node tools/test-boat.mjs`, `node tools/test-plane.mjs` | Måler båtene og flyene mot ekte tall |
-| `node tools/make-sw.mjs` | Lager `sw.js` på nytt (kjør før hver publisering, så spillerne får den nye versjonen) |
+| `node tools/make-sw.mjs` | Lager `sw.js` på nytt (publiseringen gjør det selv med commit-hashen som versjon; kjør den bare når lista over filer har endret seg) |
 
 ## Publisering
 

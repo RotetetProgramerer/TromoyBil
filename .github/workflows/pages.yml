@@ -20,6 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # sw.js får commit-hashen som versjon, så spillerne alltid får de nye filene etter en publisering
+      - run: SW_VERSION="${GITHUB_SHA::8}" node tools/make-sw.mjs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
