@@ -1,6 +1,6 @@
 // Trees, bushes and boulders. Every kind is built here from code: a trunk and branches, and foliage as many small cards with a
 // leaf or needle texture drawn on a canvas. Near the camera the full trees are drawn (instanced, swaying in the wind, casting
-// shadows); further away each tree is a billboard (an "impostor") rendered from the full tree when the game starts.
+// shadows within SHADOW m); further away each tree is a billboard (an "impostor") rendered from the full tree when the game starts.
 import * as THREE from 'three';
 import { prep, U } from './gfx.js';
 import { KIND } from '../world/island.js';
@@ -292,7 +292,12 @@ function impostorMaterial(gfx, tex) {
 }
 
 // ------------------------------------------------------------------ the forest manager
-const TILE = 256;
+// Tiles of 256 m: a tile is "near" (full trees) when its nearest point is within Q.trees * 0.05 + 90 m of the camera, so the tile
+// the camera stands on is always near and a neighbour turns near as its edge comes within reach (measured to the tile's centre,
+// the half diagonal of 181 m left whole tiles undrawn beside the car). Full trees cast shadows only within SHADOW m: further
+// out the shadow is a few pixels, and every caster is drawn again in each shadow cascade.
+export const TILE = 256, SHADOW = 150;
+export function tileDist(x, z, i, j) { return Math.hypot(Math.max(i * TILE - x, 0, x - (i + 1) * TILE), Math.max(j * TILE - z, 0, z - (j + 1) * TILE)); }
 export class Forest {
   constructor(gfx, world, worker) {
     this.gfx = gfx; this.world = world; this.worker = worker;
@@ -340,19 +345,21 @@ export class Forest {
     const i0 = Math.floor((cam.x - R) / TILE), i1 = Math.floor((cam.x + R) / TILE), j0 = Math.floor((cam.z - R) / TILE), j1 = Math.floor((cam.z + R) / TILE);
     const keep = new Set();
     for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
-      const cx = (i + 0.5) * TILE, cz = (j + 0.5) * TILE, d = Math.hypot(cx - cam.x, cz - cam.z);
-      if (d > R + TILE) continue;
+      const cx = (i + 0.5) * TILE, cz = (j + 0.5) * TILE, d = tileDist(cam.x, cam.z, i, j);
+      if (d > R) continue;
       if (!this.world.islands.some(isl => cx > isl.x0 && cx < isl.x1 && cz > isl.z0 && cz < isl.z1)) continue;
       const k = i + ':' + j; keep.add(k);
       let t = this.tiles.get(k);
-      if (!t) { t = { i, j, state: 0, data: null, near: null, d }; this.tiles.set(k, t); }
+      if (!t) { t = { i, j, state: 0, data: null, near: null, cast: false, d }; this.tiles.set(k, t); }
       t.d = d;
-      const wantNear = d < near + (t.near ? 40 : 0);
+      const wantNear = d < near + (t.near ? 40 : 0), cast = d < SHADOW + (t.cast ? 20 : 0);     // 40 m / 20 m of hysteresis
       if (t.state === 2) {
-        if (wantNear && !t.near) this.makeNear(t);
+        if (wantNear && !t.near) this.makeNear(t, cast);
+        else if (t.near && cast !== t.cast) for (const m of t.near.children) m.castShadow = cast;
         if (!wantNear && t.near) { this.group.remove(t.near); t.near = null; t.dirtyFar = true; }
         t.far = d < Q.treesFar && !wantNear;
       }
+      t.cast = cast;
     }
     for (const [k, t] of this.tiles) if (!keep.has(k)) { if (t.near) this.group.remove(t.near); this.tiles.delete(k); }
     this.rebuildBlocks(cam);
@@ -374,15 +381,15 @@ export class Forest {
     let n = 0; for (const p of parts) n += p.T.length; const A = new Float32Array(n); let o = 0; for (const p of parts) { A.set(p.T, o); o += p.T.length; }
     t.data = A; t.state = 2; t.dirtyFar = true;
   }
-  // the full trees of a near tile: one instanced mesh per kind
-  makeNear(t) {
+  // the full trees of a near tile: one instanced mesh per kind; cast: whether they (and the rocks) cast shadows, see update()
+  makeNear(t, cast) {
     const g = new THREE.Group(), A = t.data, by = {};
     for (let i = 0; i < A.length; i += 6) (by[A[i + 5]] || (by[A[i + 5]] = [])).push(i);
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3(), Y = new THREE.Vector3(0, 1, 0);
     for (const k in by) {
       const L = by[k], rock = SPEC[k] && SPEC[k].rock, mesh = new THREE.InstancedMesh(this.geo[k] || this.geo[K.BUSH], rock ? this.rockMat : this.mat, L.length);
       L.forEach((i, n) => { p.set(A[i], A[i + 1], A[i + 2]); q.setFromAxisAngle(Y, A[i + 4]); const sc = A[i + 3]; s.set(sc, sc * (rock ? 0.8 : 1), sc); m4.compose(p, q, s); mesh.setMatrixAt(n, m4); });
-      mesh.castShadow = true; mesh.receiveShadow = true; mesh.computeBoundingSphere(); g.add(mesh);
+      mesh.castShadow = cast; mesh.receiveShadow = true; mesh.computeBoundingSphere(); g.add(mesh);
     }
     t.near = g; this.group.add(g);
   }
@@ -406,7 +413,7 @@ export class Forest {
       g.instanceCount = n;
       let x0 = 1e9, z0 = 1e9, x1 = -1e9, z1 = -1e9; for (const t of ts) { x0 = Math.min(x0, t.i * TILE); z0 = Math.min(z0, t.j * TILE); x1 = Math.max(x1, t.i * TILE + TILE); z1 = Math.max(z1, t.j * TILE + TILE); }
       g.boundingSphere = new THREE.Sphere(new THREE.Vector3((x0 + x1) / 2, 30, (z0 + z1) / 2), Math.hypot(x1 - x0, z1 - z0) / 2 + 40);
-      const mesh = new THREE.Mesh(g, this.impMat); mesh.frustumCulled = true;
+      const mesh = new THREE.Mesh(g, this.impMat); mesh.frustumCulled = true; mesh.castShadow = false;     // a card's shadow is a line
       this.group.add(mesh); this.blocks.set(bk, { sig, mesh });
     }
   }
