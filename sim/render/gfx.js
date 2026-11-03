@@ -297,8 +297,7 @@ void main(){ ivec2 c = ivec2(gl_FragCoord.xy) * 2, m = textureSize(tDepth, 0) - 
         r.setRenderTarget(this.rtScene);
       }
       for (const o of ov.hidden) o.visible = false;
-      r.render(this.overlay, cam);
-      for (const o of ov.hidden) o.visible = true;
+      try { r.render(this.overlay, cam); } finally { for (const o of ov.hidden) o.visible = true; }
     }
     r.autoClear = true;
     let src = this.rtScene;
