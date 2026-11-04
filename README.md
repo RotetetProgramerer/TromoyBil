@@ -95,6 +95,12 @@ tools/                  Byggeverktøy og tester (under)
 | `node tools/test-vehicle.mjs [bil]` | Måler bilene: 0–100, toppfart, bremselengde, sidegrep, klatring |
 | `node tools/test-courses.mjs`, `node tools/test-islands.mjs` | Autopilot som kjører løypene |
 | `node tools/test-boat.mjs`, `node tools/test-plane.mjs` | Måler båtene og flyene mot ekte tall |
+| `node tools/test-boat-races.mjs`, `node tools/test-plane-flights.mjs`, `node tools/test-ski.mjs` | Autopilot gjennom båtløpene, flygingene og nedfartene |
+| `node tools/test-trees.mjs` | Trærne: ingen bakgrunnstrær på øyene, alltid fulle trær rundt kameraet på alle grafikknivåer |
+| `node tools/test-roads.mjs` | Veiene: ingen sprang langs veiene, undergangene under bruene og bilen over og under brua |
+| `node tools/test-animals.mjs` | Dyrene: plassering, sammenstøt, løveangrep og at utsettingen ikke hakker |
+| `node tools/test-autoq.mjs` | Det automatiske grafikknivået |
+| `node tools/test-ui.mjs [port]` | Spillflyten i nettleseren (Playwright; start `python3 -m http.server 8123` først) |
 | `node tools/make-sw.mjs` | Lager `sw.js` på nytt (publiseringen gjør det selv med commit-hashen som versjon; kjør den bare når lista over filer har endret seg) |
 
 ## Publisering
