@@ -51,9 +51,10 @@ export class Island {
   // the ground height including road beds: the road is smooth, the shoulder is level, a ditch where the road is cut into the slope,
   // and a fill sloping down where it runs on an embankment. The paving wider than 16 m (an airport's runway, taxiway and apron) is
   // level, so a plane taxis from one onto the other without a step. A bridge counts only on its deck, and under the deck the
-  // road it crosses sets the height (under()), so that road runs through; ref: the height of whoever asks (a wheel hub), when
-  // known: at the deck's level it gets the deck, so a car crosses the bridge while another passes under it. bare: the ground
-  // only, without decks and (where sim/render/special.js draws the piers) bridges, for the terrain mesh
+  // road it crosses sets the height (under()), so that road runs through; ref: the level of whoever asks, when known (a car: the
+  // ground under it as it sits): nearer the deck than the road beneath, it gets the deck, so a car crosses the bridge while
+  // another passes under it. bare: the ground only, without decks and (where sim/render/special.js draws the piers) bridges, for
+  // the terrain mesh
   height(x, z, bare = false, ref) {
     let h = this.terrain(x, z);
     let q = this.roads.query(x - this.ox, z - this.oz), b = null;             // q: the road whose profile applies, b: the bridge whose deck does
@@ -156,18 +157,20 @@ export class Island {
   }
 }
 const EMPTY = [];
-// the road that sets the ground at a point whose nearest road is a bridge (q): off the deck the bridge counts for nothing, so
-// the nearest road on the ground (q.ground, if any) does; on the deck too when that road's lane and 2 m of verge hold the
-// point more than 1 m below the deck (an underpass: the lower road runs through, the deck spans it), unless the asker (ref,
-// a height) is up at the deck's level. null: the deck itself
+// the road that sets the ground at a point whose nearest road is a bridge (q), or null (the deck itself). Only a road on the
+// ground (q.ground) more than 1 m below the deck counts: the bridge's own approach (the same road, or one at the deck's level)
+// would heap its fill beside the deck and bury what the bridge spans. Off the deck the bridge counts for nothing, so that road
+// applies; on the deck too where its lane holds the point, or its 2 m of verge where it crosses under the bridge (an underpass:
+// the lower road runs through, the deck spans it), unless the asker (ref, a level) is nearer the deck than that road
 function under(q, ref) {
   const g = q.ground;
+  if (!g || g.road === q.road || g.y > q.y - 1) return null;
   if (q.d > q.hw + 0.35) return g;
-  return g && g.road !== q.road && g.d <= g.hw + 2 && g.y < q.y - 1 && !(ref >= q.y - 0.15) ? g : null;
+  return (g.d <= g.hw || g.d <= g.hw + 2 && Math.abs(g.tx * q.tx + g.tz * q.tz) < 0.85) && !(ref > (q.y + g.y) / 2) ? g : null;
 }
 // the other way round: the nearest road is on the ground (q), but a bridge (q.deck) crosses over the point more than 1 m up and the
-// asker is up at its level, so the deck applies
-function over(q, ref) { const b = q.deck; return !!b && b.road !== q.road && b.d <= b.hw + 0.35 && b.y > q.y + 1 && ref >= b.y - 0.15; }
+// asker is nearer the deck, so the deck applies
+function over(q, ref) { const b = q.deck; return !!b && b.road !== q.road && b.d <= b.hw + 0.35 && b.y > q.y + 1 && ref > (b.y + q.y) / 2; }
 
 // Norwegian coast: pine on the rocky hills, spruce in the valleys, birch and oak by the fields, juniper on the heath.
 // Returns [{x,z,y,k (kind),s (size),a (angle),col (trunk radius, 0 = drive through)}] in island coordinates.
