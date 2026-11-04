@@ -292,12 +292,41 @@ function impostorMaterial(gfx, tex) {
 }
 
 // ------------------------------------------------------------------ the forest manager
-// Tiles of 256 m: a tile is "near" (full trees) when its nearest point is within Q.trees * 0.05 + 90 m of the camera, so the tile
-// the camera stands on is always near and a neighbour turns near as its edge comes within reach (measured to the tile's centre,
-// the half diagonal of 181 m left whole tiles undrawn beside the car). Full trees cast shadows only within SHADOW m: further
-// out the shadow is a few pixels, and every caster is drawn again in each shadow cascade.
-export const TILE = 256, SHADOW = 150;
-export function tileDist(x, z, i, j) { return Math.hypot(Math.max(i * TILE - x, 0, x - (i + 1) * TILE), Math.max(j * TILE - z, 0, z - (j + 1) * TILE)); }
+// Tiles of 256 m are loaded within R = max(Q.trees, Q.treesFar); which trees are full is chosen per cell of 64 m: a cell is
+// "near" when its nearest point is within Q.trees * 0.05 + 90 m of the camera (40 m of hysteresis), so every tree within reach
+// is a full tree, a tile never pops as a whole, and a tile beside the car does not draw its far corner in full (measured per
+// 256 m tile, 3-7 tiles were full; to the tile's centre, whole tiles beside the car were missing). The rest of a tile's trees
+// are impostors. A tile's instances are sorted by cell and kind when they arrive, so a change of near cells copies ranges into
+// the tile's instanced meshes (count) and its block's impostor buffer (instanceCount): no new geometry while driving. Full trees
+// cast shadows only within SHADOW m: further out the shadow is a few pixels, and every caster is drawn again in each cascade.
+export const TILE = 256, SUB = 64, SHADOW = 150;
+const NC = TILE / SUB, CELLS = NC * NC;
+// distance from (x, z) to the nearest point of the square x0..x0+s, z0..z0+s (0 on it); a tile i:j; a cell c (0..15) of it
+export const boxDist = (x, z, x0, z0, s) => Math.hypot(Math.max(x0 - x, 0, x - x0 - s), Math.max(z0 - z, 0, z - z0 - s));
+export const tileDist = (x, z, i, j) => boxDist(x, z, i * TILE, j * TILE, TILE);
+export const cellDist = (x, z, i, j, c) => boxDist(x, z, i * TILE + (c % NC) * SUB, j * TILE + Math.floor(c / NC) * SUB, SUB);
+// the near cells of tile i:j seen from (x, z) as a bit per cell; old: the mask so far (a near cell stays near to near + 40 m)
+export function nearMask(x, z, i, j, near, old = 0) {
+  let m = 0;
+  if (tileDist(x, z, i, j) < near + 40) for (let c = 0; c < CELLS; c++) if (cellDist(x, z, i, j, c) < near + (old >> c & 1 ? 40 : 0)) m |= 1 << c;
+  return m;
+}
+// a tile's instances [x, y, z, size, angle, kind] sorted by cell and kind: off[c * kinds.length + k] is the first instance of
+// kind kinds[k] in cell c and off[c * kinds.length + k + 1] the end, so the trees of any set of cells are a few ranges
+export function sortTile(A, i, j) {
+  const n = A.length / 6, kinds = [], cell = new Uint8Array(n), kin = new Uint8Array(n);
+  for (let p = 0; p < n; p++) {
+    const o = p * 6, cx = Math.min(NC - 1, Math.max(0, Math.floor((A[o] - i * TILE) / SUB))), cz = Math.min(NC - 1, Math.max(0, Math.floor((A[o + 2] - j * TILE) / SUB)));
+    let k = kinds.indexOf(A[o + 5]); if (k < 0) { k = kinds.length; kinds.push(A[o + 5]); }
+    cell[p] = cx + cz * NC; kin[p] = k;
+  }
+  const nk = kinds.length, off = new Int32Array(CELLS * nk + 1);
+  for (let p = 0; p < n; p++) off[cell[p] * nk + kin[p] + 1]++;
+  for (let q = 1; q <= CELLS * nk; q++) off[q] += off[q - 1];
+  const data = new Float32Array(A.length), at = off.slice(0, CELLS * nk);
+  for (let p = 0; p < n; p++) { const q = at[cell[p] * nk + kin[p]]++ * 6; for (let f = 0; f < 6; f++) data[q + f] = A[p * 6 + f]; }
+  return { data, off, kinds };
+}
 export class Forest {
   constructor(gfx, world, worker) {
     this.gfx = gfx; this.world = world; this.worker = worker;
@@ -350,19 +379,23 @@ export class Forest {
       if (!this.world.islands.some(isl => cx > isl.x0 && cx < isl.x1 && cz > isl.z0 && cz < isl.z1)) continue;
       const k = i + ':' + j; keep.add(k);
       let t = this.tiles.get(k);
-      if (!t) { t = { i, j, state: 0, data: null, near: null, cast: false, d }; this.tiles.set(k, t); }
+      if (!t) { t = { i, j, state: 0, data: null, near: null, mask: 0, cast: false, dirty: false, d }; this.tiles.set(k, t); }
       t.d = d;
-      const wantNear = d < near + (t.near ? 40 : 0), cast = d < SHADOW + (t.cast ? 20 : 0);     // 40 m / 20 m of hysteresis
+      const cast = d < SHADOW + (t.cast ? 20 : 0);     // 20 m of hysteresis
       if (t.state === 2) {
-        if (wantNear && !t.near) this.makeNear(t, cast);
-        else if (t.near && cast !== t.cast) for (const m of t.near.children) m.castShadow = cast;
-        if (!wantNear && t.near) { this.group.remove(t.near); t.near = null; t.dirtyFar = true; }
-        t.far = d < Q.treesFar && !wantNear;
+        const mask = nearMask(cam.x, cam.z, i, j, near, t.mask);
+        if (mask !== t.mask) {
+          t.mask = mask; t.dirty = true;     // the block's impostors stand in for the cells that are not near
+          if (!mask) { this.group.remove(t.near); t.near = t.mat = null; }
+          else if (t.near) this.pack(t); else this.makeNear(t, cast);
+        }
+        if (t.near && cast !== t.cast) for (const m of t.near.children) m.castShadow = cast;
+        t.far = d < Q.treesFar;
       }
       t.cast = cast;
     }
     for (const [k, t] of this.tiles) if (!keep.has(k)) { if (t.near) this.group.remove(t.near); this.tiles.delete(k); }
-    this.rebuildBlocks(cam);
+    this.rebuildBlocks();
     this.flush(cam);
   }
   flush(cam) {
@@ -379,42 +412,70 @@ export class Forest {
     const t = this.tiles.get(m.id); if (!t) return;
     const parts = m.parts.filter(p => p.T.length);
     let n = 0; for (const p of parts) n += p.T.length; const A = new Float32Array(n); let o = 0; for (const p of parts) { A.set(p.T, o); o += p.T.length; }
-    t.data = A; t.state = 2; t.dirtyFar = true;
+    Object.assign(t, sortTile(A, t.i, t.j)); t.state = 2; t.dirty = true;
   }
-  // the full trees of a near tile: one instanced mesh per kind; cast: whether they (and the rocks) cast shadows, see update()
+  // the full trees of a tile: one instanced mesh per kind with room for every instance of the tile; pack() copies in the near
+  // cells' matrices. cast: whether they (and the rocks) cast shadows, see update()
   makeNear(t, cast) {
-    const g = new THREE.Group(), A = t.data, by = {};
-    for (let i = 0; i < A.length; i += 6) (by[A[i + 5]] || (by[A[i + 5]] = [])).push(i);
+    const A = t.data, n = A.length / 6, M = t.mat = new Float32Array(n * 16), nk = t.kinds.length;
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3(), Y = new THREE.Vector3(0, 1, 0);
-    for (const k in by) {
-      const L = by[k], rock = SPEC[k] && SPEC[k].rock, mesh = new THREE.InstancedMesh(this.geo[k] || this.geo[K.BUSH], rock ? this.rockMat : this.mat, L.length);
-      L.forEach((i, n) => { p.set(A[i], A[i + 1], A[i + 2]); q.setFromAxisAngle(Y, A[i + 4]); const sc = A[i + 3]; s.set(sc, sc * (rock ? 0.8 : 1), sc); m4.compose(p, q, s); mesh.setMatrixAt(n, m4); });
-      mesh.castShadow = cast; mesh.receiveShadow = true; mesh.computeBoundingSphere(); g.add(mesh);
+    for (let i = 0; i < n; i++) {
+      const o = i * 6, sc = A[o + 3], rock = SPEC[A[o + 5]] && SPEC[A[o + 5]].rock;
+      p.set(A[o], A[o + 1], A[o + 2]); q.setFromAxisAngle(Y, A[o + 4]); s.set(sc, sc * (rock ? 0.8 : 1), sc); m4.compose(p, q, s).toArray(M, i * 16);
     }
-    t.near = g; this.group.add(g);
+    const g = t.near = new THREE.Group();
+    t.kinds.forEach((k, ki) => {
+      let cnt = 0; for (let c = 0; c < CELLS; c++) cnt += t.off[c * nk + ki + 1] - t.off[c * nk + ki];
+      const mesh = new THREE.InstancedMesh(this.geo[k] || this.geo[K.BUSH], SPEC[k] && SPEC[k].rock ? this.rockMat : this.mat, cnt);
+      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); mesh.castShadow = cast; mesh.receiveShadow = true; g.add(mesh);
+    });
+    this.pack(t, -1); for (const m of g.children) m.computeBoundingSphere();     // the sphere round every instance holds for any subset
+    this.pack(t); this.group.add(g);
   }
-  // far trees: impostors in blocks of 4 × 4 tiles, rebuilt when a tile of the block changes
-  rebuildBlocks(cam) {
+  // copy the matrices of the tile's near cells (mask; -1: every cell) into its meshes and draw that many instances
+  pack(t, mask = t.mask) {
+    const nk = t.kinds.length, off = t.off;
+    t.near.children.forEach((m, ki) => {
+      let o = 0;
+      for (let c = 0; c < CELLS; c++) { if (!(mask >> c & 1)) continue; const a = off[c * nk + ki], e = off[c * nk + ki + 1]; if (e > a) { m.instanceMatrix.array.set(t.mat.subarray(a * 16, e * 16), o * 16); o += e - a; } }
+      m.count = o; m.visible = o > 0; m.instanceMatrix.needsUpdate = true;
+    });
+  }
+  // far trees: impostors in blocks of 4 × 4 tiles, one instance buffer with room for every tree of the block's tiles, filled
+  // with the trees outside the near cells; a tile whose near cells change (dirty) refills its block, a block whose tiles
+  // change is built anew
+  rebuildBlocks() {
     const blocks = new Map();
-    for (const t of this.tiles.values()) { if (t.state !== 2) continue; const bk = Math.floor(t.i / 4) + ':' + Math.floor(t.j / 4); (blocks.get(bk) || blocks.set(bk, []).get(bk)).push(t); }
-    for (const [bk, b] of this.blocks) if (!blocks.has(bk)) { this.group.remove(b.mesh); if (b.mesh.geometry) b.mesh.geometry.dispose(); this.blocks.delete(bk); }
+    for (const t of this.tiles.values()) { if (t.state !== 2 || !t.far) continue; const bk = Math.floor(t.i / 4) + ':' + Math.floor(t.j / 4); (blocks.get(bk) || blocks.set(bk, []).get(bk)).push(t); }
+    const drop = (bk, b) => { this.group.remove(b.mesh); if (b.mesh.geometry) b.mesh.geometry.dispose(); this.blocks.delete(bk); };
+    for (const [bk, b] of this.blocks) if (!blocks.has(bk)) drop(bk, b);
     for (const [bk, ts] of blocks) {
-      const sig = ts.filter(t => t.far).map(t => t.i + ',' + t.j).sort().join(';');
-      const old = this.blocks.get(bk);
-      if (old && old.sig === sig) continue;
-      if (old) { this.group.remove(old.mesh); if (old.mesh.geometry) old.mesh.geometry.dispose(); this.blocks.delete(bk); }
-      let n = 0; for (const t of ts) if (t.far) n += t.data.length / 6;
-      if (!n) { this.blocks.set(bk, { sig, mesh: new THREE.Group() }); continue; }
-      // per instance: iData = (x, y, z, atlas cell), iSize = the height of the picture
-      const iP = new Float32Array(n * 4), iS = new Float32Array(n); let o = 0;
-      for (const t of ts) if (t.far) { const A = t.data; for (let i = 0; i < A.length; i += 6) { const k = A[i + 5]; iP[o * 4] = A[i]; iP[o * 4 + 1] = A[i + 1] - 0.3; iP[o * 4 + 2] = A[i + 2]; iP[o * 4 + 3] = this.impIndex[k]; iS[o] = this.impScale[k] * A[i + 3]; o++; } }
-      const g = new THREE.InstancedBufferGeometry(); g.index = this.impGeo.index; g.setAttribute('position', this.impGeo.attributes.position); g.setAttribute('uv', this.impGeo.attributes.uv); g.setAttribute('normal', this.impGeo.attributes.normal);
-      g.setAttribute('iData', new THREE.InstancedBufferAttribute(iP, 4)); g.setAttribute('iSize', new THREE.InstancedBufferAttribute(iS, 1));
-      g.instanceCount = n;
-      let x0 = 1e9, z0 = 1e9, x1 = -1e9, z1 = -1e9; for (const t of ts) { x0 = Math.min(x0, t.i * TILE); z0 = Math.min(z0, t.j * TILE); x1 = Math.max(x1, t.i * TILE + TILE); z1 = Math.max(z1, t.j * TILE + TILE); }
-      g.boundingSphere = new THREE.Sphere(new THREE.Vector3((x0 + x1) / 2, 30, (z0 + z1) / 2), Math.hypot(x1 - x0, z1 - z0) / 2 + 40);
-      const mesh = new THREE.Mesh(g, this.impMat); mesh.frustumCulled = true; mesh.castShadow = false;     // a card's shadow is a line
-      this.group.add(mesh); this.blocks.set(bk, { sig, mesh });
+      const sig = ts.map(t => t.i + ',' + t.j).sort().join(';');
+      let b = this.blocks.get(bk);
+      if (b && b.sig !== sig) { drop(bk, b); b = null; }
+      if (!b) {
+        let n = 0; for (const t of ts) n += t.data.length / 6;
+        if (!n) { this.blocks.set(bk, { sig, mesh: new THREE.Group() }); continue; }
+        // per instance: iData = (x, y, z, atlas cell), iSize = the height of the picture; one interleaved buffer
+        const buf = new THREE.InstancedInterleavedBuffer(new Float32Array(n * 5), 5); buf.setUsage(THREE.DynamicDrawUsage);
+        const g = new THREE.InstancedBufferGeometry(); g.index = this.impGeo.index; g.setAttribute('position', this.impGeo.attributes.position); g.setAttribute('uv', this.impGeo.attributes.uv); g.setAttribute('normal', this.impGeo.attributes.normal);
+        g.setAttribute('iData', new THREE.InterleavedBufferAttribute(buf, 4, 0)); g.setAttribute('iSize', new THREE.InterleavedBufferAttribute(buf, 1, 4));
+        let x0 = 1e9, z0 = 1e9, x1 = -1e9, z1 = -1e9; for (const t of ts) { x0 = Math.min(x0, t.i * TILE); z0 = Math.min(z0, t.j * TILE); x1 = Math.max(x1, t.i * TILE + TILE); z1 = Math.max(z1, t.j * TILE + TILE); }
+        g.boundingSphere = new THREE.Sphere(new THREE.Vector3((x0 + x1) / 2, 30, (z0 + z1) / 2), Math.hypot(x1 - x0, z1 - z0) / 2 + 40);
+        const mesh = new THREE.Mesh(g, this.impMat); mesh.frustumCulled = true; mesh.castShadow = false;     // a card's shadow is a line
+        this.group.add(mesh); this.blocks.set(bk, b = { sig, mesh, buf, dirty: true });
+      }
+      if (!b.buf || !(b.dirty || ts.some(t => t.dirty))) continue;
+      const P = b.buf.array; let o = 0;
+      for (const t of ts) {
+        const A = t.data, nk = t.kinds.length;
+        for (let c = 0; c < CELLS; c++) {
+          if (t.mask >> c & 1) continue;
+          for (let i = t.off[c * nk] * 6, e = t.off[(c + 1) * nk] * 6; i < e; i += 6) { const k = A[i + 5]; P[o] = A[i]; P[o + 1] = A[i + 1] - 0.3; P[o + 2] = A[i + 2]; P[o + 3] = this.impIndex[k]; P[o + 4] = this.impScale[k] * A[i + 3]; o += 5; }
+        }
+      }
+      b.mesh.geometry.instanceCount = o / 5; b.buf.needsUpdate = true; b.dirty = false;
     }
+    for (const t of this.tiles.values()) t.dirty = false;
   }
 }
