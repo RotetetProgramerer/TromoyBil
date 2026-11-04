@@ -12,7 +12,11 @@ const ONE = { elg: 'en elg', radyr: 'et rådyr', sau: 'en sau', ku: 'ei ku', hun
   gnu: 'en gnu', gaselle: 'en gaselle', sjiraff: 'en sjiraff', elefant: 'en elefant', flodhest: 'en flodhest', kaiman: 'en kaiman', kapybara: 'en kapybara', jaguar: 'en jaguar' };
 
 export default class Animals {
-  constructor(game) { this.game = game; this.prev = null; this.toastT = 0; }
+  constructor(game) {
+    this.game = game; this.prev = { x: 0, z: 0, ok: false }; this.toastT = 0;
+    // one view object, filled in every frame (life.js adds tsp and honkT), so the frame leaves no garbage behind
+    this.V = { fx: 0, fz: 0, cx: 0, cy: 0, cz: 0, tx: 0, tz: 0, tvx: 0, tvz: 0, car: null, honk: false, night: 0, lights: false, pen: null, tsp: 0, honkT: 0 };
+  }
   async init() {
     const g = this.game;
     this.life = new Life(g.world, { max: +(g.params.get('dyr') ?? 310) });
@@ -30,17 +34,19 @@ export default class Animals {
     // how fast the focus moves (the car knows; a boat or a skier we work out)
     let vx = 0, vz = 0;
     if (driving || f === g.car) { vx = g.car.vel.x; vz = g.car.vel.z; }
-    else if (this.prev && dt > 0) { vx = (p.x - this.prev.x) / dt; vz = (p.z - this.prev.z) / dt; if (Math.hypot(vx, vz) > 120) vx = vz = 0; }
-    this.prev = { x: p.x, z: p.z };
-    const c = g.courses && g.courses.active, I = g.input;
-    return { fx: p.x, fz: p.z, cx: cam.x, cy: cam.y, cz: cam.z, tx: p.x, tz: p.z, tvx: vx, tvz: vz, car: driving ? g.car : null,
-      honk: driving && !!I && (I.has('horn') || !!I.touch.horn), night: U.uNight.value, lights: !!(g.vis && g.vis.lights),
-      pen: driving && g.mode !== 'ferry' ? (c ? (c.count > 0 ? null : 'course') : 'nuts') : null };
+    else if (this.prev.ok && dt > 0) { vx = (p.x - this.prev.x) / dt; vz = (p.z - this.prev.z) / dt; if (Math.hypot(vx, vz) > 120) vx = vz = 0; }
+    this.prev.x = p.x; this.prev.z = p.z; this.prev.ok = true;
+    const c = g.courses && g.courses.active, I = g.input, V = this.V;
+    V.fx = p.x; V.fz = p.z; V.cx = cam.x; V.cy = cam.y; V.cz = cam.z; V.tx = p.x; V.tz = p.z; V.tvx = vx; V.tvz = vz; V.car = driving ? g.car : null;
+    V.honk = driving && !!I && (I.has('horn') || !!I.touch.horn); V.night = U.uNight.value; V.lights = !!(g.vis && g.vis.lights);
+    V.pen = driving && g.mode !== 'ferry' ? (c ? (c.count > 0 ? null : 'course') : 'nuts') : null;
+    return V;
   }
   frame(dt) {
     if (!this.on || !this.life) return;
     const g = this.game, V = this.view(dt);
-    // after a jump (the start, off the ferry, towed home) everything round the new place at once, not a few cells at a time
+    // after a jump (the start, off the ferry, towed home) everything round the new place is queued at once; the next frames make
+    // it, the nearest first, inside life.js's per-frame budget (the docking and the camera's snap hide those frames)
     if (this.jx == null || Math.hypot(V.fx - this.jx, V.fz - this.jz) > 150 || this.jm === 'ferry' && g.mode !== 'ferry') { this.life.drop(V); this.life.fill(V); }
     this.jx = V.fx; this.jz = V.fz; this.jm = g.mode;
     if (g.mode !== 'pause') this.life.update(dt, V);          // the pause menu stops them too
