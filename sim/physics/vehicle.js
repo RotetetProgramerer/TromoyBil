@@ -295,15 +295,15 @@ export class Vehicle {
       _wf.copy(fw).multiplyScalar(cs).addScaledVector(lf, sn);
       _a.set(_wf.x, 0, _wf.z); if (_a.lengthSq() < 1e-6) _a.set(up.x, 0, up.z); _a.normalize();
       _b.set(_a.z, 0, -_a.x);                                // ground plane, across the wheel
-      const r = wh.r, cx = _M.x + up.x * wh.x, cz = _M.z + up.z * wh.x;
+      const r = wh.r, cx = _M.x + up.x * wh.x, cz = _M.z + up.z * wh.x, hy = _M.y + up.y * wh.x;   // hy: the hub's height tells a bridge deck from the road under it
       let best = -1e9, bx = cx, bz = cz;
       for (let si = 0; si < 7; si++) {
         const u = (si - 3) / 3 * 0.75 * r, lat = si === 3 ? 0 : 0, px = cx + _a.x * u + _b.x * lat, pz = cz + _a.z * u + _b.z * lat;
-        const need = world.height(px, pz) + Math.sqrt(r * r - u * u);
+        const need = world.height(px, pz, false, hy) + Math.sqrt(r * r - u * u);
         if (need > best) { best = need; bx = px; bz = pz; }
       }
-      for (const lat of [-0.35, 0.35]) { const px = cx + _b.x * lat * wh.w, pz = cz + _b.z * lat * wh.w, need = world.height(px, pz) + r; if (need > best) { best = need; bx = px; bz = pz; } }
-      const surf = world.surface(bx, bz), sp = SURF_PROPS[surf] || SURF_PROPS[0];
+      for (const lat of [-0.35, 0.35]) { const px = cx + _b.x * lat * wh.w, pz = cz + _b.z * lat * wh.w, need = world.height(px, pz, false, hy) + r; if (need > best) { best = need; bx = px; bz = pz; } }
+      const surf = world.surface(bx, bz, hy), sp = SURF_PROPS[surf] || SURF_PROPS[0];
       wh.surf = surf;
       // soft ground: the tyre sinks in slowly under load (a smoothed state, so it never feeds back into the spring within a step)
       wh.sink = (wh.sink || 0) + (sp[3] * smoothstep(0, wh.Fz0, wh.Fz) - (wh.sink || 0)) * Math.min(1, dt * 4);
@@ -312,7 +312,7 @@ export class Vehicle {
       wh.wd = world.water(bx, bz) - (best - r);
       if (x > 0) {
         wh.contact = true; wh.x = x;
-        wh.P.set(bx, best - r - sink, bz); world.normal(bx, bz, wh.N);
+        wh.P.set(bx, best - r - sink, bz); world.normal(bx, bz, wh.N, hy);
       } else { wh.contact = false; wh.x = 0; wh.had = false; }
       wh.center.copy(_M).addScaledVector(up, Math.min(Math.max(wh.x, 0), wh.T + 0.03));
     }
@@ -436,8 +436,8 @@ export class Vehicle {
     // 6) the body touching the ground (bottoming out on a rock, lying on its roof)
     for (const hp of this.hull) {
       _P.copy(hp).applyQuaternion(q).add(pos);
-      const pen = world.height(_P.x, _P.z) - _P.y; if (pen <= 0) continue;
-      world.normal(_P.x, _P.z, _n); _r.subVectors(_P, pos); _vp.crossVectors(this.w, _r).add(this.vel);
+      const pen = world.height(_P.x, _P.z, false, _P.y) - _P.y; if (pen <= 0) continue;
+      world.normal(_P.x, _P.z, _n, _P.y); _r.subVectors(_P, pos); _vp.crossVectors(this.w, _r).add(this.vel);
       const vn = _vp.dot(_n), Nf = Math.max(0, 260 * m * Math.min(pen, 0.25) - (vn < 0 ? 22 * m * vn : 0));
       _d.copy(_vp).addScaledVector(_n, -vn); const tl = _d.length();
       const ft = Math.min(tl * m * 2, 0.45 * Nf);
