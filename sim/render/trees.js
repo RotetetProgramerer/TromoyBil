@@ -386,7 +386,7 @@ export class Forest {
         const mask = nearMask(cam.x, cam.z, i, j, near, t.mask);
         if (mask !== t.mask) {
           t.mask = mask; t.dirty = true;     // the block's impostors stand in for the cells that are not near
-          if (!mask) { this.group.remove(t.near); t.near = t.mat = null; }
+          if (!mask) this.dropNear(t);
           else if (t.near) this.pack(t); else this.makeNear(t, cast);
         }
         if (t.near && cast !== t.cast) for (const m of t.near.children) m.castShadow = cast;
@@ -394,7 +394,7 @@ export class Forest {
       }
       t.cast = cast;
     }
-    for (const [k, t] of this.tiles) if (!keep.has(k)) { if (t.near) this.group.remove(t.near); this.tiles.delete(k); }
+    for (const [k, t] of this.tiles) if (!keep.has(k)) { if (t.near) this.dropNear(t); this.tiles.delete(k); }
     this.rebuildBlocks();
     this.flush(cam);
   }
@@ -432,6 +432,8 @@ export class Forest {
     this.pack(t, -1); for (const m of g.children) m.computeBoundingSphere();     // the sphere round every instance holds for any subset
     this.pack(t); this.group.add(g);
   }
+  // the meshes share the kinds' geometry and materials: dispose() frees only their instance buffers
+  dropNear(t) { this.group.remove(t.near); for (const m of t.near.children) m.dispose(); t.near = t.mat = null; }
   // copy the matrices of the tile's near cells (mask; -1: every cell) into its meshes and draw that many instances
   pack(t, mask = t.mask) {
     const nk = t.kinds.length, off = t.off;

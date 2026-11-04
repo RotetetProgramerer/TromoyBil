@@ -39,16 +39,16 @@ function handle(m) {
 // The trees and rocks of one island in a tile: [x, y, z, size, angle, kind] per instance, from every cell of 32 m the tile
 // overlaps; only the trees inside the tile are taken (an island's cells need not line up with the tile), so each tree is in
 // exactly one tile and the renderer's cells of 64 m hold what they say. The backdrop (the coarse coast round the islands, 40 m
-// cells, no roads or houses) grows none where a real island covers the ground: there the island's own trees stand, clear of
-// its roads and houses and on its 5 m terrain. "Covers" is what world.islandAt() says (the same margin), so the trees the car
-// hits are the trees it sees.
-const MARGIN = 10;
+// cells, no roads or houses) grows none where world.islandAt() gives the ground to a real island: there the island's own trees
+// stand, clear of its roads and houses and on its 5 m terrain. Asking islandAt() itself (not a copy of its margin) keeps the
+// trees the car hits and the trees it sees the same.
 export function treeTile(world, isl, x0, z0, size, keep = 1) {
-  let over = null;    // the real islands a backdrop tile reaches into: none → no test per tree; one covering the whole tile → no trees
+  let test = false;    // a backdrop tile that reaches into a real island's box tests each tree; one a real island holds whole has none
+  const real = (x, z) => { const o = world.islandAt(x, z); return o && !o.def.backdrop ? o : null; };
   if (isl.def.backdrop) {
-    over = world.islands.filter(o => !o.def.backdrop && x0 + size > o.x0 + MARGIN && x0 < o.x1 - MARGIN && z0 + size > o.z0 + MARGIN && z0 < o.z1 - MARGIN);
-    if (over.some(o => o.inside(x0, z0, MARGIN) && o.inside(x0 + size, z0 + size, MARGIN))) return new Float32Array(0);
-    if (!over.length) over = null;
+    const a = real(x0, z0);
+    if (a && a === real(x0 + size, z0 + size)) return new Float32Array(0);     // islandAt() is a box test: two opposite corners hold the tile
+    test = world.islands.some(o => !o.def.backdrop && x0 + size > o.x0 && x0 < o.x1 && z0 + size > o.z0 && z0 < o.z1);
   }
   const L = [], ci0 = Math.floor((x0 - isl.ox) / 32), ci1 = Math.ceil((x0 + size - isl.ox) / 32) - 1, cj0 = Math.floor((z0 - isl.oz) / 32), cj1 = Math.ceil((z0 + size - isl.oz) / 32) - 1;
   for (let cj = cj0; cj <= cj1; cj++) for (let ci = ci0; ci <= ci1; ci++) {
@@ -56,7 +56,7 @@ export function treeTile(world, isl, x0, z0, size, keep = 1) {
     for (let i = 0; i < S.length; i += keep) {
       const t = S[i], x = t.x + isl.ox, z = t.z + isl.oz;
       if (x < x0 || x >= x0 + size || z < z0 || z >= z0 + size) continue;
-      if (over && over.some(o => o.inside(x, z, MARGIN))) continue;
+      if (test && real(x, z)) continue;
       L.push(x, t.y, z, t.s * (keep > 1 ? 1.1 : 1), t.a, t.k);
     }
   }
