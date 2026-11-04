@@ -482,7 +482,7 @@ export class Life {
     const s = { x: P.x + nx * D, z: P.z + nz * D }, t = { x: P.x - nx * (P.hw + 12), z: P.z - nz * (P.hw + 12) };
     if (!FORESTS.has(isl.coverAt(s.x, s.z)) && bio !== 'savanna' && bio !== 'winter') return;
     if (!this.okSpot(sp, isl, s.x, s.z, true) || !this.okSpot(sp, isl, t.x, t.z, true)) return;
-    const key = -(++this.evN), cell = this.mkCell(2, key, s.x, s.z, true), R = mulberry32(this.evN * 977);      // keyed below the grid's cells
+    const key = 2 ** 40 + (++this.evN), cell = this.mkCell(2, key, s.x, s.z, true), R = mulberry32(this.evN * 977);      // keyed above any grid cell (i·100003 + j)
     this.cells[2].set(key, cell);
     const g = this.mkGroup(sp, isl, t.x, t.z, 60, cell);
     const n = sp.id === 'elg' ? 1 + (rnd() < 0.3 ? 1 : 0) : 3 + Math.floor(rnd() * 6);

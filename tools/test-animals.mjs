@@ -217,6 +217,12 @@ console.log('5) Elg i veien foran bilen');
   }
   console.log(`   ${found} av ${tries} forsøk på veier ga en elg ved veien 150–220 m foran bilen (langs veien)`);
   if (!found) bad('fant aldri et sted for elgen');
+  // the event cells share ring 2's map with the grid's cells, so none may get a key the grid also hands out (grid cell (0,-k) and
+  // the k-th event once had the same: the event took the cell's place, and the cell's herd was later made a second time)
+  const V0 = view(64, -500), ref = new Life(world); ref.fill(V0); life.fill(V0);
+  const evs = [...life.cells[2].values()].filter(c => c.ev).length, lost = ref.cells[2].size + evs - life.cells[2].size;
+  if (evs !== found) bad(`${found} hendelser, men ${evs} hendelsesceller i ring 2`);
+  if (lost) bad(`${lost} av rutenettets celler i ring 2 fikk ikke plass fordi en hendelse hadde nøkkelen deres`);
 }
 
 // ---------------------------------------------------------------- 6) no hitches: driving with jumps, the animals made a little at a time
