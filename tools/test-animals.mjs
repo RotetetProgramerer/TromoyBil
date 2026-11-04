@@ -251,7 +251,7 @@ for (const id of ['gautefall', 'trinnvik', 'savanne']) {
     if (!best || res.score < best.score) best = res;
   }
   const b = best;
-  console.log(`   ${id.padEnd(10)} ${b.n.toString().padStart(4)} dyr (${b.born} født)  verste bilde ${b.worst.ms.toFixed(2)} ms (vegg ${b.worst.wall.toFixed(2)}, bilde ${b.worst.f})  fill() høyst ${b.fill.ms.toFixed(2)} ms (vegg ${b.fill.wall.toFixed(2)})  køen tom etter ${b.drained.join('/')} bilder  (forsøk ${b.run}, tempo ${b.tempo.toFixed(1)} ms)`);
+  console.log(`   ${id.padEnd(10)} ${b.n.toString().padStart(4)} dyr (${b.born} født)  verste bilde ${b.worst.ms.toFixed(2)} ms (vegg ${b.worst.wall.toFixed(2)}, bilde ${b.worst.f})  fill() høyst ${b.fill.ms.toFixed(2)} ms (vegg ${b.fill.wall.toFixed(2)})  køen tom etter ${b.drained.join('/') || '0'} bilder  (forsøk ${b.run}, tempo ${b.tempo.toFixed(1)} ms)`);
   if (b.worst.ms >= 3) bad(`${id}: bilde ${b.worst.f} kostet ${b.worst.ms.toFixed(2)} ms (grensen er 3)`);
   if (b.fill.ms >= 2) bad(`${id}: fill() kostet ${b.fill.ms.toFixed(2)} ms (grensen er 2)`);
 }
