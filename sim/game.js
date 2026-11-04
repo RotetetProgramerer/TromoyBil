@@ -189,15 +189,20 @@ export class Game {
   }
   // ---------------------------------------------------------------- modes
   play() { this.ui.hide(); this.mode = 'drive'; this.snd.unlock && this.snd.unlock(); this.cam.snap = true; }
-  toMenu() { if (this.act) this.act.stop(); this.courses.stop(); this.ui.course(null); this.mode = 'menu'; this.ui.show('menu'); }
+  toMenu() { if (this.act) this.act.stop(); this.courses.stop(); this.ui.course(null); this.halt(); this.mode = 'menu'; this.ui.show('menu'); }
   pause(on = true) { if (on && (this.mode === 'drive' || this.mode === 'race')) { this.prevMode = this.mode; this.mode = 'pause'; this.ui.show('pause'); } }
-  resume() { this.ui.hide(); if (this.mode === 'pause' || this.mode === 'menu' || this.mode === 'result') this.mode = this.act ? 'act' : 'drive'; }
+  resume() { this.ui.hide(); if (this.mode === 'menu' || this.mode === 'garage') this.cam.snap = true; if (['pause', 'menu', 'result', 'garage'].includes(this.mode)) this.mode = this.act ? 'act' : 'drive'; }      // the orbit camera was up: cut behind the car, as play() does
+  // the car parked, for when a screen takes over (the menu, a result, an activity): no motion, the handbrake on. Not the brake:
+  // held at standstill it means reverse in the automatic (vehicle.js controls()), and the car would back away against the handbrake
+  halt() {
+    const c = this.car, I = c.input; I.gas = 0; I.brake = 0; I.steer = 0; I.handbrake = 1; c.vel.set(0, 0, 0); c.w.set(0, 0, 0);
+    for (const wh of c.wheels) { wh.omega = 0; wh.kappa = 0; wh.tanA = 0; }      // the wheels too, or the tyres slip against the standing car for a moment
+  }
   // an activity takes over the frame; the car waits where it is parked
   startActivity(a) {
     if (this.act && this.act !== a) this.act.stop();
     this.courses.stop(); this.ui.course(null); this.ui.hide();
-    this.act = a; a.active = true; this.mode = 'act'; this.offer = null; document.getElementById('offer').hidden = true;
-    const I = this.car.input; I.gas = 0; I.brake = 1; I.steer = 0; I.handbrake = 1; this.car.vel.set(0, 0, 0); this.car.w.set(0, 0, 0);
+    this.act = a; a.active = true; this.mode = 'act'; this.offer = null; document.getElementById('offer').hidden = true; this.halt();
     document.body.classList.add('act'); document.body.dataset.act = a.constructor.id || '';
   }
   endActivity() {
@@ -226,7 +231,7 @@ export class Game {
   takeFerry(d) {
     if (this.prof.nuts < 5) { this.ui.toast('Du trenger 5 muttere til ferja', true); return; }
     if (this.act) this.act.stop();      // from the map while sailing, flying or skiing: back in the car first
-    this.prof.nuts -= 5; this.saveProf(); this.courses.stop(); this.ui.course(null); this.ui.hide();
+    this.prof.nuts -= 5; this.saveProf(); this.courses.stop(); this.ui.course(null); this.ui.hide(); this.offer = null; document.getElementById('offer').hidden = true;
     this.mode = 'ferry'; this.trip = { to: d.q, t: 0, T: 14 };
     const here = this.quays.find(q => q.isl === this.island()); this.trip.from = here || { x: this.car.pos.x, z: this.car.pos.z, dir: 0, sea: 0 };
     // the car on the deck, the ferry pulling away
@@ -263,7 +268,7 @@ export class Game {
     const driving = this.mode === 'drive' || this.mode === 'race';
     const I = this.car.input;
     if (driving && !(this.courses.active && this.courses.active.count > 0)) { I.gas = inp.gas; I.brake = inp.brake; I.steer = inp.steer; I.handbrake = inp.handbrake; I.shiftUp = inp.shiftUp; I.shiftDown = inp.shiftDown; }
-    else if (!driving) { I.gas = 0; I.brake = 0; I.handbrake = 0; }
+    else if (!driving) { I.gas = 0; I.brake = 0; I.steer = 0; I.handbrake = 1; }      // a menu, the garage or a result is up: the car waits on the handbrake (see halt)
     if (this.mode !== 'pause') {
       this.acc += dt; let n = 0;
       while (this.acc >= DT && n < 60) { this.car.step(DT, this.world); this.acc -= DT; n++; }
@@ -327,13 +332,13 @@ export class Game {
       if (n && n.d < 14) o = { kind: 'Løype', name: n.c.name, info: (this.best[n.c.key] ? '★'.repeat(this.best[n.c.key].s) + ' ' : '') + (n.c.len / 1000).toFixed(1).replace('.', ',') + ' km', go: () => this.courses.start(n.c) };
       const a = this.base.ask; if (!o && Math.hypot(a.x - c.pos.x, a.z - c.pos.z) < a.r) o = { kind: 'Verkstedet', name: TROMOYA.base.name, info: 'deler, dekk, lakk og biler', go: () => { this.mode = 'garage'; this.ui.show('garage'); this.vis.clean(); } };
       for (const a of this.acts) if (!o) o = a.offers(c);
-      if (!o && this.ferry.group.visible && this.ferry.onDeck(c.pos)) o = { kind: 'Ferja', name: 'Hvor vil du reise?', info: '5 ⚙', go: () => this.ui.show('map') };
+      if (!o && this.ferry.group.visible && this.ferry.onDeck(c.pos)) o = { kind: 'Ferja', name: 'Hvor vil du reise?', info: '5 ⚙', go: () => { this.mode = 'pause'; this.ui.show('map'); } };
     }
     this.offer = o; off.hidden = !o;
     if (o) { document.getElementById('oKind').textContent = o.kind; document.getElementById('oName').textContent = o.name; document.getElementById('oInfo').textContent = o.info; }
   }
   press(a) {
-    if (a === 'pause') { if (this.mode === 'drive' || this.mode === 'race') this.pause(); else if (this.mode === 'pause') this.resume(); else if (this.ui.open && this.ui.open !== 'menu') this.ui.back(); return; }
+    if (a === 'pause') { if (this.mode === 'drive' || this.mode === 'race') this.pause(); else if (this.mode === 'pause' || this.mode === 'garage') this.resume(); else if (this.ui.open && this.ui.open !== 'menu') this.ui.back(); return; }
     if (this.mode !== 'drive' && this.mode !== 'race') return;
     switch (a) {
       case 'cam': this.ui.toast(this.cam.next()); break;
