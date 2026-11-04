@@ -8,9 +8,11 @@
 //    ikke bom stille. En sau: bilen merker den knapt. En elefant: bilen stanser mot den og kjører ikke gjennom den.
 // 4) Løven: en bil som står stille nær flokken blir angrepet (bilen kastes til siden, og det koster muttere), av én løve, ikke hele flokken.
 // 5) Elg i veien: hendelsen som setter en elg ut i veien et stykke foran bilen finner et sted på en skogsvei.
-// 6) Hakk: 900 bilder i 60 km/t på Gautefall, Trinnvik og Løveøya med et hopp (ferje/teleport) hvert 300. bilde: intet bilde over
-//    3 ms, ingen fill() over 2 ms (dyrene lages litt om gangen over de neste bildene), og de nyfødte står der de får lov. Maskinen
-//    deles med andre jobber, så hver øy får inntil tre forsøk: et hakk i koden viser seg i alle, en travel nabo ikke.
+// 6) Hakk: 900 bilder i 60 km/t på Gautefall, Trinnvik, Løveøya, Spornes og Tromøya med et hopp (ferje/teleport) hvert 300. bilde:
+//    intet bilde over 3 ms (hoppets drop() og fill() regnes med i bildet de skjer i, slik animals.js gjør dem), ingen drop()+fill()
+//    over 2 ms (dyrene lages litt om gangen over de neste bildene), og de nyfødte står der de får lov. Trærne lages på nytt for
+//    hvert forsøk, som i spillet. Maskinen deles med andre jobber, så hver øy får inntil tre forsøk: et hakk i koden viser seg i
+//    alle, en travel nabo ikke. Med øyer på kommandolinjen kjøres hakk-sjekken på dem i stedet.
 import { World } from '../sim/world/world.js';
 import { WORLD } from '../sim/data/world.js';
 import { COVER } from '../sim/world/island.js';
@@ -226,19 +228,23 @@ console.log('5) Elg i veien foran bilen');
 }
 
 // ---------------------------------------------------------------- 6) no hitches: driving with jumps, the animals made a little at a time
-console.log('6) Hakk: 900 bilder i 60 km/t med et hopp hvert 300. bilde (grensene: bilde < 3 ms, fill() < 2 ms)');
+console.log('6) Hakk: 900 bilder i 60 km/t med et hopp hvert 300. bilde (grensene: bilde < 3 ms med hoppet, drop()+fill() < 2 ms)');
 // a fixed piece of arithmetic (about 1 ms when this machine is quiet): what the machine's tempo was when a run was measured
 const tempo = () => { const t0 = performance.now(); let s = 0; for (let i = 0; i < 3e5; i++) s += Math.sqrt(i + s * 1e-9); return performance.now() - t0; };
-for (const id of ['gautefall', 'trinnvik', 'savanne']) {
-  if (only && !only.includes(id)) continue;
-  const isl = world.islands.find(i => i.id === id), roads = isl.roads.roads.filter(r => r.c <= 6 && r.len > 600);
+for (const id of only || ['gautefall', 'trinnvik', 'savanne', 'stein', 'tromoya']) {         // stein and tromoya: the dearest trees
+  const isl = world.islands.find(i => i.id === id); if (isl.def.backdrop) continue;
+  const roads = isl.roads.roads.filter(r => r.c <= 6 && r.len > 600); if (!roads.length) continue;
   const r = roads[Math.floor(R() * roads.length)], P = r.p, m = P.length / 3, DTF6 = 1 / 60, v = 60 / 3.6;
   let best = null;
   for (let run = 1; run <= 3 && !(best && best.ok); run++) {
     const life = new Life(world), met = new WeakSet(), t0 = tempo();
-    let k = 0, s = 0, x = P[0] + isl.ox, z = P[1] + isl.oz, worst = { ms: 0, wall: 0, f: 0 }, fill = { ms: 0, wall: 0 }, drained = [], queued = 0, born = 0;
-    // a jump: what animals.js does after the ferry or a teleport
-    const jump = (nx, nz) => { x = nx; z = nz; const V = view(x, z); life.drop(V); const c = cost(() => life.fill(V)); if (c.ms > fill.ms) fill = c; };
+    isl.scatterCache.clear();           // the trees too are made afresh, as in the game (there the renderer's worker makes its own)
+    let k = 0, s = 0, x = P[0] + isl.ox, z = P[1] + isl.oz, worst = { ms: 0, wall: 0, f: 0 }, fill = { ms: 0, wall: 0 }, drained = [], since = -1, jc = null, born = 0;
+    // a jump: what animals.js does after the ferry or a teleport, in the same frame as that frame's update (its cost is added there)
+    const jump = (nx, nz) => {
+      x = nx; z = nz; const V = view(x, z); jc = cost(() => { life.drop(V); life.fill(V); }); if (jc.ms > fill.ms) fill = jc;
+      if (since >= 0) drained.push('>' + since); since = 0;
+    };
     jump(x, z);
     for (let f = 0; f < 900; f++) {
       if (f === 300 || f === 600) { const ox = x, oz = z; let kk = k; do { kk = Math.min(m - 1, kk + 10); } while (kk < m - 1 && Math.hypot(P[kk * 3] + isl.ox - ox, P[kk * 3 + 1] + isl.oz - oz) < 200); k = kk; s = 0; jump(P[k * 3] + isl.ox, P[k * 3 + 1] + isl.oz); }
@@ -247,8 +253,9 @@ for (const id of ['gautefall', 'trinnvik', 'savanne']) {
       x += vx * DTF6; z += vz * DTF6;
       const V = view(x, z, { tvx: vx, tvz: vz, cx: x - vx * 0.6, cz: z - vz * 0.6 });
       const c = cost(() => life.update(DTF6, V)); life.events.length = 0;
+      if (jc) { c.ms += jc.ms; c.wall += jc.wall; jc = null; }
       if (c.ms > worst.ms) worst = { ms: c.ms, wall: c.wall, f };
-      if (life.pending.length) queued++; else if (queued) { drained.push(queued); queued = 0; }
+      if (since >= 0) { since++; if (!life.pending.length) { drained.push(since); since = -1; } }          // frames from the jump until the queue is empty
       // the newborn: on their own land cover, not on a road, in a house or in the water; everyone: still on good ground
       for (const a of life.animals) if (!met.has(a)) { met.add(a); born++; check(a, true, `${id} bilde ${f}`); }
       if (f % 10 === 9) for (const a of life.animals) check(a, false, `${id} bilde ${f}`);
@@ -257,9 +264,10 @@ for (const id of ['gautefall', 'trinnvik', 'savanne']) {
     if (!best || res.score < best.score) best = res;
   }
   const b = best;
-  console.log(`   ${id.padEnd(10)} ${b.n.toString().padStart(4)} dyr (${b.born} født)  verste bilde ${b.worst.ms.toFixed(2)} ms (vegg ${b.worst.wall.toFixed(2)}, bilde ${b.worst.f})  fill() høyst ${b.fill.ms.toFixed(2)} ms (vegg ${b.fill.wall.toFixed(2)})  køen tom etter ${b.drained.join('/') || '0'} bilder  (forsøk ${b.run}, tempo ${b.tempo.toFixed(1)} ms)`);
+  const q = b.drained.every(n => n === 1) ? 'i samme bilde som hoppet' : `etter ${b.drained.join('/')} bilder (1: i hoppets eget)`;
+  console.log(`   ${id.padEnd(10)} ${b.n.toString().padStart(4)} dyr (${b.born} født)  verste bilde ${b.worst.ms.toFixed(2)} ms (klokketid ${b.worst.wall.toFixed(2)}, bilde ${b.worst.f})  drop()+fill() høyst ${b.fill.ms.toFixed(2)} ms (klokketid ${b.fill.wall.toFixed(2)})  køen tom ${q}  (forsøk ${b.run}, tempo ${b.tempo.toFixed(1)} ms)`);
   if (b.worst.ms >= 3) bad(`${id}: bilde ${b.worst.f} kostet ${b.worst.ms.toFixed(2)} ms (grensen er 3)`);
-  if (b.fill.ms >= 2) bad(`${id}: fill() kostet ${b.fill.ms.toFixed(2)} ms (grensen er 2)`);
+  if (b.fill.ms >= 2) bad(`${id}: drop()+fill() kostet ${b.fill.ms.toFixed(2)} ms (grensen er 2)`);
 }
 
 console.log(fails ? `\n${fails} feil` : '\nAlt i orden');
