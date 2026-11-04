@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { U } from './gfx.js';
 
 const VERT = `
-uniform float uTime; uniform float uWave; varying vec3 vW; varying vec4 vClip;
+uniform float uTime; uniform float uWave; varying vec3 vW;
 // a few Gerstner waves (direction, wavelength, height); amplitude fades with distance so the far sea stays flat
 vec3 gerstner(vec2 p, vec2 d, float L, float A, float t){ float k = 6.2832 / L, c = sqrt(9.81 / k), f = k * (dot(d, p) - c * t);
   return vec3(d.x * A * cos(f), A * sin(f), d.y * A * cos(f)); }
@@ -15,14 +15,14 @@ void main(){
   vec3 g = gerstner(wp.xz, normalize(vec2(1.0, 0.35)), 31.0, 0.22, uTime) + gerstner(wp.xz, normalize(vec2(0.6, 1.0)), 13.0, 0.09, uTime)
          + gerstner(wp.xz, normalize(vec2(-0.4, 1.0)), 7.0, 0.045, uTime);
   wp.xyz += g * uWave * fade;
-  vW = wp.xyz; gl_Position = projectionMatrix * viewMatrix * wp; vClip = gl_Position;
+  vW = wp.xyz; gl_Position = projectionMatrix * viewMatrix * wp;
 }`;
 const FRAG = `
 #include <packing>
 uniform sampler2D tDepth; uniform sampler2D tColor; uniform float uNear; uniform float uFar; uniform vec2 uRes;
 uniform vec3 uSunDir; uniform vec3 uSunCol; uniform vec3 uSkyCol; uniform vec3 uHorCol; uniform vec3 uDeep; uniform vec3 uShallow;
 uniform float uTime; uniform float uWave; uniform float uClear; uniform vec3 fogColor; uniform float fogDensity; uniform float uFogFall; uniform vec3 uFogSun; uniform float uNight;
-varying vec3 vW; varying vec4 vClip;
+varying vec3 vW;
 float wh(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float wn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f); return mix(mix(wh(i), wh(i+vec2(1,0)), f.x), mix(wh(i+vec2(0,1)), wh(i+vec2(1,1)), f.x), f.y); }
 // the surface normal: the Gerstner slopes plus short wind waves in many directions. px is how many metres one pixel covers here:
@@ -46,12 +46,11 @@ vec3 surfN(vec2 p, float px){
   return normalize(vec3(-g.x, 1.0, -g.y));
 }
 void main(){
-  vec2 suv = (vClip.xy / vClip.w) * 0.5 + 0.5;
+  vec2 suv = gl_FragCoord.xy / uRes;                       // (the depth copy is full size, the colour copy half size: both by screen position)
   float sceneZ = -perspectiveDepthToViewZ(texture2D(tDepth, suv).x, uNear, uFar);
   vec3 toCam = cameraPosition - vW; float dist = length(toCam); vec3 V = toCam / dist;
-  float waterZ = dist * dot(-V, normalize(vec3(viewMatrix[0][2], viewMatrix[1][2], viewMatrix[2][2])) * -1.0);
   // view-space depth of this water fragment
-  vec4 vp = viewMatrix * vec4(vW, 1.0); waterZ = -vp.z;
+  vec4 vp = viewMatrix * vec4(vW, 1.0); float waterZ = -vp.z;
   if (sceneZ < waterZ - 0.02) discard;                      // (the depth test already hides water behind solid things)
   float thick = max(sceneZ - waterZ, 0.0);                   // how much water the eye looks through
   float px = length(fwidth(vW.xz));
@@ -60,7 +59,7 @@ void main(){
   vec2 off = N.xz * 0.04 * clamp(thick, 0.0, 3.0) / (1.0 + dist * 0.02);
   vec3 under = texture2D(tColor, suv + off).rgb;
   float sceneZ2 = -perspectiveDepthToViewZ(texture2D(tDepth, suv + off).x, uNear, uFar);
-  if (sceneZ2 < waterZ) under = texture2D(tColor, suv).rgb;
+  if (sceneZ2 < waterZ) under = texture2D(tColor, suv).rgb;    // (anything in front of the surface there: no refraction)
   float depthAlong = thick * (0.35 + 0.65 * clamp(V.y, 0.0, 1.0));
   vec3 absorb = exp(-depthAlong * vec3(0.75, 0.3, 0.26) * uClear);
   vec3 body = mix(uDeep, uShallow, exp(-depthAlong * 0.25)) * (0.25 + 0.75 * (1.0 - uNight));
@@ -98,29 +97,43 @@ export class Water {
       uTime: U.uTime, uSunDir: U.uSunDir, uFogFall: U.uFogFall, uFogSun: U.uFogSun, uNight: U.uNight,
     };
     this.mat = new THREE.ShaderMaterial({ uniforms: uni, vertexShader: VERT, fragmentShader: FRAG, transparent: true, depthTest: true, depthWrite: false });
+    this.mat.userData.copies = true;           // (reads the colour and depth copies: gfx makes them only when such a thing is in view)
     // the sea: a square grid round the camera, dense near the middle (it moves with the camera in whole steps)
-    const g = new THREE.PlaneGeometry(1, 1, 256, 256), p = g.attributes.position;
-    for (let i = 0; i < p.count; i++) { const x = p.getX(i) * 2, y = p.getY(i) * 2, r = Math.max(Math.abs(x), Math.abs(y)), k = r < 1e-6 ? 0 : (Math.pow(r, 3) * 24000 + r * 600) / r; p.setXY(i, x * k, y * k); }
-    g.rotateX(-Math.PI / 2); g.computeBoundingSphere();
-    this.sea = new THREE.Mesh(g, this.mat); this.sea.frustumCulled = false; this.sea.renderOrder = 5;
+    const grid = n => { const g = new THREE.PlaneGeometry(1, 1, n, n), p = g.attributes.position;
+      for (let i = 0; i < p.count; i++) { const x = p.getX(i) * 2, y = p.getY(i) * 2, r = Math.max(Math.abs(x), Math.abs(y)), k = r < 1e-6 ? 0 : (Math.pow(r, 3) * 24000 + r * 600) / r; p.setXY(i, x * k, y * k); }
+      g.rotateX(-Math.PI / 2); g.computeBoundingSphere(); return g; };
+    this.sea = new THREE.Mesh(grid(256), this.mat); this.sea.frustumCulled = false; this.sea.renderOrder = 5; this.sea.userData.probe = true;
     gfx.overlay.add(this.sea);
+    // the stand-ins gfx draws in its occlusion query: the same shapes, flat, 1.5 m above the surface (the waves never reach that
+    // high, so the water is drawn whenever any of it could show)
+    this.seaProbe = new THREE.Mesh(grid(16), gfx.probeMat); this.seaProbe.frustumCulled = false; gfx.probe.add(this.seaProbe);
     // lakes: flat polygons at their own level, calmer
     this.lakeMat = this.mat.clone(); this.lakeMat.uniforms = Object.assign({}, uni, { uWave: { value: 0.12 }, uClear: { value: 2.5 }, uShallow: { value: new THREE.Color(0.05, 0.12, 0.08) }, uDeep: { value: new THREE.Color(0.01, 0.03, 0.025) } });
+    this.lakeMat.userData.copies = true;
+    this.lakes = [];                           // (centre, radius and level of each lake: see update)
     for (const isl of world.islands) for (const l of isl.lakes) {
       const sh = new THREE.Shape(); for (let i = 0; i < l.p.length; i += 2) { const x = l.p[i] + isl.ox, z = l.p[i + 1] + isl.oz; if (i) sh.lineTo(x, -z); else sh.moveTo(x, -z); }
       const lg = new THREE.ShapeGeometry(sh); lg.rotateX(-Math.PI / 2); lg.translate(0, l.y, 0);
-      const m = new THREE.Mesh(lg, this.lakeMat); m.renderOrder = 4; gfx.overlay.add(m);
+      const m = new THREE.Mesh(lg, this.lakeMat); m.renderOrder = 4; m.userData.probe = true; gfx.overlay.add(m);
+      const pm = new THREE.Mesh(lg, gfx.probeMat); pm.position.y = 1.5; gfx.probe.add(pm);
+      lg.computeBoundingSphere(); const c = lg.boundingSphere.center; this.lakes.push({ x: c.x, z: c.z, r: lg.boundingSphere.radius, y: l.y });
     }
   }
   update(dt) {
     const g = this.gfx, cam = g.camera, u = this.uni;
     const step = 50; this.sea.position.set(Math.round(cam.position.x / step) * step, this.world.sea || 0, Math.round(cam.position.z / step) * step);
-    u.tDepth.value = g.rtDepth.texture; u.tColor.value = g.rtColor.texture; u.uNear.value = cam.near; u.uFar.value = cam.far;
+    this.seaProbe.position.copy(this.sea.position); this.seaProbe.position.y += 1.5;
+    // a camera less than 3 m above a water level can be under its stand-in and look down past it: gfx then draws the water
+    // without asking the query (lakes within 500 m of their edge only)
+    const p = cam.position; let near = p.y - (this.world.sea || 0) < 3;
+    for (let i = 0; i < this.lakes.length && !near; i++) { const l = this.lakes[i]; near = p.y - l.y < 3 && p.y - l.y > -2 && Math.hypot(p.x - l.x, p.z - l.z) < l.r + 500; }
+    g.ov.near = near;
+    u.tDepth.value = g.rtDepth.texture; u.tColor.value = g.rtColor.texture; u.uRes.value.set(g.size.W, g.size.H); u.uNear.value = cam.near; u.uFar.value = cam.far;
     u.fogDensity.value = g.scene.fog.density;
     const day = 1 - U.uNight.value;
     u.uHorCol.value.copy(g.scene.fog.color).multiplyScalar(1.05);
     u.uSkyCol.value.setRGB(0.18, 0.36, 0.62).multiplyScalar(0.1 + 0.9 * day);
     u.uSunCol.value.copy(U.uFogSun.value);
-    for (const k of ['tDepth', 'tColor', 'uNear', 'uFar', 'fogDensity']) this.lakeMat.uniforms[k] = u[k];
+    for (const k of ['tDepth', 'tColor', 'uRes', 'uNear', 'uFar', 'fogDensity']) this.lakeMat.uniforms[k] = u[k];
   }
 }

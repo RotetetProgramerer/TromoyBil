@@ -8,6 +8,11 @@
 //    ikke bom stille. En sau: bilen merker den knapt. En elefant: bilen stanser mot den og kjører ikke gjennom den.
 // 4) Løven: en bil som står stille nær flokken blir angrepet (bilen kastes til siden, og det koster muttere), av én løve, ikke hele flokken.
 // 5) Elg i veien: hendelsen som setter en elg ut i veien et stykke foran bilen finner et sted på en skogsvei.
+// 6) Hakk: 900 bilder i 60 km/t på Gautefall, Trinnvik, Løveøya, Spornes og Tromøya med et hopp (ferje/teleport) hvert 300. bilde:
+//    intet bilde over 3 ms (hoppets drop() og fill() regnes med i bildet de skjer i, slik animals.js gjør dem), ingen drop()+fill()
+//    over 2 ms (dyrene lages litt om gangen over de neste bildene), og de nyfødte står der de får lov. Trærne lages på nytt for
+//    hvert forsøk, som i spillet. Maskinen deles med andre jobber, så hver øy får inntil tre forsøk: et hakk i koden viser seg i
+//    alle, en travel nabo ikke. Med øyer på kommandolinjen kjøres hakk-sjekken på dem i stedet.
 import { World } from '../sim/world/world.js';
 import { WORLD } from '../sim/data/world.js';
 import { COVER } from '../sim/world/island.js';
@@ -66,17 +71,23 @@ function points(isl, n) {
   return out;
 }
 const view = (x, z, extra = {}) => Object.assign({ fx: x, fz: z, cx: x - 8, cy: 4, cz: z - 8, tx: x, tz: z, tvx: 0, tvz: 0, night: 0, lights: false, honk: false, pen: 'nuts', car: null }, extra);
+// what a piece of work cost: the smaller of its wall time and the process's CPU time, so that this machine's other jobs (the
+// scheduler puts us aside for tens of ms at a time) do not count as hitches
+const cpuMs = () => { const c = process.cpuUsage(); return (c.user + c.system) / 1000; };
+function cost(f) { const c0 = cpuMs(), t0 = performance.now(); f(); const w = performance.now() - t0; return { ms: Math.min(w, cpuMs() - c0), wall: w }; }
 
 // ---------------------------------------------------------------- 1) birth
 console.log('1) Fødsel: spawneren på 14 punkter per øy');
 const seen = {}, maxN = { n: 0 };
+let queueMax = 0;
 for (const isl of world.islands) {
   if (isl.def.backdrop || only && !only.includes(isl.id)) continue;
   const bio = isl.def.biome || 'nordic', allowed = BIOME[bio], per = {};
   let t = 0, cells = 0;
   for (const p of points(isl, 14)) {
     const life = new Life(world), V = view(p.x, p.z), t0 = performance.now();
-    life.fill(V); t += performance.now() - t0; cells++;
+    life.fill(V); queueMax = Math.max(queueMax, performance.now() - t0);        // the queueing alone (what the game pays in the frame)
+    life.drain(Infinity); t += performance.now() - t0; cells++;                   // and all of it, for the checks
     maxN.n = Math.max(maxN.n, life.animals.length);
     if (life.animals.length > 320) bad(`${isl.id}: ${life.animals.length} dyr (over budsjettet)`);
     for (const a of life.animals) {
@@ -90,7 +101,7 @@ for (const isl of world.islands) {
   const missing = Object.keys(allowed).filter(id => !per[id] && allowed[id] >= 0.5);
   if (missing.length) console.log(`      (ikke sett her: ${missing.join(', ')})`);
 }
-console.log(`   flest dyr på én gang: ${maxN.n}`);
+console.log(`   flest dyr på én gang: ${maxN.n}; fill() (bare køen) kostet høyst ${queueMax.toFixed(2)} ms`);
 const never = SPECIES.filter(s => !seen[s.id] && (!only || only.some(id => { const b = world.islands.find(i => i.id === id).def.biome || 'nordic'; return BIOME[b][s.id]; })));
 if (never.length) bad('aldri født: ' + never.map(s => s.id).join(', '));
 
@@ -171,7 +182,7 @@ console.log('4) Løvene angriper en bil som står stille');
 {
   const sav = world.islands.find(i => i.id === 'savanne');
   let L = null, life;
-  for (const p of points(sav, 200)) { life = new Life(world); life.fill(view(p.x, p.z)); L = life.animals.find(a => a.sp.id === 'love'); if (L) break; }
+  for (const p of points(sav, 200)) { life = new Life(world); life.fill(view(p.x, p.z)); life.drain(Infinity); L = life.animals.find(a => a.sp.id === 'love'); if (L) break; }
   if (!L) bad('fant ingen løver på Løveøya');
   else {
     world.movers.length = 0; world.movers.push(life.hook);
@@ -208,6 +219,55 @@ console.log('5) Elg i veien foran bilen');
   }
   console.log(`   ${found} av ${tries} forsøk på veier ga en elg ved veien 150–220 m foran bilen (langs veien)`);
   if (!found) bad('fant aldri et sted for elgen');
+  // the event cells share ring 2's map with the grid's cells, so none may get a key the grid also hands out (grid cell (0,-k) and
+  // the k-th event once had the same: the event took the cell's place, and the cell's herd was later made a second time)
+  const V0 = view(64, -500), ref = new Life(world); ref.fill(V0); life.fill(V0);
+  const evs = [...life.cells[2].values()].filter(c => c.ev).length, lost = ref.cells[2].size + evs - life.cells[2].size;
+  if (evs !== found) bad(`${found} hendelser, men ${evs} hendelsesceller i ring 2`);
+  if (lost) bad(`${lost} av rutenettets celler i ring 2 fikk ikke plass fordi en hendelse hadde nøkkelen deres`);
+}
+
+// ---------------------------------------------------------------- 6) no hitches: driving with jumps, the animals made a little at a time
+console.log('6) Hakk: 900 bilder i 60 km/t med et hopp hvert 300. bilde (grensene: bilde < 3 ms med hoppet, drop()+fill() < 2 ms)');
+// a fixed piece of arithmetic (about 1 ms when this machine is quiet): what the machine's tempo was when a run was measured
+const tempo = () => { const t0 = performance.now(); let s = 0; for (let i = 0; i < 3e5; i++) s += Math.sqrt(i + s * 1e-9); return performance.now() - t0; };
+for (const id of only || ['gautefall', 'trinnvik', 'savanne', 'stein', 'tromoya']) {         // stein and tromoya: the dearest trees
+  const isl = world.islands.find(i => i.id === id); if (isl.def.backdrop) continue;
+  const roads = isl.roads.roads.filter(r => r.c <= 6 && r.len > 600); if (!roads.length) continue;
+  const r = roads[Math.floor(R() * roads.length)], P = r.p, m = P.length / 3, DTF6 = 1 / 60, v = 60 / 3.6;
+  let best = null;
+  for (let run = 1; run <= 3 && !(best && best.ok); run++) {
+    const life = new Life(world), met = new WeakSet(), t0 = tempo();
+    isl.scatterCache.clear();           // the trees too are made afresh, as in the game (there the renderer's worker makes its own)
+    let k = 0, s = 0, x = P[0] + isl.ox, z = P[1] + isl.oz, worst = { ms: 0, wall: 0, f: 0 }, fill = { ms: 0, wall: 0 }, drained = [], since = -1, jc = null, born = 0;
+    // a jump: what animals.js does after the ferry or a teleport, in the same frame as that frame's update (its cost is added there)
+    const jump = (nx, nz) => {
+      x = nx; z = nz; const V = view(x, z); jc = cost(() => { life.drop(V); life.fill(V); }); if (jc.ms > fill.ms) fill = jc;
+      if (since >= 0) drained.push('>' + since); since = 0;
+    };
+    jump(x, z);
+    for (let f = 0; f < 900; f++) {
+      if (f === 300 || f === 600) { const ox = x, oz = z; let kk = k; do { kk = Math.min(m - 1, kk + 10); } while (kk < m - 1 && Math.hypot(P[kk * 3] + isl.ox - ox, P[kk * 3 + 1] + isl.oz - oz) < 200); k = kk; s = 0; jump(P[k * 3] + isl.ox, P[k * 3 + 1] + isl.oz); }
+      const tx = P[k * 3] + isl.ox, tz = P[k * 3 + 1] + isl.oz, dx = tx - x, dz = tz - z, d = Math.hypot(dx, dz);
+      let vx = 0, vz = 0; if (d < 2) { k += s ? -1 : 1; if (k >= m) { k = m - 1; s = 1; } if (k < 0) { k = 0; s = 0; } } else { vx = dx / d * v; vz = dz / d * v; }
+      x += vx * DTF6; z += vz * DTF6;
+      const V = view(x, z, { tvx: vx, tvz: vz, cx: x - vx * 0.6, cz: z - vz * 0.6 });
+      const c = cost(() => life.update(DTF6, V)); life.events.length = 0;
+      if (jc) { c.ms += jc.ms; c.wall += jc.wall; jc = null; }
+      if (c.ms > worst.ms) worst = { ms: c.ms, wall: c.wall, f };
+      if (since >= 0) { since++; if (!life.pending.length) { drained.push(since); since = -1; } }          // frames from the jump until the queue is empty
+      // the newborn: on their own land cover, not on a road, in a house or in the water; everyone: still on good ground
+      for (const a of life.animals) if (!met.has(a)) { met.add(a); born++; check(a, true, `${id} bilde ${f}`); }
+      if (f % 10 === 9) for (const a of life.animals) check(a, false, `${id} bilde ${f}`);
+    }
+    const res = { run, worst, fill, drained, born, n: life.animals.length, tempo: (t0 + tempo()) / 2, ok: worst.ms < 3 && fill.ms < 2, score: Math.max(worst.ms / 3, fill.ms / 2) };
+    if (!best || res.score < best.score) best = res;
+  }
+  const b = best;
+  const q = b.drained.every(n => n === 1) ? 'i samme bilde som hoppet' : `etter ${b.drained.join('/')} bilder (1: i hoppets eget)`;
+  console.log(`   ${id.padEnd(10)} ${b.n.toString().padStart(4)} dyr (${b.born} født)  verste bilde ${b.worst.ms.toFixed(2)} ms (klokketid ${b.worst.wall.toFixed(2)}, bilde ${b.worst.f})  drop()+fill() høyst ${b.fill.ms.toFixed(2)} ms (klokketid ${b.fill.wall.toFixed(2)})  køen tom ${q}  (forsøk ${b.run}, tempo ${b.tempo.toFixed(1)} ms)`);
+  if (b.worst.ms >= 3) bad(`${id}: bilde ${b.worst.f} kostet ${b.worst.ms.toFixed(2)} ms (grensen er 3)`);
+  if (b.fill.ms >= 2) bad(`${id}: drop()+fill() kostet ${b.fill.ms.toFixed(2)} ms (grensen er 2)`);
 }
 
 console.log(fails ? `\n${fails} feil` : '\nAlt i orden');

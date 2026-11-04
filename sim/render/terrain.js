@@ -217,7 +217,7 @@ export class Terrain {
     g.boundingBox = new THREE.Box3(new THREE.Vector3(n.x0, m.ymin - 2, n.z0), new THREE.Vector3(n.x0 + n.size, m.ymax, n.z0 + n.size));
     g.boundingSphere = g.boundingBox.getBoundingSphere(new THREE.Sphere());
     const isl = this.islandFor(n), mesh = new THREE.Mesh(g, isl ? this.mats.get(isl) : this.seaMat);
-    mesh.receiveShadow = true; mesh.castShadow = n.size <= 128; mesh.matrixAutoUpdate = false; mesh.visible = false;
+    mesh.receiveShadow = true; mesh.castShadow = n.size <= 64; mesh.matrixAutoUpdate = false; mesh.visible = false;   // (only the near chunks cast)
     n.mesh = mesh; n.state = 2; this.group.add(mesh);
   }
 }

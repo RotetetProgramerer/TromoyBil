@@ -45,6 +45,18 @@ python3 -m http.server 8000      # så http://localhost:8000/
 Nyttige adresser: `index.html?q=lav|middels|hoy|ultra` (grafikk), `&t=21` (klokka), `&play` (rett ut og kjør),
 `&x=-3770&z=3921` (start et sted, meter fra midten av Tromøya), `&act=boat|plane|ski` (rett til en aktivitet).
 
+## Grafikk
+
+Fire nivåer (`QUALITY` i `sim/render/gfx.js`): **Lav** uten skygger og med 0,75 × oppløsning, **Middels** med to skyggekaskader
+(1024², til 400 m), **Høy** med tre (1536², til 900 m) og 2 × kantutjevning, **Ultra** med fire (2048², myke skygger) og 4 ×.
+Pikseltettheten begrenses per nivå (1 / 1 / 1,25 / 1,5), så en 2 ×-skjerm tegnes i 1 × på Lav og Middels. Spillet starter på
+Middels (Lav på mobil og nettbrett) og måler bildetiden mens du kjører (`sim/render/autoq.js`): ligger den over 28 ms i fire
+sekunder, settes grafikken ett nivå ned med en beskjed; ligger den under 9 ms i tolv sekunder, settes den ett nivå opp (aldri over
+Høy, og aldri etter et nedtrinn, heller ikke ved neste besøk). Et jevnt bilde under 36 ms regnes som skjermens egen takt (30 Hz,
+strømsparing) og ikke som hakking. Velger du et nivå selv i Innstillinger, blir det stående. Vannet leser en kopi av bildet i halv
+oppløsning og en av dybden i full, og kopiene lages bare når noe vann kan sees (en okklusjonsspørring mot en flate like over sjøen
+og vannene; nær vannflaten tegnes vannet alltid).
+
 ## Mappestruktur
 
 ```
@@ -83,6 +95,12 @@ tools/                  Byggeverktøy og tester (under)
 | `node tools/test-vehicle.mjs [bil]` | Måler bilene: 0–100, toppfart, bremselengde, sidegrep, klatring |
 | `node tools/test-courses.mjs`, `node tools/test-islands.mjs` | Autopilot som kjører løypene |
 | `node tools/test-boat.mjs`, `node tools/test-plane.mjs` | Måler båtene og flyene mot ekte tall |
+| `node tools/test-boat-races.mjs`, `node tools/test-plane-flights.mjs`, `node tools/test-ski.mjs` | Autopilot gjennom båtløpene, flygingene og nedfartene |
+| `node tools/test-trees.mjs` | Trærne: ingen bakgrunnstrær på øyene, alltid fulle trær rundt kameraet på alle grafikknivåer |
+| `node tools/test-roads.mjs` | Veiene: ingen sprang langs veiene, undergangene under bruene og bilen over og under brua |
+| `node tools/test-animals.mjs` | Dyrene: plassering, sammenstøt, løveangrep og at utsettingen ikke hakker |
+| `node tools/test-autoq.mjs` | Det automatiske grafikknivået |
+| `node tools/test-ui.mjs [port]` | Spillflyten i nettleseren (Playwright; start `python3 -m http.server 8123` først) |
 | `node tools/make-sw.mjs` | Lager `sw.js` på nytt (publiseringen gjør det selv med commit-hashen som versjon; kjør den bare når lista over filer har endret seg) |
 
 ## Publisering

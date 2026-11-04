@@ -29,9 +29,9 @@ export class World {
     for (const isl of this.islands) { if (!isl.inside(x, z, 10)) continue; if (isl.def.backdrop) { bd = bd || isl; continue; } this._last = isl; return isl; }
     return bd;
   }
-  height(x, z, bare) {
+  height(x, z, bare, ref) {
     const isl = this.islandAt(x, z);
-    if (isl) return isl.height(x, z, bare);
+    if (isl) return isl.height(x, z, bare, ref);
     return this.backdrop && this.backdrop.inside(x, z) ? this.backdrop.bilinear(x, z) : -30;
   }
   terrain(x, z) {
@@ -39,11 +39,11 @@ export class World {
     if (isl) return isl.terrain(x, z);
     return this.backdrop && this.backdrop.inside(x, z) ? this.backdrop.bilinear(x, z) : -30;
   }
-  normal(x, z, out) {
-    const e = 0.35, isl = this.islandAt(x, z), H = isl ? (a, b) => isl.height(a, b) : (a, b) => this.height(a, b);
+  normal(x, z, out, ref) {
+    const e = 0.35, isl = this.islandAt(x, z), H = isl ? (a, b) => isl.height(a, b, false, ref) : (a, b) => this.height(a, b);
     return out.set(H(x - e, z) - H(x + e, z), 2 * e, H(x, z - e) - H(x, z + e)).normalize();
   }
-  surface(x, z) { const isl = this.islandAt(x, z); return isl ? isl.surface(x, z) : SURF.SEABED; }
+  surface(x, z, ref) { const isl = this.islandAt(x, z); return isl ? isl.surface(x, z, ref) : SURF.SEABED; }
   water(x, z) { const isl = this.islandAt(x, z); return isl ? isl.water(x, z) : this.sea; }
   colliders(x, z, r) { this._cols.length = 0; const isl = this.islandAt(x, z); if (isl) isl.colliders(x, z, r, this._cols); for (const f of this.movers) f(x, z, r, this._cols); return this._cols; }
   road(x, z) { const isl = this.islandAt(x, z); return isl ? isl.roads.query(x - isl.ox, z - isl.oz) : null; }

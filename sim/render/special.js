@@ -141,6 +141,7 @@ export class Special {
   }
   overlayMat(vs, fs, extra = {}, o = {}) {
     const m = new THREE.ShaderMaterial(Object.assign({ uniforms: Object.assign({}, this.ou, extra), vertexShader: vs, fragmentShader: fs, transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide }, o));
+    m.userData.copies = true;                  // (reads the depth copy: gfx makes it only when such a thing is in view)
     return prep(m);
   }
   lavaMaterial() {
