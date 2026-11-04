@@ -191,10 +191,13 @@ export class Game {
   play() { this.ui.hide(); this.mode = 'drive'; this.snd.unlock && this.snd.unlock(); this.cam.snap = true; }
   toMenu() { if (this.act) this.act.stop(); this.courses.stop(); this.ui.course(null); this.halt(); this.mode = 'menu'; this.ui.show('menu'); }
   pause(on = true) { if (on && (this.mode === 'drive' || this.mode === 'race')) { this.prevMode = this.mode; this.mode = 'pause'; this.ui.show('pause'); } }
-  resume() { this.ui.hide(); if (['pause', 'menu', 'result', 'garage'].includes(this.mode)) this.mode = this.act ? 'act' : 'drive'; }
+  resume() { this.ui.hide(); if (this.mode === 'menu' || this.mode === 'garage') this.cam.snap = true; if (['pause', 'menu', 'result', 'garage'].includes(this.mode)) this.mode = this.act ? 'act' : 'drive'; }      // the orbit camera was up: cut behind the car, as play() does
   // the car parked, for when a screen takes over (the menu, a result, an activity): no motion, the handbrake on. Not the brake:
   // held at standstill it means reverse in the automatic (vehicle.js controls()), and the car would back away against the handbrake
-  halt() { const I = this.car.input; I.gas = 0; I.brake = 0; I.steer = 0; I.handbrake = 1; this.car.vel.set(0, 0, 0); this.car.w.set(0, 0, 0); }
+  halt() {
+    const c = this.car, I = c.input; I.gas = 0; I.brake = 0; I.steer = 0; I.handbrake = 1; c.vel.set(0, 0, 0); c.w.set(0, 0, 0);
+    for (const wh of c.wheels) { wh.omega = 0; wh.kappa = 0; wh.tanA = 0; }      // the wheels too, or the tyres slip against the standing car for a moment
+  }
   // an activity takes over the frame; the car waits where it is parked
   startActivity(a) {
     if (this.act && this.act !== a) this.act.stop();

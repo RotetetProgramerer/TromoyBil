@@ -18,7 +18,8 @@ const helpers = () => {
   SIM.gfx.render = () => {};                                     // software GL takes seconds per frame; the state is what we test
   window.ST = () => ({ mode: g.mode, open: g.ui.open, from: g.ui.from, vis: [...document.querySelectorAll('.overlay')].filter(o => !o.hidden).map(o => o.id), hud: !$('hud').hidden,
     offer: $('offer').hidden ? null : $('oKind').textContent, pAbort: !$('pAbort').hidden, hCourse: !$('hCourse').hidden, count: !$('count').hidden,
-    toast: $('toast').classList.contains('on') ? $('toast').textContent : null, pos: [g.car.pos.x, g.car.pos.z], kmh: Math.round(g.car.kmh), race: !!g.courses.active, nuts: g.prof.nuts });
+    toast: $('toast').classList.contains('on') ? $('toast').textContent : null, pos: [g.car.pos.x, g.car.pos.z], kmh: Math.round(g.car.kmh), race: !!g.courses.active, nuts: g.prof.nuts,
+    spin: Math.max(...g.car.wheels.map(w => Math.abs(w.omega))) });
   window.TICK = (sec, dt = 0.05) => { for (let t = 0; t < sec - 1e-9; t += dt) g.update(dt); return ST(); };
   window.TP = (x, z, h = 0) => { g.car.place(SIM.world, x, z, h); for (let i = 0; i < 200; i++) g.car.step(1 / 400, SIM.world); g.afterIslandChange(); g.cam.snap = true; };
   window.RESET = () => { g.courses.stop(); g.ui.course(null); g.ui.hide(); g.mode = 'drive'; g.car.vel.set(0, 0, 0); g.car.w.set(0, 0, 0); };
@@ -37,6 +38,8 @@ const ev = (f, a) => p.evaluate(f, a);
 const st = () => ev(() => ST());
 const tick = s => ev(s => TICK(s), s);
 const click = sel => ev(sel => { const el = document.querySelector(sel); if (!el || el.hidden || el.closest('[hidden]') || el.disabled) return false; el.click(); return true; }, sel);
+// click, and read the camera's snap flag in the same turn, before the page's own frame loop consumes it
+const clickSnap = sel => ev(sel => { const el = document.querySelector(sel); if (!el || el.hidden || el.closest('[hidden]')) return null; el.click(); return SIM.game.cam.snap; }, sel);
 const key = async (k, sec = 0.1) => { await p.keyboard.press(k); return tick(sec); };
 const reset = () => ev(() => RESET());
 const flow = async (name, fn) => { try { await fn(); } catch (e) { check(name + ': kjørte ikke ferdig', false, e.message.split('\n')[0]); } };
@@ -64,8 +67,9 @@ await flow('UI-01', async () => {
   check('UI-01 tilbudet «Verkstedet» ved verkstedet', w1.offer === 'Verkstedet', `offer ${w1.offer}, mode ${w1.mode}`);
   const w2 = await key('Enter');
   check('UI-01 Enter åpner verkstedet', w2.vis.includes('garage'), `vis [${w2.vis}], mode ${w2.mode}`);
-  await click('#garage [data-back]'); const w3 = await tick(0.3);
+  const snap = await clickSnap('#garage [data-back]'); const w3 = await tick(0.3);
   check('UI-01 «Tilbake» fra verkstedet → kjøring', w3.mode === 'drive' && w3.vis.length === 0 && w3.hud, `mode ${w3.mode}, vis [${w3.vis}]`);
+  check('UI-01 kameraet klipper bak bilen (cam.snap) ved «Tilbake»', snap === true, `snap ${snap}`);
   await tick(0.6); const w4 = await key('Enter'); const w5 = await key('Escape');
   check('UI-01 Esc fra verkstedet → kjøring', w4.vis.includes('garage') && w5.mode === 'drive' && w5.vis.length === 0, `garage ${w4.vis.includes('garage')}, mode ${w5.mode}, vis [${w5.vis}]`);
   const w6 = await key('m');
@@ -102,6 +106,7 @@ await flow('UI-05', async () => {
   await ev(([x, z, h]) => { const c = SIM.game.car; c.place(SIM.world, x - Math.sin(h) * 25, z - Math.cos(h) * 25, h); for (let i = 0; i < 50; i++) c.step(1 / 400, SIM.world); c.vel.set(Math.sin(h) * 28, 0, Math.cos(h) * 28); }, [last[0], last[1], hh]);
   let pre = null, fin = null; for (let i = 0; i < 60; i++) { pre = fin; fin = await tick(0.05); if (fin.mode === 'result') break; }
   check('UI-05 målgang i fart → resultatskjermen', fin.mode === 'result' && fin.vis.includes('result'), `mode ${fin.mode}, ${pre ? pre.kmh : '?'} km/t før mål`);
+  check('UI-05 hjulene står stille i samme bilde som resultatet (ingen spinn mot bakken)', fin.mode === 'result' && fin.spin < 0.5, `maks |omega| ${fin.spin.toFixed(2)} rad/s (${pre ? pre.spin.toFixed(1) : '?'} før mål)`);
   const r5 = await tick(5);
   check('UI-05 bilen står stille mens resultatet er oppe (< 2 m på 5 s)', r5.mode === 'result' && dist(fin, r5) < 2 && r5.kmh === 0, `${dist(fin, r5).toFixed(1)} m, ${r5.kmh} km/t`);
   await click('#rDone'); const d1 = await tick(0.1);
