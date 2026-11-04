@@ -46,22 +46,19 @@ vec3 surfN(vec2 p, float px){
   return normalize(vec3(-g.x, 1.0, -g.y));
 }
 void main(){
-  vec2 suv = gl_FragCoord.xy / uRes;                       // (uRes is twice the half-size copies, so this lands on the right texel)
-  // the depth copy is half size and holds the farthest (x) and the nearest (y) of each 2 × 2 block (see gfx.resize)
-  vec2 dz = texture2D(tDepth, suv).xy;
-  float zFar = -perspectiveDepthToViewZ(dz.x, uNear, uFar), zNear = -perspectiveDepthToViewZ(dz.y, uNear, uFar);
+  vec2 suv = gl_FragCoord.xy / uRes;                       // (the depth copy is full size, the colour copy half size: both by screen position)
+  float sceneZ = -perspectiveDepthToViewZ(texture2D(tDepth, suv).x, uNear, uFar);
   vec3 toCam = cameraPosition - vW; float dist = length(toCam); vec3 V = toCam / dist;
   // view-space depth of this water fragment
   vec4 vp = viewMatrix * vec4(vW, 1.0); float waterZ = -vp.z;
-  if (zFar < waterZ - 0.02) discard;                        // (the depth test already hides water behind solid things)
-  float sceneZ = zNear >= waterZ - 0.02 ? zNear : zFar;      // the nearest thing under the surface, unless that is a silhouette in front
+  if (sceneZ < waterZ - 0.02) discard;                      // (the depth test already hides water behind solid things)
   float thick = max(sceneZ - waterZ, 0.0);                   // how much water the eye looks through
   float px = length(fwidth(vW.xz));
   vec3 N = surfN(vW.xz, px);
   // through the water: the bottom, shifted by the waves, tinted and absorbed with depth
   vec2 off = N.xz * 0.04 * clamp(thick, 0.0, 3.0) / (1.0 + dist * 0.02);
   vec3 under = texture2D(tColor, suv + off).rgb;
-  float sceneZ2 = -perspectiveDepthToViewZ(texture2D(tDepth, suv + off).y, uNear, uFar);
+  float sceneZ2 = -perspectiveDepthToViewZ(texture2D(tDepth, suv + off).x, uNear, uFar);
   if (sceneZ2 < waterZ) under = texture2D(tColor, suv).rgb;    // (anything in front of the surface there: no refraction)
   float depthAlong = thick * (0.35 + 0.65 * clamp(V.y, 0.0, 1.0));
   vec3 absorb = exp(-depthAlong * vec3(0.75, 0.3, 0.26) * uClear);
@@ -113,18 +110,25 @@ export class Water {
     // lakes: flat polygons at their own level, calmer
     this.lakeMat = this.mat.clone(); this.lakeMat.uniforms = Object.assign({}, uni, { uWave: { value: 0.12 }, uClear: { value: 2.5 }, uShallow: { value: new THREE.Color(0.05, 0.12, 0.08) }, uDeep: { value: new THREE.Color(0.01, 0.03, 0.025) } });
     this.lakeMat.userData.copies = true;
+    this.lakes = [];                           // (centre, radius and level of each lake: see update)
     for (const isl of world.islands) for (const l of isl.lakes) {
       const sh = new THREE.Shape(); for (let i = 0; i < l.p.length; i += 2) { const x = l.p[i] + isl.ox, z = l.p[i + 1] + isl.oz; if (i) sh.lineTo(x, -z); else sh.moveTo(x, -z); }
       const lg = new THREE.ShapeGeometry(sh); lg.rotateX(-Math.PI / 2); lg.translate(0, l.y, 0);
       const m = new THREE.Mesh(lg, this.lakeMat); m.renderOrder = 4; m.userData.probe = true; gfx.overlay.add(m);
       const pm = new THREE.Mesh(lg, gfx.probeMat); pm.position.y = 1.5; gfx.probe.add(pm);
+      lg.computeBoundingSphere(); const c = lg.boundingSphere.center; this.lakes.push({ x: c.x, z: c.z, r: lg.boundingSphere.radius, y: l.y });
     }
   }
   update(dt) {
     const g = this.gfx, cam = g.camera, u = this.uni;
     const step = 50; this.sea.position.set(Math.round(cam.position.x / step) * step, this.world.sea || 0, Math.round(cam.position.z / step) * step);
     this.seaProbe.position.copy(this.sea.position); this.seaProbe.position.y += 1.5;
-    u.tDepth.value = g.rtDepth.texture; u.tColor.value = g.rtColor.texture; u.uRes.value.copy(g.copyRes); u.uNear.value = cam.near; u.uFar.value = cam.far;
+    // a camera less than 3 m above a water level can be under its stand-in and look down past it: gfx then draws the water
+    // without asking the query (lakes within 500 m of their edge only)
+    const p = cam.position; let near = p.y - (this.world.sea || 0) < 3;
+    for (let i = 0; i < this.lakes.length && !near; i++) { const l = this.lakes[i]; near = p.y - l.y < 3 && p.y - l.y > -2 && Math.hypot(p.x - l.x, p.z - l.z) < l.r + 500; }
+    g.ov.near = near;
+    u.tDepth.value = g.rtDepth.texture; u.tColor.value = g.rtColor.texture; u.uRes.value.set(g.size.W, g.size.H); u.uNear.value = cam.near; u.uFar.value = cam.far;
     u.fogDensity.value = g.scene.fog.density;
     const day = 1 - U.uNight.value;
     u.uHorCol.value.copy(g.scene.fog.color).multiplyScalar(1.05);

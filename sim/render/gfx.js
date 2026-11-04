@@ -30,7 +30,7 @@ export const U = {
   uSnow: { value: 0 },
   uNight: { value: 0 },
 };
-const _frustum = new THREE.Frustum(), _pv = new THREE.Matrix4();
+const _frustum = new THREE.Frustum(), _pv = new THREE.Matrix4(), _dir = new THREE.Vector3();
 
 // fog for every built-in material: exponential with height (thick by the sea, thin on the hills) and brighter towards the sun
 THREE.ShaderChunk.fog_pars_vertex = '#ifdef USE_FOG\n varying vec3 vFogPos;\n#endif';
@@ -109,7 +109,8 @@ export class Gfx {
     // inside an occlusion query, so the next frame knows whether any water can be seen at all (see render)
     this.probe = new THREE.Scene(); this.probeMat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false, side: THREE.DoubleSide });
     this.gl = r.getContext(); this.occInit(); r.domElement.addEventListener('webglcontextrestored', () => this.occInit());
-    this.ov = { draw: true, copies: true, water: true, skipped: 0, frames: 0 };
+    this.ov = { draw: true, copies: true, water: true, near: false, skipped: 0, frames: 0 };
+    this.camAt = new THREE.Vector3(1e9, 0, 0); this.camLook = new THREE.Vector3();
     this.camera = new THREE.PerspectiveCamera(60, 1, 0.1, 20000);
     this.hemi = new THREE.HemisphereLight(0xbfd6ff, 0x4a4030, 0.6);
     this.scene.add(this.hemi);
@@ -175,21 +176,15 @@ export class Gfx {
     const dt = new THREE.DepthTexture(W, H); dt.type = THREE.FloatType;
     this.rtScene = mk({ depthTexture: dt, samples: this.q.msaa });
     // copies of the opaque scene's colour and depth: the water reads them while it is drawn into rtScene with a real depth test.
-    // Half size: the refraction is blurred by the waves anyway, and the depth copy keeps the farthest (x) and the nearest (y) of
-    // each 2 × 2 block: the readers (which sample by screen position) take the farthest where the nearest is in front of the
-    // water (a silhouette: no false discard or fade), else the nearest (a duck just under the surface stays see-through)
-    const W2 = Math.ceil(W / 2), H2 = Math.ceil(H / 2);
-    this.rtColor = new THREE.WebGLRenderTarget(W2, H2, { type: THREE.HalfFloatType, colorSpace: THREE.LinearSRGBColorSpace, depthBuffer: false });
-    this.rtDepth = new THREE.WebGLRenderTarget(W2, H2, { type: THREE.FloatType, format: THREE.RGFormat, depthBuffer: false, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
+    // The colour at half size (the refraction is blurred by the waves anyway, and the readers sample it by screen position with
+    // linear filtering); the depth at full size: a half-size depth steps the water's thickness in 2-px bands
+    this.rtColor = new THREE.WebGLRenderTarget(Math.ceil(W / 2), Math.ceil(H / 2), { type: THREE.HalfFloatType, colorSpace: THREE.LinearSRGBColorSpace, depthBuffer: false });
+    this.rtDepth = new THREE.WebGLRenderTarget(W, H, { type: THREE.FloatType, format: THREE.RedFormat, depthBuffer: false, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
     this.rtLdr = new THREE.WebGLRenderTarget(W, H, { depthBuffer: false });
-    this.copyRes = new THREE.Vector2(W2 * 2, H2 * 2);      // what the readers divide gl_FragCoord by: exact even when W or H is odd
     if (!this.copy) {
       this.copy = new ShaderPass(CopyShader);
-      this.depthCopy = new ShaderPass({ uniforms: { tDepth: { value: null } }, vertexShader: 'void main(){ gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-        fragmentShader: `uniform highp sampler2D tDepth;
-void main(){ ivec2 c = ivec2(gl_FragCoord.xy) * 2, m = textureSize(tDepth, 0) - 1;
-  float a = texelFetch(tDepth, min(c, m), 0).x, b = texelFetch(tDepth, min(c + ivec2(1, 0), m), 0).x, d = texelFetch(tDepth, min(c + ivec2(0, 1), m), 0).x, e = texelFetch(tDepth, min(c + ivec2(1, 1), m), 0).x;
-  gl_FragColor = vec4(max(max(a, b), max(d, e)), min(min(a, b), min(d, e)), 0.0, 1.0); }` });
+      this.depthCopy = new ShaderPass({ uniforms: { tDepth: { value: null } }, vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+        fragmentShader: 'uniform sampler2D tDepth; varying vec2 vUv; void main(){ gl_FragColor = vec4(texture2D(tDepth, vUv).x, 0.0, 0.0, 1.0); }' });
       this.output = new OutputPass();
       this.fxaa = new ShaderPass(FXAAShader);
     }
@@ -264,9 +259,14 @@ void main(){ ivec2 c = ivec2(gl_FragCoord.xy) * 2, m = textureSize(tDepth, 0) - 
   }
   // which see-through things are in view: the sea and the lakes (userData.probe) by the query, the rest by their bounding
   // spheres; copies says whether any of them reads the colour and depth copies (material.userData.copies). Unseen water is
-  // hidden while the rest is drawn (ov.hidden)
+  // hidden while the rest is drawn (ov.hidden). The water always counts as seen when the camera jumps (a teleport, a ferry
+  // arrival, another camera: the old answers say nothing about the new view, so the count starts again) and when it is within a
+  // few metres of a water level (ov.near, set by water.update: there it can be under the stand-ins and look down past them)
   overlayNeeded(cam) {
-    const ov = this.ov; ov.draw = ov.copies = false; ov.water = this.waterSeen(); ov.frames++; ov.hidden = [];
+    const ov = this.ov; ov.draw = ov.copies = false; ov.frames++; ov.hidden = [];
+    let water = this.waterSeen(); cam.getWorldDirection(_dir);
+    if (this.camAt.distanceToSquared(cam.position) > 900 || _dir.dot(this.camLook) < 0.9) { water = true; if (this.occ) this.occ.miss = 0; }
+    this.camAt.copy(cam.position); this.camLook.copy(_dir); ov.water = water || !!ov.near;
     this.overlay.updateMatrixWorld();
     _frustum.setFromProjectionMatrix(_pv.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse));
     this.overlay.traverseVisible(o => {
