@@ -29,7 +29,6 @@ export class World {
     for (const isl of this.islands) { if (!isl.inside(x, z, 10)) continue; if (isl.def.backdrop) { bd = bd || isl; continue; } this._last = isl; return isl; }
     return bd;
   }
-  // ref: the asker's own height, so a car on a bridge deck gets the deck and one on the road under it gets that road
   height(x, z, bare, ref) {
     const isl = this.islandAt(x, z);
     if (isl) return isl.height(x, z, bare, ref);
