@@ -60,7 +60,10 @@ async function boot() {
   const water = new Water(gfx, world);
   const special = new Special(gfx, world);
   const lamps = new StreetLights(gfx, world, gfx.q.shadow ? 6 : 0);
-  const rain = new Rain(gfx, { lav: 3000, middels: 6000, hoy: 9000, ultra: 14000 }[gfx.qName] || 6000);
+  // the rain drops follow the preset, also when it changes later (the settings, autoq): the first n of the most it can draw
+  const RAIN = { lav: 3000, middels: 6000, hoy: 9000, ultra: 14000 }, rain = new Rain(gfx, RAIN.ultra);
+  const rainBudget = () => { rain.mesh.geometry.instanceCount = RAIN[gfx.qName] || 6000; }, setQ = gfx.setQuality.bind(gfx);
+  gfx.setQuality = q => { setQ(q); rainBudget(); }; rainBudget();
   let snd = null;
   try { const m = await import('./audio/audio.js'); snd = new m.Sound(); } catch (e) { const m = await import('./audio/stub.js'); snd = new m.Sound(); }
   // browsers only start sound inside a user gesture: every tap, click or key tries until it runs
@@ -68,7 +71,7 @@ async function boot() {
   for (const e of ['pointerdown', 'keydown', 'touchend']) addEventListener(e, unlock, { capture: true });
   const game = new Game({ gfx, world, worker, terrain, features, forest, water, rain, special, lamps, store, params, arrays, tex, snd });
   await game.init(status);
-  const autoq = new AutoQ(gfx, game, store, { presets: QUALITY, auto });
+  const autoq = new AutoQ(gfx, game, store, { presets: QUALITY, auto, down: store.get('qualityDown', false) === true });
   $('loading').hidden = true;
   let last = performance.now();
   const frame = now => {
