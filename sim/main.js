@@ -1,6 +1,7 @@
 // The car simulator: loads the world, builds the renderer and runs the game loop (physics at 400 Hz, drawing at the screen's rate).
 import * as THREE from 'three';
-import { Gfx, textureArray } from './render/gfx.js';
+import { Gfx, QUALITY, textureArray } from './render/gfx.js';
+import { AutoQ } from './render/autoq.js';
 import { Terrain, LAYERS } from './render/terrain.js';
 import { Features, roadMaterial, buildingMaterial } from './render/features.js';
 import { Forest } from './render/trees.js';
@@ -31,7 +32,11 @@ class MeshWorker {
 async function boot() {
   const status = t => { const el = $('loadText'); if (el) el.textContent = t; };
   const params = new URLSearchParams(location.search);
-  const quality = params.get('q') || store.get('quality', matchMedia('(pointer:coarse)').matches ? 'lav' : 'hoy');
+  // the preset: from the address, else the stored one, else Middels (Lav on touch screens); autoq steps it from there unless the
+  // player has picked one (an address with q= counts as picked for this visit, a stored one without the flag as picked earlier)
+  const stored = store.get('quality', null);
+  const quality = params.get('q') || stored || (matchMedia('(pointer:coarse)').matches ? 'lav' : 'middels');
+  const auto = !params.has('q') && store.get('qualityAuto', stored == null) !== false;
   status('Starter grafikken …');
   const gfx = new Gfx($('stage'), quality);
   status('Laster Tromøya …');
@@ -55,7 +60,10 @@ async function boot() {
   const water = new Water(gfx, world);
   const special = new Special(gfx, world);
   const lamps = new StreetLights(gfx, world, gfx.q.shadow ? 6 : 0);
-  const rain = new Rain(gfx, { lav: 3000, middels: 6000, hoy: 9000, ultra: 14000 }[gfx.qName] || 6000);
+  // the rain drops follow the preset, also when it changes later (the settings, autoq): the first n of the most it can draw
+  const RAIN = { lav: 3000, middels: 6000, hoy: 9000, ultra: 14000 }, rain = new Rain(gfx, RAIN.ultra);
+  const rainBudget = () => { rain.mesh.geometry.instanceCount = RAIN[gfx.qName] || 6000; }, setQ = gfx.setQuality.bind(gfx);
+  gfx.setQuality = q => { setQ(q); rainBudget(); }; rainBudget();
   let snd = null;
   try { const m = await import('./audio/audio.js'); snd = new m.Sound(); } catch (e) { const m = await import('./audio/stub.js'); snd = new m.Sound(); }
   // browsers only start sound inside a user gesture: every tap, click or key tries until it runs
@@ -63,11 +71,13 @@ async function boot() {
   for (const e of ['pointerdown', 'keydown', 'touchend']) addEventListener(e, unlock, { capture: true });
   const game = new Game({ gfx, world, worker, terrain, features, forest, water, rain, special, lamps, store, params, arrays, tex, snd });
   await game.init(status);
+  const autoq = new AutoQ(gfx, game, store, { presets: QUALITY, auto, down: store.get('qualityDown', false) === true });
   $('loading').hidden = true;
   let last = performance.now();
   const frame = now => {
     requestAnimationFrame(frame);
-    const dt = Math.min(0.1, (now - last) / 1000); last = now;
+    const ms = now - last, dt = Math.min(0.1, ms / 1000); last = now;
+    autoq.tick(ms);
     game.update(dt);
     terrain.update(gfx.camera.position);
     features.update(gfx.camera.position);
@@ -79,6 +89,6 @@ async function boot() {
     gfx.render(dt);
   };
   requestAnimationFrame(frame);
-  window.SIM = { gfx, world, worker, terrain, features, forest, water, rain, lamps, special, game, THREE };
+  window.SIM = { gfx, world, worker, terrain, features, forest, water, rain, lamps, special, game, autoq, THREE };
 }
 boot().catch(e => { console.error(e); const el = document.getElementById('loadText'); if (el) el.textContent = 'Noe gikk galt: ' + e.message; });

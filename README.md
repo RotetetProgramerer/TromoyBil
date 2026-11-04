@@ -45,6 +45,18 @@ python3 -m http.server 8000      # så http://localhost:8000/
 Nyttige adresser: `index.html?q=lav|middels|hoy|ultra` (grafikk), `&t=21` (klokka), `&play` (rett ut og kjør),
 `&x=-3770&z=3921` (start et sted, meter fra midten av Tromøya), `&act=boat|plane|ski` (rett til en aktivitet).
 
+## Grafikk
+
+Fire nivåer (`QUALITY` i `sim/render/gfx.js`): **Lav** uten skygger og med 0,75 × oppløsning, **Middels** med to skyggekaskader
+(1024², til 400 m), **Høy** med tre (1536², til 900 m) og 2 × kantutjevning, **Ultra** med fire (2048², myke skygger) og 4 ×.
+Pikseltettheten begrenses per nivå (1 / 1 / 1,25 / 1,5), så en 2 ×-skjerm tegnes i 1 × på Lav og Middels. Spillet starter på
+Middels (Lav på mobil og nettbrett) og måler bildetiden mens du kjører (`sim/render/autoq.js`): ligger den over 28 ms i fire
+sekunder, settes grafikken ett nivå ned med en beskjed; ligger den under 9 ms i tolv sekunder, settes den ett nivå opp (aldri over
+Høy, og aldri etter et nedtrinn, heller ikke ved neste besøk). Et jevnt bilde under 36 ms regnes som skjermens egen takt (30 Hz,
+strømsparing) og ikke som hakking. Velger du et nivå selv i Innstillinger, blir det stående. Vannet leser en kopi av bildet i halv
+oppløsning og en av dybden i full, og kopiene lages bare når noe vann kan sees (en okklusjonsspørring mot en flate like over sjøen
+og vannene; nær vannflaten tegnes vannet alltid).
+
 ## Mappestruktur
 
 ```

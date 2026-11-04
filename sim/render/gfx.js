@@ -10,11 +10,14 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
 import { CopyShader } from 'three/addons/shaders/CopyShader.js';
 
+// The presets, lightest first. pixel scales the render size; dprCap caps the device pixel ratio first (a 2× laptop screen renders
+// at 1× on Lav/Middels); shadow is the number of cascades (0 = a plain sun without shadows), maxFar how far they reach, soft the
+// PCFSoft filter (several times the fill cost of PCF, so Ultra only); trees/treesFar the full-tree and impostor ranges in metres.
 export const QUALITY = {
-  lav: { name: 'Lav', pixel: 0.75, shadow: 0, shadowSize: 1024, far: 5000, lod: 1.1, msaa: 0, bloom: false, trees: 500, treesFar: 0, grass: false, tex: 512 },
-  middels: { name: 'Middels', pixel: 1, shadow: 2, shadowSize: 1024, far: 9000, lod: 1.4, msaa: 0, bloom: true, trees: 1100, treesFar: 1600, grass: false, tex: 1024 },
-  hoy: { name: 'Høy', pixel: 1, shadow: 3, shadowSize: 2048, far: 14000, lod: 1.8, msaa: 4, bloom: true, trees: 1800, treesFar: 3000, grass: true, tex: 1024 },
-  ultra: { name: 'Ultra', pixel: 1.5, shadow: 4, shadowSize: 4096, far: 20000, lod: 2.4, msaa: 4, bloom: true, trees: 2600, treesFar: 4500, grass: true, tex: 1024 },
+  lav: { name: 'Lav', pixel: 0.75, dprCap: 1, shadow: 0, shadowSize: 1024, far: 5000, lod: 1.1, msaa: 0, bloom: false, trees: 500, treesFar: 1200, grass: false, tex: 512 },
+  middels: { name: 'Middels', pixel: 1, dprCap: 1, shadow: 2, shadowSize: 1024, maxFar: 400, far: 7000, lod: 1.4, msaa: 0, bloom: true, trees: 1100, treesFar: 1600, grass: false, tex: 1024 },
+  hoy: { name: 'Høy', pixel: 1, dprCap: 1.25, shadow: 3, shadowSize: 1536, maxFar: 900, far: 12000, lod: 1.8, msaa: 2, bloom: true, trees: 1800, treesFar: 2200, grass: true, tex: 1024 },
+  ultra: { name: 'Ultra', pixel: 1, dprCap: 1.5, shadow: 4, shadowSize: 2048, maxFar: 1600, soft: true, far: 20000, lod: 2.4, msaa: 4, bloom: true, trees: 2600, treesFar: 3000, grass: true, tex: 1024 },
 };
 
 // uniforms shared by every material (fog, sun, wetness, time)
@@ -27,6 +30,7 @@ export const U = {
   uSnow: { value: 0 },
   uNight: { value: 0 },
 };
+const _frustum = new THREE.Frustum(), _pv = new THREE.Matrix4(), _dir = new THREE.Vector3();
 
 // fog for every built-in material: exponential with height (thick by the sea, thin on the hills) and brighter towards the sun
 THREE.ShaderChunk.fog_pars_vertex = '#ifdef USE_FOG\n varying vec3 vFogPos;\n#endif';
@@ -97,10 +101,16 @@ export class Gfx {
     this.container = container;
     const r = this.renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance', stencil: false });
     r.outputColorSpace = THREE.SRGBColorSpace; r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.0;
-    r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
+    r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFShadowMap;
     container.appendChild(r.domElement);
     this.scene = new THREE.Scene();
     this.overlay = new THREE.Scene();          // water and other see-through things (drawn after the opaque scene)
+    // stand-ins for the water (the sea and the lakes, a little above their surface): drawn without colour after the opaque scene
+    // inside an occlusion query, so the next frame knows whether any water can be seen at all (see render)
+    this.probe = new THREE.Scene(); this.probeMat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false, side: THREE.DoubleSide });
+    this.gl = r.getContext(); this.occInit(); r.domElement.addEventListener('webglcontextrestored', () => this.occInit());
+    this.ov = { draw: true, copies: true, water: true, near: false, skipped: 0, frames: 0 };
+    this.camAt = new THREE.Vector3(1e9, 0, 0); this.camLook = new THREE.Vector3();
     this.camera = new THREE.PerspectiveCamera(60, 1, 0.1, 20000);
     this.hemi = new THREE.HemisphereLight(0xbfd6ff, 0x4a4030, 0.6);
     this.scene.add(this.hemi);
@@ -124,12 +134,15 @@ export class Gfx {
   }
 
   setQuality(q) {
-    this.qName = q; const Q = this.q = QUALITY[q] || QUALITY.hoy;
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2) * Q.pixel);
+    this.qName = QUALITY[q] ? q : 'middels'; const Q = this.q = QUALITY[this.qName], r = this.renderer;
+    r.setPixelRatio(Math.min(devicePixelRatio || 1, Q.dprCap) * Q.pixel);
     this.camera.far = Q.far * 1.6;
+    // the shadow filter is a compile-time choice: every shadowed material is recompiled below (csmSetup) when it changes
+    const type = Q.soft ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+    if (r.shadowMap.type !== type) { r.shadowMap.type = type; r.shadowMap.needsUpdate = true; }
     if (this.csm) { this.csm.remove(); this.csm.dispose(); this.csm = null; }
     if (Q.shadow) {
-      this.csm = new CSM({ maxFar: [0, 160, 400, 900, 1600][Q.shadow], cascades: Q.shadow, mode: 'practical', parent: this.scene, shadowMapSize: Q.shadowSize,
+      this.csm = new CSM({ maxFar: Q.maxFar || [0, 160, 400, 900, 1600][Q.shadow], cascades: Q.shadow, mode: 'practical', parent: this.scene, shadowMapSize: Q.shadowSize,
         lightDirection: this.sunDir.clone().negate(), camera: this.camera, lightIntensity: 3.2, shadowBias: -0.00025, lightMargin: 300 });
       this.csm.fade = true;
       for (const l of this.csm.lights) { l.shadow.normalBias = 0.04; }
@@ -162,8 +175,10 @@ export class Gfx {
     for (const t of [this.rtScene, this.rtColor, this.rtDepth, this.rtLdr]) if (t) t.dispose();
     const dt = new THREE.DepthTexture(W, H); dt.type = THREE.FloatType;
     this.rtScene = mk({ depthTexture: dt, samples: this.q.msaa });
-    // copies of the opaque scene's colour and depth: the water reads them while it is drawn into rtScene with a real depth test
-    this.rtColor = mk({ depthBuffer: false });
+    // copies of the opaque scene's colour and depth: the water reads them while it is drawn into rtScene with a real depth test.
+    // The colour at half size (the refraction is blurred by the waves anyway, and the readers sample it by screen position with
+    // linear filtering); the depth at full size: a half-size depth steps the water's thickness in 2-px bands
+    this.rtColor = new THREE.WebGLRenderTarget(Math.ceil(W / 2), Math.ceil(H / 2), { type: THREE.HalfFloatType, colorSpace: THREE.LinearSRGBColorSpace, depthBuffer: false });
     this.rtDepth = new THREE.WebGLRenderTarget(W, H, { type: THREE.FloatType, format: THREE.RedFormat, depthBuffer: false, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
     this.rtLdr = new THREE.WebGLRenderTarget(W, H, { depthBuffer: false });
     if (!this.copy) {
@@ -220,6 +235,50 @@ export class Gfx {
   setCover(c) { this.cover = c; this.setTime(this.clock, this.lat, this.doy); }
   setFog(density, falloff = 0.0016) { this.scene.fog.density = density; U.uFogFall.value = falloff; }
 
+  // ---------------------------------------------------------------- is any water in view?
+  // a ring of occlusion queries: the probe scene is drawn (no colour) against the opaque depth, and the answer is read a frame
+  // or more later. Without query support (or after a lost context) the water is simply always drawn
+  occInit() { const gl = this.gl; this.occ = gl && gl.createQuery ? { free: [0, 1, 2, 3].map(() => gl.createQuery()), pending: [], miss: 0, stall: 0 } : null; }
+  probeRender(cam) {
+    const gl = this.gl, Q = this.occ; if (!Q || !this.probe.children.length) return;
+    if (!Q.free.length) { if (++Q.stall > 120) this.occ = null; return; }    // (no answer for 120 frames: give the queries up)
+    Q.stall = 0; const q = Q.free.pop();
+    try { gl.beginQuery(gl.ANY_SAMPLES_PASSED_CONSERVATIVE, q); this.renderer.render(this.probe, cam); gl.endQuery(gl.ANY_SAMPLES_PASSED_CONSERVATIVE); Q.pending.push(q); }
+    catch (e) { this.occ = null; }
+  }
+  // true unless the last 20 answers in a row said that no water sample passed the depth test
+  waterSeen() {
+    const gl = this.gl, Q = this.occ; if (!Q) return true;
+    try {
+      while (Q.pending.length && gl.getQueryParameter(Q.pending[0], gl.QUERY_RESULT_AVAILABLE)) {
+        const q = Q.pending.shift(); Q.free.push(q);
+        Q.miss = gl.getQueryParameter(q, gl.QUERY_RESULT) ? 0 : Q.miss + 1;
+      }
+    } catch (e) { this.occ = null; return true; }
+    return Q.miss < 20;
+  }
+  // which see-through things are in view: the sea and the lakes (userData.probe) by the query, the rest by their bounding
+  // spheres; copies says whether any of them reads the colour and depth copies (material.userData.copies). Unseen water is
+  // hidden while the rest is drawn (ov.hidden). The water always counts as seen when the camera jumps (a teleport, a ferry
+  // arrival, another camera: the old answers say nothing about the new view, so the count starts again) and when it is within a
+  // few metres of a water level (ov.near, set by water.update: there it can be under the stand-ins and look down past them)
+  overlayNeeded(cam) {
+    const ov = this.ov; ov.draw = ov.copies = false; ov.frames++; ov.hidden = [];
+    let water = this.waterSeen(); cam.getWorldDirection(_dir);
+    if (this.camAt.distanceToSquared(cam.position) > 900 || _dir.dot(this.camLook) < 0.9) { water = true; if (this.occ) this.occ.miss = 0; }
+    this.camAt.copy(cam.position); this.camLook.copy(_dir); ov.water = water || !!ov.near;
+    this.overlay.updateMatrixWorld();
+    _frustum.setFromProjectionMatrix(_pv.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse));
+    this.overlay.traverseVisible(o => {
+      if (!o.isMesh && !o.isPoints && !o.isSprite && !o.isLine) return;
+      const seen = o.userData.probe ? ov.water : o.frustumCulled === false || (o.isSprite ? _frustum.intersectsSprite(o) : _frustum.intersectsObject(o));
+      if (seen) { ov.draw = true; if (o.material && o.material.userData && o.material.userData.copies) ov.copies = true; }
+      else if (o.userData.probe) ov.hidden.push(o);
+    });
+    if (!ov.copies) ov.skipped++;
+    return ov;
+  }
+
   render(dt) {
     const r = this.renderer, cam = this.camera;
     U.uTime.value += dt;
@@ -228,12 +287,20 @@ export class Gfx {
     if (this.sunLight) { this.sunLight.position.copy(cam.position).addScaledVector(U.uSunDir.value, 500); this.sunLight.target.position.copy(cam.position); }
     r.setRenderTarget(this.rtScene); r.clear(); r.render(this.scene, cam);
     // the water and other see-through things: drawn into the same target (so the depth test hides them behind solid things),
-    // reading copies of the opaque colour (refraction) and depth (how deep the water is)
-    if (this.overlay.children.length) {
-      this.copy.render(r, this.rtColor, this.rtScene);
-      this.depthCopy.uniforms.tDepth.value = this.rtScene.depthTexture; this.depthCopy.render(r, this.rtDepth, null);
-      r.setRenderTarget(this.rtScene); r.autoClear = false; r.render(this.overlay, cam); r.autoClear = true;
+    // reading copies of the opaque colour (refraction) and depth (how deep the water is). Both are skipped when nothing
+    // see-through is in view: the water by last frame's occlusion query, the rest by their bounding spheres
+    const ov = this.overlayNeeded(cam);
+    r.autoClear = false; this.probeRender(cam);
+    if (ov.draw) {
+      if (ov.copies) {
+        this.copy.render(r, this.rtColor, this.rtScene);
+        this.depthCopy.uniforms.tDepth.value = this.rtScene.depthTexture; this.depthCopy.render(r, this.rtDepth, null);
+        r.setRenderTarget(this.rtScene);
+      }
+      for (const o of ov.hidden) o.visible = false;
+      try { r.render(this.overlay, cam); } finally { for (const o of ov.hidden) o.visible = true; }
     }
+    r.autoClear = true;
     let src = this.rtScene;
     if (this.q.bloom && U.uNight.value > 0.05 || this.q.bloom && this.bloomDay) this.bloom.render(r, null, src, dt, false);
     this.output.renderToScreen = this.q.msaa > 0;
