@@ -50,13 +50,17 @@ export class Island {
   }
   // the ground height including road beds: the road is smooth, the shoulder is level, a ditch where the road is cut into the slope,
   // and a fill sloping down where it runs on an embankment. The paving wider than 16 m (an airport's runway, taxiway and apron) is
-  // level, so a plane taxis from one onto the other without a step. bare: the ground only, without decks and (where
-  // sim/render/special.js draws the piers) bridges, for the terrain mesh
-  height(x, z, bare = false) {
+  // level, so a plane taxis from one onto the other without a step. A bridge counts only on its deck, and under the deck the
+  // road it crosses sets the height (under()), so that road runs through; ref: the level of whoever asks, when known (a car: the
+  // ground under it as it sits): nearer the deck than the road beneath, it gets the deck, so a car crosses the bridge while
+  // another passes under it. bare: the ground only, without decks and (where sim/render/special.js draws the piers) bridges, for
+  // the terrain mesh
+  height(x, z, bare = false, ref) {
     let h = this.terrain(x, z);
-    const q = this.roads.query(x - this.ox, z - this.oz);
+    let q = this.roads.query(x - this.ox, z - this.oz), b = null;             // q: the road whose profile applies, b: the bridge whose deck does
+    if (q && q.bridge) { b = q; q = under(b, ref); } else if (q && over(q, ref)) { b = q.deck; q = null; }
+    if (b && !q) { if (bare && this.feat.special) return h; if (b.d <= b.hw + 0.35) return Math.max(b.y, h); return this.deck(x, z, h); }     // the deck is a little wider than the lanes
     if (q) {
-      if (q.bridge) { if (bare && this.feat.special) return h; if (q.d <= q.hw + 0.35) return Math.max(q.y, h); return this.deck(x, z, h); }     // the deck is a little wider than the lanes
       const core = q.hw + 0.5, crown = q.hw > 8 ? 0 : (q.s === 0 ? 0.02 : 0.035) * Math.min(q.d, q.hw);
       if (q.d <= core) h = q.y - crown * Math.min(1, q.d / q.hw) - (q.d > q.hw ? 0.03 : 0);
       else {
@@ -80,8 +84,8 @@ export class Island {
     }
     return h;
   }
-  surface(x, z) {
-    const lx = x - this.ox, lz = z - this.oz, q = this.roads.query(lx, lz);
+  surface(x, z, ref) {
+    const lx = x - this.ox, lz = z - this.oz, b = this.roads.query(lx, lz), q = b && b.bridge ? under(b, ref) || b : b && over(b, ref) ? b.deck : b;
     if (q && q.d <= q.hw) return q.bridge && q.s !== 0 ? SURF.WOOD : ROAD_SURF[q.s] ?? SURF.ASPHALT;
     if (q && q.d <= q.hw + 0.9 && !q.bridge && q.c <= 5) return SURF.GRAVEL;
     for (const d of this.decks) { const dx = x - d.x, dz = z - d.z, c = Math.cos(d.ang), s = Math.sin(d.ang); if (Math.abs(dx * c - dz * s) <= d.hw && Math.abs(dx * s + dz * c) <= d.hd) return d.surf ?? SURF.WOOD; }
@@ -153,6 +157,20 @@ export class Island {
   }
 }
 const EMPTY = [];
+// the road that sets the ground at a point whose nearest road is a bridge (q), or null (the deck itself). Only a road on the
+// ground (q.ground) more than 1 m below the deck counts: the bridge's own approach (the same road, or one at the deck's level)
+// would heap its fill beside the deck and bury what the bridge spans. Off the deck the bridge counts for nothing, so that road
+// applies; on the deck too where its lane holds the point, or its 2 m of verge where it crosses under the bridge (an underpass:
+// the lower road runs through, the deck spans it), unless the asker (ref, a level) is nearer the deck than that road
+function under(q, ref) {
+  const g = q.ground;
+  if (!g || g.road === q.road || g.y > q.y - 1) return null;
+  if (q.d > q.hw + 0.35) return g;
+  return (g.d <= g.hw || g.d <= g.hw + 2 && Math.abs(g.tx * q.tx + g.tz * q.tz) < 0.85) && !(ref > (q.y + g.y) / 2) ? g : null;
+}
+// the other way round: the nearest road is on the ground (q), but a bridge (q.deck) crosses over the point more than 1 m up and the
+// asker is nearer the deck, so the deck applies
+function over(q, ref) { const b = q.deck; return !!b && b.road !== q.road && b.d <= b.hw + 0.35 && b.y > q.y + 1 && ref > (b.y + q.y) / 2; }
 
 // Norwegian coast: pine on the rocky hills, spruce in the valleys, birch and oak by the fields, juniper on the heath.
 // Returns [{x,z,y,k (kind),s (size),a (angle),col (trunk radius, 0 = drive through)}] in island coordinates.
